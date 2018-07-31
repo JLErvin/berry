@@ -536,8 +536,9 @@ move_absolute(Client *c, int x, int y)
 void
 monocle(Client *c)
 {
-    move_absolute(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH + TOP_GAP);
-    resize_absolute(c, 1920 - 2 * BORDER_WIDTH, 1080 - TITLE_HEIGHT - 2 * BORDER_WIDTH);
+    int off = c->decorated ? TITLE_HEIGHT : 0;
+    move_absolute(c, BORDER_WIDTH, off + BORDER_WIDTH + TOP_GAP);
+    resize_absolute(c, 1920 - 2 * BORDER_WIDTH, 1080 - off - 2 * BORDER_WIDTH - TOP_GAP);
 }
 
 /*
@@ -681,9 +682,17 @@ void
 toggle_decorations(Client *c)
 {
     if (c->decorated)
+    {
         decorations_destroy(c);
+        move_relative(c, -BORDER_WIDTH, -TITLE_HEIGHT - BORDER_WIDTH);
+        resize_relative(c, BORDER_WIDTH * 2, TITLE_HEIGHT + (2 * BORDER_WIDTH));
+    }
     else
+    {
         decorations_create(c);
+        move_relative(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH);
+        resize_relative(c, -BORDER_WIDTH * 2, -TITLE_HEIGHT - (2 * BORDER_WIDTH));
+    }
 
     raise_client(c);
 }
