@@ -35,6 +35,7 @@ static void manage_client_focus(Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(Client *c, int x, int y);
 static void move_absolute(Client *c, int x, int y);
+static void monocle(Client *c);
 static void raise_client(Client *c);
 static void resize_relative(Client *c, int x, int y);
 static void resize_absolute(Client *c, int x, int y);
@@ -365,6 +366,8 @@ handle_keypress(XEvent *e)
         cardinal_focus(focused_client, 4);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
         cycle_focus(focused_client);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
+        monocle(focused_client);
 }
 
 /*
@@ -498,6 +501,18 @@ move_absolute(Client *c, int x, int y)
     XMoveWindow(display, c->dec, x - BORDER_WIDTH, y - TITLE_HEIGHT - BORDER_WIDTH);
     c->x = x;
     c->y = y;
+}
+
+/*
+ * Moves the current Client to fill the current screen
+ *
+ * @arg1 Client *c to monocle
+ */
+void
+monocle(Client *c)
+{
+    move_absolute(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH);
+    resize_absolute(c, 1920 - 2 * BORDER_WIDTH, 1080 - TITLE_HEIGHT - 2 * BORDER_WIDTH);
 }
 
 /*
@@ -641,12 +656,3 @@ main(void)
     run();
     close();
 }
-
-
-
-
-
-
-
-
-

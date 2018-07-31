@@ -4,15 +4,15 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
-#define BORDER_WIDTH 5
+#define BORDER_WIDTH 0
 #define INTERNAL_BORDER_WIDTH 0
 #define TITLE_HEIGHT 30
 
 #define MOVE_STEP 50
 #define RESIZE_STEP 50
 
-#define FOCUS_COLOR 0xa66959
-#define UNFOCUS_COLOR 0x343d41
+#define UNFOCUS_COLOR 0x41485f
+#define FOCUS_COLOR 0xC792EA
 
 #define FOCUS_NEW true
 
