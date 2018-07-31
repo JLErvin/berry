@@ -536,9 +536,10 @@ move_absolute(Client *c, int x, int y)
 void
 monocle(Client *c)
 {
-    int off = c->decorated ? TITLE_HEIGHT : 0;
-    move_absolute(c, BORDER_WIDTH, off + BORDER_WIDTH + TOP_GAP);
-    resize_absolute(c, 1920 - 2 * BORDER_WIDTH, 1080 - off - 2 * BORDER_WIDTH - TOP_GAP);
+    int off = c->decorated ? TITLE_HEIGHT + BORDER_WIDTH : 0;
+    int boff = c->decorated ? BORDER_WIDTH : 0;
+    move_absolute(c, boff, off + boff + TOP_GAP);
+    resize_absolute(c, 1920 - 2 * boff, 1080 - off - 2 * boff - TOP_GAP);
 }
 
 /*
