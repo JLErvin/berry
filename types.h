@@ -12,6 +12,7 @@ typedef struct Config Config;
 struct Client 
 {
     int x, y, w, h, ws;
+    bool decorated;
     Window win;
     Window dec;
     Client *next;

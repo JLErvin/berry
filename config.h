@@ -11,6 +11,8 @@
 #define MOVE_STEP 50
 #define RESIZE_STEP 50
 
+#define TOP_GAP 30
+
 #define UNFOCUS_COLOR 0x41485f
 #define FOCUS_COLOR 0xC792EA
 

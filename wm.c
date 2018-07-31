@@ -23,6 +23,8 @@ static int current_ws = 0;
 static void cardinal_focus(Client *c, int dir);
 static void close(void);
 static void decorate_new_client(Client *c);
+static void decorations_create(Client *c);
+static void decorations_destroy(Client *c);
 static void delete_client(Client *c);
 static int euclidean_distance(Client *a, Client *b);
 static Client* get_client_from_window(Window w);
@@ -44,6 +46,7 @@ static void save_client(Client *c);
 static void set_color(Client *c, unsigned long color);
 static void set_input(Client *c);
 static void setup(void);
+static void toggle_decorations(Client *c);
 
 static void (*event_handler[LASTEvent])(XEvent *e) = 
 {
@@ -154,7 +157,7 @@ close(void)
 void
 decorate_new_client(Client *c)
 {
-    const Window dec = XCreateSimpleWindow(
+    Window dec = XCreateSimpleWindow(
             display,
             root,
             c->x - BORDER_WIDTH,
@@ -167,6 +170,21 @@ decorate_new_client(Client *c)
 
     XMapWindow(display, dec);
     c->dec = dec;
+    c->decorated = true;
+}
+
+void
+decorations_create(Client *c)
+{
+    decorate_new_client(c);
+}
+
+void 
+decorations_destroy(Client *c)
+{
+    XUnmapWindow(display, c->dec);
+    XDestroyWindow(display, c->dec);
+    c->decorated = false;
 }
 
 /*
@@ -288,6 +306,8 @@ grab_keys(Window w)
 
     XGrabKey(display, XKeysymToKeycode(display, XK_C), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_N), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
     // monocle
     XGrabKey(display, XKeysymToKeycode(display, XK_M), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
@@ -368,6 +388,8 @@ handle_keypress(XEvent *e)
         cycle_focus(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
         monocle(focused_client);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
+        toggle_decorations(focused_client);
 }
 
 /*
@@ -406,7 +428,8 @@ handle_unmap_notify(XEvent *e)
     if (c)
     {
         cycle_focus(c);
-        XDestroyWindow(display, c->dec);
+        if (c->decorated)
+            XDestroyWindow(display, c->dec);
         delete_client(c);
         free(c);
     }
@@ -498,7 +521,9 @@ void
 move_absolute(Client *c, int x, int y)
 {
     XMoveWindow(display, c->win, x, y);
-    XMoveWindow(display, c->dec, x - BORDER_WIDTH, y - TITLE_HEIGHT - BORDER_WIDTH);
+    if (c->decorated)
+        XMoveWindow(display, c->dec, x - BORDER_WIDTH, y - TITLE_HEIGHT - BORDER_WIDTH);
+
     c->x = x;
     c->y = y;
 }
@@ -511,7 +536,7 @@ move_absolute(Client *c, int x, int y)
 void
 monocle(Client *c)
 {
-    move_absolute(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH);
+    move_absolute(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH + TOP_GAP);
     resize_absolute(c, 1920 - 2 * BORDER_WIDTH, 1080 - TITLE_HEIGHT - 2 * BORDER_WIDTH);
 }
 
@@ -529,7 +554,9 @@ void
 raise_client(Client *c)
 {
     if (c) {
-        XRaiseWindow(display, c->dec);
+        if (c->decorated)
+            XRaiseWindow(display, c->dec);
+
         XRaiseWindow(display, c->win);
     }
 }
@@ -563,7 +590,9 @@ void
 resize_absolute(Client *c, int x, int y) 
 {
     XResizeWindow(display, c->win, x, y);
-    XResizeWindow(display, c->dec, x, y + TITLE_HEIGHT);
+    if (c->decorated)
+        XResizeWindow(display, c->dec, x, y + TITLE_HEIGHT);
+
     c->w = x;
     c->h = y;
 }
@@ -603,9 +632,12 @@ save_client(Client *c)
 void
 set_color(Client *c, unsigned long color)
 {
-    XSetWindowBackground(display, c->dec, color);
-    XSetWindowBorder(display, c->dec, color);
-    XClearWindow(display, c->dec);
+    if (c->decorated)
+    {
+        XSetWindowBackground(display, c->dec, color);
+        XSetWindowBorder(display, c->dec, color);
+        XClearWindow(display, c->dec);
+    }
 }
 
 
@@ -643,6 +675,17 @@ setup(void)
     screen = DefaultScreen(display);
     XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
     grab_keys(root);
+}
+
+void
+toggle_decorations(Client *c)
+{
+    if (c->decorated)
+        decorations_destroy(c);
+    else
+        decorations_create(c);
+
+    raise_client(c);
 }
 
 int
