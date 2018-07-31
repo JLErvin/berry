@@ -215,6 +215,14 @@ euclidean_distance(Client *a, Client *b)
     return pow(xDiff, 3) + pow(yDiff, 2);
 }
 
+/*
+ * Returns the Client associated with the given Window
+ *
+ * @arg1 Window w to search for
+ *
+ * @return struct Client* to Client containing Window
+ *         returns NULL if the Client is not found
+ */
 Client*
 get_client_from_window(Window w)
 {
@@ -232,6 +240,12 @@ get_client_from_window(Window w)
     return NULL;
 }
 
+/*
+ * Grabs all necessary keys on the given window
+ *
+ * @arg1 Window w to grab keys on
+ *
+ */
 void
 grab_keys(Window w)
 {
@@ -453,12 +467,30 @@ manage_new_window(Window w, XWindowAttributes *wa)
     save_client(c);
 }
 
+/*
+ * Shifts the given Client by the specified x and y 
+ * coordinates. 
+ *
+ * @arg1 Client *c to move
+ * @arg2 int x to shift by (+ moves right, - moves left)
+ * @arg3 int y t0 shift by (+ move down, - moves up)
+ */
 void
 move_relative(Client *c, int x, int y) 
 {
     move_absolute(c, c->x + x, c->y + y);
 }
 
+/*
+ * Moves the given Client to the specified x and y 
+ * coordinates, regardless of current position.
+ *
+ * @arg1 Client *c to move
+ * @arg2 int x to move to
+ * @arg3 int y to move to
+ *
+ * Absolute movement refers to the top-left corner of the window
+ */
 void
 move_absolute(Client *c, int x, int y)
 {
@@ -474,6 +506,9 @@ move_absolute(Client *c, int x, int y)
  * on the current workspace.
  *
  * @arg1 struct Client c to raise
+ *
+ * Resizing is done from the top left corner, which will stay
+ * stationary during all resizing operations
  */
 void
 raise_client(Client *c)
@@ -484,12 +519,31 @@ raise_client(Client *c)
     }
 }
 
+/*
+ * Resizes the current Client relative to its current
+ * size by the specified amounts. 
+ *
+ * @arg1 Client *c to resize
+ * @arg2 int x to resize by (- = shrink left, + = grow right)
+ * @arg3 int y to resize by (- = shrink up, + = grow down)
+ *
+ * Resizing is done from the top left corner, which will stay
+ * stationary during all resizing operations
+ */
 void
 resize_relative(Client *c, int x, int y) 
 {
     resize_absolute(c, c->w + x, c->h + y);
 }
 
+/*
+ * Resizes the specified Client to the given width and height
+ * on an absolute scale.
+ *
+ * @arg1 Client *c to resize
+ * @arg2 int x to resize to
+ * @arg3 int y to resize to
+ */
 void
 resize_absolute(Client *c, int x, int y) 
 {
