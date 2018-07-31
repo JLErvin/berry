@@ -212,7 +212,7 @@ euclidean_distance(Client *a, Client *b)
     int xDiff = a->x - b->x;
     int yDiff = a->y - b->y;
     return 1;
-    /*return pow(xDiff, 2) + pow(yDiff, 2);*/
+    return pow(xDiff, 3) + pow(yDiff, 2);
 }
 
 Client*
