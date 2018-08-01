@@ -29,6 +29,7 @@ static void delete_client(Client *c);
 static int euclidean_distance(Client *a, Client *b);
 static Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
+static void handle_client_message(XEvent *e);
 static void handle_configure_request(XEvent *e);
 static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
@@ -53,7 +54,8 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [MapRequest]       = handle_map_request,
     [KeyPress]         = handle_keypress,
     [UnmapNotify]      = handle_unmap_notify,
-    [ConfigureRequest] = handle_configure_request
+    [ConfigureRequest] = handle_configure_request,
+    [ClientMessage]    = handle_client_message
 };
 
 /*
@@ -321,6 +323,32 @@ grab_keys(Window w)
 
     XGrabButton(display, Button1, Mod4Mask, w, True,
             ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+}
+
+/*
+ * Handles XClientMessageEvents from XEvents by redirecting
+ * them to the IPCEvent handler
+ */
+void
+handle_client_message(XEvent *e)
+{
+    XClientMessageEvent *cme = &e->xclient;
+
+    // We need to handle our own client message,
+    // we can redirect them to our IPC Handler,
+    // much like we do with regular XEvents
+    if (cme->message_type == XInternAtom(display, "bye", False))
+    {
+        if (cme->data.b[0] == XInternAtom(display, "WM_SHIFT_RIGHT", False))
+            move_relative(focused_client, 50, 0);
+        if (cme->data.b[0] == XInternAtom(display, "WM_SHIFT_LEFT", False))
+            move_relative(focused_client, -50, 0);
+    }
+
+    /*if (cme->message_type == XInternAtom(display, "hello", False))*/
+        /*move_relative(focused_client, 10, 10);*/
+    /*else if (cme->message_type == XInternAtom(display, "bye", False))*/
+        /*move_relative(focused_client, -10, -10);*/
 }
 
 /*
@@ -618,6 +646,12 @@ run(void)
     }
 }
 
+/*
+ * Saves the Client for future use by adding it to 
+ * the linked list of clients
+ *
+ * @arg1 Client *c to add
+ */
 void
 save_client(Client *c)
 {
@@ -679,6 +713,17 @@ setup(void)
     grab_keys(root);
 }
 
+/*
+ * Toggles decorations for the given Client and moves the Client
+ * accordingly so that it occupies the same footprint.
+ *
+ * @arg1 struct Client *c to toggle decorations
+ *
+ * Toggles decorations for the given Client and moves the Window 
+ * so that it occupies the same space (aka shrinks the window when
+ * adding decorations, grows when removing them). Also raises the 
+ * specified Client.
+ */
 void
 toggle_decorations(Client *c)
 {
