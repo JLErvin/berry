@@ -8,6 +8,7 @@
 #include <X11/Xatom.h>
 
 #include "config.h"
+#include "ipc.h"
 #include "types.h"
 
 // Fields my guys
@@ -34,6 +35,17 @@ static void handle_configure_request(XEvent *e);
 static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
+static void ipc_move_relative(char arg);
+static void ipc_move_absolute(char arg);
+static void ipc_monocle(char arg);
+static void ipc_raise(char arg);
+static void ipc_resize_relative(char arg);
+static void ipc_resize_absolute(char arg);
+static void ipc_toggle_decorations(char arg);
+static void ipc_focus_color(char arg);
+static void ipc_unfocus_color(char arg);
+static void ipc_border_width(char arg);
+static void ipc_title_height(char arg);
 static void manage_client_focus(Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(Client *c, int x, int y);
@@ -57,6 +69,22 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [ConfigureRequest] = handle_configure_request,
     [ClientMessage]    = handle_client_message
 };
+
+static void (*ipc_handler[IPCLast])(char arg) =
+{
+    [IPCWindowMoveRelative]         = ipc_move_relative,
+    [IPCWindowMoveAbsolute]         = ipc_move_absolute,
+    [IPCWindowMonocle]              = ipc_monocle,
+    [IPCWindowRaise]                = ipc_raise,
+    [IPCWindowResizeRelative]       = ipc_resize_relative,
+    [IPCWindowResizeAbsolute]       = ipc_resize_absolute,
+    [IPCWindowToggleDecorations]    = ipc_toggle_decorations,
+    [IPCFocusColor]                 = ipc_focus_color,
+    [IPCUnfocusColor]               = ipc_unfocus_color,
+    [IPCBorderWidth]                = ipc_border_width,
+    [IPCTitleHeight]                = ipc_title_height
+};
+
 
 /*
  * Focuses from the given Client in the specified
@@ -333,22 +361,23 @@ void
 handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
+    enum IPCCommand cmd;
+    char arg1, arg2;
 
     // We need to handle our own client message,
     // we can redirect them to our IPC Handler,
     // much like we do with regular XEvents
-    if (cme->message_type == XInternAtom(display, "bye", False))
+    if (cme->message_type == XInternAtom(display, "BERRY_CLIENT_EVENT", False))
     {
-        if (cme->data.b[0] == XInternAtom(display, "WM_SHIFT_RIGHT", False))
+        cmd = (enum IPCCommand)cme->data.b[0];
+        arg1 = cme->data.b[1];
+        arg2 = cme->data.b[2];
+
+        if (cme->data.b[0] == 0)
             move_relative(focused_client, 50, 0);
-        if (cme->data.b[0] == XInternAtom(display, "WM_SHIFT_LEFT", False))
+        else if (cme->data.b[0] == 1)
             move_relative(focused_client, -50, 0);
     }
-
-    /*if (cme->message_type == XInternAtom(display, "hello", False))*/
-        /*move_relative(focused_client, 10, 10);*/
-    /*else if (cme->message_type == XInternAtom(display, "bye", False))*/
-        /*move_relative(focused_client, -10, -10);*/
 }
 
 /*
@@ -462,6 +491,61 @@ handle_unmap_notify(XEvent *e)
         free(c);
     }
 
+}
+
+void
+ipc_move_relative(char arg)
+{
+}
+
+void
+ipc_move_absolute(char arg)
+{
+}
+
+void
+ipc_monocle(char arg)
+{
+}
+
+void
+ipc_raise(char arg) 
+{
+}
+
+void 
+ipc_resize_relative(char arg)
+{
+}
+
+void 
+ipc_resize_absolute(char arg)
+{
+}
+
+void 
+ipc_toggle_decorations(char arg)
+{
+}
+
+void 
+ipc_focus_color(char arg)
+{
+}
+
+void 
+ipc_unfocus_color(char arg)
+{
+}
+
+void 
+ipc_border_width(char arg)
+{
+}
+
+void 
+ipc_title_height(char arg)
+{
 }
 
 /*
