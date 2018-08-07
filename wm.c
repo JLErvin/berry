@@ -521,6 +521,13 @@ handle_unmap_notify(XEvent *e)
     }
 }
 
+/*
+ * Hides the specified Client by moving it off of the current screen.
+ * Records the previous location of the window and changes the interal
+ * state of the Client to hidden
+ *
+ * @arg1 Client *c to hide
+ */
 void
 hide_client(Client *c)
 {
@@ -847,6 +854,12 @@ setup(void)
     grab_keys(root);
 }
 
+/*
+ * Moves the specified Client to the active workspace.
+ * Changes the state of the Client so it is not hidden
+ *
+ * @arg1 Client *c to show
+ */
 void
 show_client(Client *c)
 {
@@ -893,6 +906,14 @@ snap_right(Client *c)
     resize_absolute(c, x_size, y_size);
 }
 
+/*
+ * Changes to the specified workspaces. Hides all windows not
+ * on the current workspace and shows all windows on the 
+ * new workspace. Changes focus the the first available window
+ * on the new workspace.
+ *
+ * @arg1 int i workspace to  switch to
+ */
 void
 switch_workspace(int i)
 {
@@ -909,6 +930,10 @@ switch_workspace(int i)
         t = t->next;
     }
 
+    /* We will still be focused on the last window selected if we don't
+     * change focus here. This will focus to the first window that it finds
+     * on the active workspace.
+     */
     cycle_focus(focused_client);
 }
 
