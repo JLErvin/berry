@@ -119,16 +119,32 @@ cardinal_focus(Client *c, int dir)
         switch (dir)
         {
             case EAST:
-                if (t->x > c->x && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
+                if (t->x > c->x && dist < min && t->ws == current_ws)
+                {
+                    min = dist;
+                    focus_next = t;
+                }
                 break;
             case NORTH:
-                if (t->y > c->y && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
+                if (t->y > c->y && dist < min && t->ws == current_ws)
+                {
+                    min = dist;
+                    focus_next = t;
+                }
                 break;
             case WEST:
-                if (t->x < c->x && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
+                if (t->x < c->x && dist < min && t->ws == current_ws)
+                {
+                    min = dist;
+                    focus_next = t;
+                }
                 break;
             case SOUTH:
-                if (t->y < c->y && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
+                if (t->y < c->y && dist < min && t->ws == current_ws)
+                {
+                    min = dist;
+                    focus_next = t;
+                }
                 break;
         }
 
@@ -368,10 +384,12 @@ grab_keys(Window w)
             w, True, GrabModeAsync, GrabModeAsync);
 
     XGrabButton(display, Button3, Mod4Mask, w, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
+            GrabModeAsync, GrabModeAsync, None, None);
 
     XGrabButton(display, Button1, Mod4Mask, w, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, 
+            GrabModeAsync, GrabModeAsync, None, None);
 }
 
 /*
@@ -648,7 +666,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_absolute(c, config.border_width, config.top_gap + config.title_height + config.border_width);
+    move_absolute(c, config.border_width, 
+            config.top_gap + config.title_height + config.border_width);
     save_client(c);
 }
 
@@ -687,7 +706,8 @@ move_absolute(Client *c, int x, int y)
 
     XMoveWindow(display, c->win, x, y);
     if (c->decorated)
-        XMoveWindow(display, c->dec, x - config.border_width, y - config.title_height - config.border_width);
+        XMoveWindow(display, c->dec, x - config.border_width, 
+                y - config.title_height - config.border_width);
 
     c->x = x;
     c->y = y;
@@ -701,9 +721,11 @@ move_absolute(Client *c, int x, int y)
 void
 monocle(Client *c)
 {
-    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int y_off = c->decorated ? config.title_height 
+        + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int y_size = c->decorated ? 1080 - config.title_height 
+        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
     int x_size = c->decorated ? 1920 - (2 * config.border_width) : 1920;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
@@ -850,7 +872,8 @@ setup(void)
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
-    XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
+    XSelectInput(display, root,
+            SubstructureRedirectMask|SubstructureNotifyMask);
     grab_keys(root);
 }
 
@@ -880,9 +903,11 @@ show_client(Client *c)
 void
 snap_left(Client *c)
 {
-    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int y_off = c->decorated ? config.title_height 
+        + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int y_size = c->decorated ? 1080 - config.title_height 
+        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
     int x_size = c->decorated ? 1920  /2 - (2 * config.border_width) : 1920 / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
@@ -898,9 +923,11 @@ snap_left(Client *c)
 void
 snap_right(Client *c)
 {
-    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int y_off = c->decorated ? config.title_height 
+        + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? (1920 / 2) + config.border_width : 1920 / 2;
-    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int y_size = c->decorated ? 1080 - config.title_height 
+        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
     int x_size = c->decorated ? 1920 / 2 - (2 * config.border_width) : 1920 / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
@@ -917,6 +944,11 @@ snap_right(Client *c)
 void
 switch_workspace(int i)
 {
+    /* 
+     * TODO: Find a way to record the window that was last focused on
+     * each desktop so that we can focus it again when we switch to
+     * that workspace.
+     */
     Client *t = clients;
     current_ws = i;
 
@@ -954,14 +986,18 @@ toggle_decorations(Client *c)
     if (c->decorated)
     {
         decorations_destroy(c);
-        move_relative(c, -config.border_width, -config.title_height - config.border_width);
-        resize_relative(c, config.border_width * 2, config.title_height + (2 * config.border_width));
+        move_relative(c, -config.border_width, 
+                -config.title_height - config.border_width);
+        resize_relative(c, config.border_width * 2,
+                config.title_height + (2 * config.border_width));
     }
     else
     {
         decorations_create(c);
-        move_relative(c, config.border_width, config.title_height + config.border_width);
-        resize_relative(c, -config.border_width * 2, -config.title_height - (2 * config.border_width));
+        move_relative(c, config.border_width,
+                config.title_height + config.border_width);
+        resize_relative(c, -config.border_width * 2,
+                -config.title_height - (2 * config.border_width));
     }
 
     raise_client(c);
