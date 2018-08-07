@@ -11,18 +11,23 @@
 #include "ipc.h"
 #include "types.h"
 
-#define MAX(a, b) ((a > b) ? (a) : (b))
+#define MAX(a, b) ((a > b) ? (a) : (b)) 
+#define MIN(a, b) ((a < b) ? (a) : (b)) 
+#define MONITOR_HEIGHT 1080
+#define MONITOR_WIDTH 1920
 
-// Fields my guys
+/* List of ALL clients, currently focused client */
 static Client *clients = NULL, *focused_client = NULL;
+/* Config struct to keep track of internal state*/
 static Config config;
 static Display *display;
 static Window root;
 static bool running = true;
 static int screen;
+/* Currently active workspace */
 static int current_ws = 1;
 
-// Functions and such
+/* All functions */
 static void cardinal_focus(Client *c, int dir);
 static void close(void);
 static void decorate_new_client(Client *c);
@@ -68,6 +73,7 @@ static void snap_right(Client *c);
 static void switch_workspace(int i);
 static void toggle_decorations(Client *c);
 
+/* Native X11 Event handler */
 static void (*event_handler[LASTEvent])(XEvent *e) = 
 {
     [MapRequest]       = handle_map_request,
@@ -77,6 +83,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [ClientMessage]    = handle_client_message
 };
 
+/* Event handler for our IPC protocle */
 static void (*ipc_handler[IPCLast])(char arg) =
 {
     [IPCWindowMoveRelative]         = ipc_move_relative,
@@ -113,7 +120,7 @@ cardinal_focus(Client *c, int dir)
     Client *focus_next = NULL;
     int min = INT_MAX;
 
-    while (t)
+    while (t != NULL)
     {
         int dist = euclidean_distance(c, t);
         switch (dir)
@@ -293,7 +300,6 @@ euclidean_distance(Client *a, Client *b)
 {
     int xDiff = a->x - b->x;
     int yDiff = a->y - b->y;
-    return 1;
     return pow(xDiff, 3) + pow(yDiff, 2);
 }
 
@@ -311,7 +317,7 @@ get_client_from_window(Window w)
     Client *c;
     c = clients;
 
-    while (c)
+    while (c != NULL)
     {
         if (c->win == w)
             return c;
@@ -529,7 +535,7 @@ handle_unmap_notify(XEvent *e)
     Client *c;
     c = get_client_from_window(ev->window);
 
-    if (c)
+    if (c != NULL)
     {
         cycle_focus(c);
         if (c->decorated)
@@ -552,7 +558,7 @@ hide_client(Client *c)
     if (!c->hidden)
     {
         c->x_hide = c->x;
-        move_absolute(c, 1920 + config.border_width, c->y);
+        move_absolute(c, MONITOR_WIDTH + config.border_width, c->y);
         c->hidden = true;
     }
 }
@@ -630,7 +636,7 @@ manage_client_focus(Client *c)
     if (c && focused_client) 
         set_color(focused_client, config.unfocus_color);
 
-    if (c)
+    if (c != NULL)
     {
         set_color(c, config.focus_color);
         raise_client(c);
@@ -724,9 +730,9 @@ monocle(Client *c)
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? 1080 - config.title_height 
-        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
-    int x_size = c->decorated ? 1920 - (2 * config.border_width) : 1920;
+    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
+        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
+    int x_size = c->decorated ? MONITOR_WIDTH - (2 * config.border_width) : MONITOR_WIDTH;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -744,7 +750,8 @@ monocle(Client *c)
 void
 raise_client(Client *c)
 {
-    if (c) {
+    if (c != NULL)
+    {
         if (c->decorated)
             XRaiseWindow(display, c->dec);
 
@@ -784,8 +791,8 @@ resize_absolute(Client *c, int x, int y)
     if (c->decorated)
         XResizeWindow(display, c->dec, MAX(x, 1), y + config.title_height);
 
-    c->w = MAX(x, 1);
-    c->h = MAX(y, 1);
+    c->w = MAX(x, MINIMUM_DIM);
+    c->h = MAX(y, MINIMUM_DIM);
 }
 
 /*
@@ -906,9 +913,9 @@ snap_left(Client *c)
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? 1080 - config.title_height 
-        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
-    int x_size = c->decorated ? 1920  /2 - (2 * config.border_width) : 1920 / 2;
+    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
+        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
+    int x_size = c->decorated ? MONITOR_WIDTH  /2 - (2 * config.border_width) : MONITOR_WIDTH / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -925,10 +932,10 @@ snap_right(Client *c)
 {
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
-    int x_off = c->decorated ? (1920 / 2) + config.border_width : 1920 / 2;
-    int y_size = c->decorated ? 1080 - config.title_height 
-        - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
-    int x_size = c->decorated ? 1920 / 2 - (2 * config.border_width) : 1920 / 2;
+    int x_off = c->decorated ? (MONITOR_WIDTH / 2) + config.border_width : MONITOR_WIDTH / 2;
+    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
+        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
+    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) : MONITOR_WIDTH / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
