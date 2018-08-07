@@ -11,6 +11,8 @@
 #include "ipc.h"
 #include "types.h"
 
+#define MAX(a, b) ((a > b) ? (a) : (b))
+
 // Fields my guys
 static Client *clients = NULL, *focused_client = NULL; 
 static Config config;
@@ -192,25 +194,35 @@ decorate_new_client(Client *c)
     Window dec = XCreateSimpleWindow(
             display,
             root,
-            c->x - BORDER_WIDTH,
-            c->y - TITLE_HEIGHT,
+            c->x - config.border_width,
+            c->y - config.title_height,
             c->w,
-            c->h + TITLE_HEIGHT,
-            BORDER_WIDTH,
-            FOCUS_COLOR,
-            FOCUS_COLOR);
+            c->h + config.title_height,
+            config.border_width,
+            config.focus_color,
+            config.focus_color);
 
     XMapWindow(display, dec);
     c->dec = dec;
     c->decorated = true;
 }
 
+/*
+ * Adds decorations to the specified Window. 
+ * 
+ * @arg1 Client *c to add decorations for
+ */
 void
 decorations_create(Client *c)
 {
     decorate_new_client(c);
 }
 
+/*
+ * Removes decorations to the specified Window. 
+ * 
+ * @arg1 Client *c to remove decorations for
+ */
 void 
 decorations_destroy(Client *c)
 {
@@ -414,25 +426,25 @@ handle_keypress(XEvent *e)
     XKeyEvent *ev = &e->xkey;
 
     if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-        move_relative(focused_client, RESIZE_STEP, 0);
+        move_relative(focused_client, config.resize_step, 0);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-        move_relative(focused_client, -RESIZE_STEP, 0); 
+        move_relative(focused_client, -config.resize_step, 0); 
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-        move_relative(focused_client, 0, RESIZE_STEP);
+        move_relative(focused_client, 0, config.resize_step);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-        move_relative(focused_client, 0, -RESIZE_STEP);
+        move_relative(focused_client, 0, -config.resize_step);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
         XKillClient(display, focused_client->win);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
         cycle_focus(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
-        resize_relative(focused_client, -RESIZE_STEP, 0);
+        resize_relative(focused_client, -config.resize_step, 0);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
-        resize_relative(focused_client, 0, RESIZE_STEP);
+        resize_relative(focused_client, 0, config.resize_step);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_O)))
-        resize_relative(focused_client, 0, -RESIZE_STEP);
+        resize_relative(focused_client, 0, -config.resize_step);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
-        resize_relative(focused_client, RESIZE_STEP, 0);
+        resize_relative(focused_client, config.resize_step, 0);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
         running = False;
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
@@ -570,11 +582,11 @@ void
 manage_client_focus(Client *c)
 {
     if (focused_client) 
-        set_color(focused_client, UNFOCUS_COLOR);
+        set_color(focused_client, config.unfocus_color);
 
     if (c)
     {
-        set_color(c, FOCUS_COLOR);
+        set_color(c, config.focus_color);
         raise_client(c);
         set_input(c);
         focused_client = c;
@@ -600,14 +612,14 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->win = w;
     c->ws = current_ws;
     c->x = wa->x;
-    c->y = wa->y + TITLE_HEIGHT;
+    c->y = wa->y;
     c->w = wa->width;
     c->h = wa->height;
 
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_absolute(c, 30, 30);
+    move_absolute(c, 0, config.top_gap + config.title_height + config.border_width);
     save_client(c);
 }
 
@@ -638,9 +650,15 @@ move_relative(Client *c, int x, int y)
 void
 move_absolute(Client *c, int x, int y)
 {
+    if (config.edge_lock)
+    {
+        /*x = MAX(config.border_width, x);*/
+        /*y = MAX(config.title_height + config.border_width, y);*/
+    }
+
     XMoveWindow(display, c->win, x, y);
     if (c->decorated)
-        XMoveWindow(display, c->dec, x - BORDER_WIDTH, y - TITLE_HEIGHT - BORDER_WIDTH);
+        XMoveWindow(display, c->dec, x - config.border_width, y - config.title_height - config.border_width);
 
     c->x = x;
     c->y = y;
@@ -654,10 +672,10 @@ move_absolute(Client *c, int x, int y)
 void
 monocle(Client *c)
 {
-    int y_off = c->decorated ? TITLE_HEIGHT + BORDER_WIDTH + TOP_GAP : TOP_GAP;
-    int x_off = c->decorated ? BORDER_WIDTH : 0;
-    int y_size = c->decorated ? 1080 - TITLE_HEIGHT - TOP_GAP - (2 * BORDER_WIDTH) : 1080 - TOP_GAP;
-    int x_size = c->decorated ? 1920 - (2 * BORDER_WIDTH) : 1920;
+    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int x_off = c->decorated ? config.border_width : 0;
+    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int x_size = c->decorated ? 1920 - (2 * config.border_width) : 1920;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -711,12 +729,12 @@ resize_relative(Client *c, int x, int y)
 void
 resize_absolute(Client *c, int x, int y) 
 {
-    XResizeWindow(display, c->win, x, y);
+    XResizeWindow(display, c->win, MAX(x, 1), MAX(y, 1));
     if (c->decorated)
-        XResizeWindow(display, c->dec, x, y + TITLE_HEIGHT);
+        XResizeWindow(display, c->dec, MAX(x, 1), y + config.title_height);
 
-    c->w = x;
-    c->h = y;
+    c->w = MAX(x, 1);
+    c->h = MAX(y, 1);
 }
 
 /*
@@ -797,6 +815,7 @@ setup(void)
     config.move_step     = MOVE_STEP;
     config.resize_step   = RESIZE_STEP;
     config.focus_new     = FOCUS_NEW;
+    config.edge_lock     = EDGE_LOCK;
 
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
@@ -805,24 +824,38 @@ setup(void)
     grab_keys(root);
 }
 
+/*
+ * Snaps the specified Client to the left half of the screen.
+ * Fills the entire space considering window decorations and 
+ * respecting config's top gap
+ *
+ * @arg1 Client *c to snap
+ */
 void
 snap_left(Client *c)
 {
-    int y_off = c->decorated ? TITLE_HEIGHT + BORDER_WIDTH + TOP_GAP : TOP_GAP;
-    int x_off = c->decorated ? BORDER_WIDTH : 0;
-    int y_size = c->decorated ? 1080 - TITLE_HEIGHT - TOP_GAP - (2 * BORDER_WIDTH) : 1080 - TOP_GAP;
-    int x_size = c->decorated ? 1920  /2 - (2 * BORDER_WIDTH) : 1920 / 2;
+    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int x_off = c->decorated ? config.border_width : 0;
+    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int x_size = c->decorated ? 1920  /2 - (2 * config.border_width) : 1920 / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
 
+/*
+ * Snaps the specified Client to the right half of the screen.
+ * Fills the entire space considering window decorations and 
+ * respecting config's top gap
+ *
+ * @arg1 Client *c to snap
+ */
 void
 snap_right(Client *c)
 {
-    int y_off = c->decorated ? TITLE_HEIGHT + BORDER_WIDTH + TOP_GAP : TOP_GAP;
-    int x_off = c->decorated ? (1920 / 2) + BORDER_WIDTH : 1920 / 2;
-    int y_size = c->decorated ? 1080 - TITLE_HEIGHT - TOP_GAP - (2 * BORDER_WIDTH) : 1080 - TOP_GAP;
-    int x_size = c->decorated ? 1920 / 2 - (2 * BORDER_WIDTH) : 1920 / 2;
+    int y_off = c->decorated ? config.title_height + config.border_width + config.top_gap : config.top_gap;
+    int x_off = c->decorated ? (1920 / 2) + config.border_width : 1920 / 2;
+    int y_size = c->decorated ? 1080 - config.title_height - config.top_gap - (2 * config.border_width) : 1080 - config.top_gap;
+    int x_size = c->decorated ? 1920 / 2 - (2 * config.border_width) : 1920 / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -844,14 +877,14 @@ toggle_decorations(Client *c)
     if (c->decorated)
     {
         decorations_destroy(c);
-        move_relative(c, -BORDER_WIDTH, -TITLE_HEIGHT - BORDER_WIDTH);
-        resize_relative(c, BORDER_WIDTH * 2, TITLE_HEIGHT + (2 * BORDER_WIDTH));
+        move_relative(c, -config.border_width, -config.title_height - config.border_width);
+        resize_relative(c, config.border_width * 2, config.title_height + (2 * config.border_width));
     }
     else
     {
         decorations_create(c);
-        move_relative(c, BORDER_WIDTH, TITLE_HEIGHT + BORDER_WIDTH);
-        resize_relative(c, -BORDER_WIDTH * 2, -TITLE_HEIGHT - (2 * BORDER_WIDTH));
+        move_relative(c, config.border_width, config.title_height + config.border_width);
+        resize_relative(c, -config.border_width * 2, -config.title_height - (2 * config.border_width));
     }
 
     raise_client(c);

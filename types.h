@@ -20,10 +20,10 @@ struct Client
 
 struct Config
 {
-    int8_t border_width, title_height;
+    int8_t border_width, title_height, top_gap;
     uint32_t focus_color, unfocus_color;
     int32_t resize_step, move_step;
-    bool focus_new;
+    bool focus_new, edge_lock;
 };
 
 #endif

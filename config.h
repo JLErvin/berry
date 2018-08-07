@@ -4,7 +4,7 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
-#define BORDER_WIDTH 0
+#define BORDER_WIDTH 3
 #define INTERNAL_BORDER_WIDTH 0
 #define TITLE_HEIGHT 30
 
@@ -17,6 +17,7 @@
 #define FOCUS_COLOR 0xC792EA
 
 #define FOCUS_NEW true
+#define EDGE_LOCK true
 
 #endif
 

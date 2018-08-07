@@ -26,9 +26,9 @@ send_command(void)
     ev.xclient.window = root;
 
     ev.xclient.message_type = XInternAtom(display, BERRY_CLIENT_EVENT, False);
-    ev.xclient.format = 8;
+    ev.xclient.format = 32;
     ev.xclient.data.b[0] = 1;
-    ev.xclient.data.b[1] = CurrentTime;
+    ev.xclient.data.b[1] = 20;
     ev.xclient.data.b[2] = 20;
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
