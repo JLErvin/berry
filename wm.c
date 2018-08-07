@@ -619,7 +619,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_absolute(c, 0, config.top_gap + config.title_height + config.border_width);
+    move_absolute(c, config.border_width, config.top_gap + config.title_height + config.border_width);
     save_client(c);
 }
 
@@ -816,6 +816,7 @@ setup(void)
     config.resize_step   = RESIZE_STEP;
     config.focus_new     = FOCUS_NEW;
     config.edge_lock     = EDGE_LOCK;
+    config.top_gap       = TOP_GAP;
 
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
