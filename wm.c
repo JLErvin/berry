@@ -14,13 +14,13 @@
 #define MAX(a, b) ((a > b) ? (a) : (b))
 
 // Fields my guys
-static Client *clients = NULL, *focused_client = NULL; 
+static Client *clients = NULL, *focused_client = NULL;
 static Config config;
 static Display *display;
 static Window root;
 static bool running = true;
 static int screen;
-static int current_ws = 0;
+static int current_ws = 1;
 
 // Functions and such
 static void cardinal_focus(Client *c, int dir);
@@ -37,6 +37,7 @@ static void handle_configure_request(XEvent *e);
 static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
+static void hide_client(Client *c);
 static void ipc_move_relative(char arg);
 static void ipc_move_absolute(char arg);
 static void ipc_monocle(char arg);
@@ -61,8 +62,10 @@ static void save_client(Client *c);
 static void set_color(Client *c, unsigned long color);
 static void set_input(Client *c);
 static void setup(void);
+static void show_client(Client *c);
 static void snap_left(Client *c);
 static void snap_right(Client *c);
+static void switch_workspace(int i);
 static void toggle_decorations(Client *c);
 
 static void (*event_handler[LASTEvent])(XEvent *e) = 
@@ -116,16 +119,16 @@ cardinal_focus(Client *c, int dir)
         switch (dir)
         {
             case EAST:
-                if (t->x > c->x && dist < min) { min = dist, focus_next = t;}
+                if (t->x > c->x && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
                 break;
             case NORTH:
-                if (t->y > c->y && dist < min) { min = dist, focus_next = t;}
+                if (t->y > c->y && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
                 break;
             case WEST:
-                if (t->x < c->x && dist < min) { min = dist, focus_next = t;}
+                if (t->x < c->x && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
                 break;
             case SOUTH:
-                if (t->y < c->y && dist < min) { min = dist, focus_next = t;}
+                if (t->y < c->y && dist < min && t->ws == current_ws) { min = dist, focus_next = t;}
                 break;
         }
 
@@ -359,6 +362,10 @@ grab_keys(Window w)
             w, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(display, XKeysymToKeycode(display, XK_Y), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_1), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_2), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
 
     XGrabButton(display, Button3, Mod4Mask, w, True,
             ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
@@ -465,6 +472,10 @@ handle_keypress(XEvent *e)
         snap_left(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
         snap_right(focused_client);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_1)))
+        switch_workspace(1);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_2)))
+        switch_workspace(2);
 }
 
 /*
@@ -508,7 +519,17 @@ handle_unmap_notify(XEvent *e)
         delete_client(c);
         free(c);
     }
+}
 
+void
+hide_client(Client *c)
+{
+    if (!c->hidden)
+    {
+        c->x_hide = c->x;
+        move_absolute(c, 1920 + config.border_width, c->y);
+        c->hidden = true;
+    }
 }
 
 void
@@ -581,7 +602,7 @@ ipc_title_height(char arg)
 void
 manage_client_focus(Client *c)
 {
-    if (focused_client) 
+    if (c && focused_client) 
         set_color(focused_client, config.unfocus_color);
 
     if (c)
@@ -615,6 +636,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->y = wa->y;
     c->w = wa->width;
     c->h = wa->height;
+    c->hidden = false;
 
     decorate_new_client(c);
     XMapWindow(display, c->win);
@@ -825,6 +847,16 @@ setup(void)
     grab_keys(root);
 }
 
+void
+show_client(Client *c)
+{
+    if (c->hidden)
+    {
+        move_absolute(c, c->x_hide, c->y);
+        c->hidden = false;
+    }
+}
+
 /*
  * Snaps the specified Client to the left half of the screen.
  * Fills the entire space considering window decorations and 
@@ -859,6 +891,25 @@ snap_right(Client *c)
     int x_size = c->decorated ? 1920 / 2 - (2 * config.border_width) : 1920 / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
+}
+
+void
+switch_workspace(int i)
+{
+    Client *t = clients;
+    current_ws = i;
+
+    while (t != NULL)
+    {
+        if (t->ws == current_ws)
+            show_client(t);
+        else
+            hide_client(t);
+
+        t = t->next;
+    }
+
+    cycle_focus(focused_client);
 }
 
 /*
