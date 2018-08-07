@@ -59,6 +59,8 @@ static void save_client(Client *c);
 static void set_color(Client *c, unsigned long color);
 static void set_input(Client *c);
 static void setup(void);
+static void snap_left(Client *c);
+static void snap_right(Client *c);
 static void toggle_decorations(Client *c);
 
 static void (*event_handler[LASTEvent])(XEvent *e) = 
@@ -447,6 +449,10 @@ handle_keypress(XEvent *e)
         monocle(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
         toggle_decorations(focused_client);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_T)))
+        snap_left(focused_client);
+    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
+        snap_right(focused_client);
 }
 
 /*
@@ -795,6 +801,20 @@ setup(void)
     screen = DefaultScreen(display);
     XSelectInput(display, root, SubstructureRedirectMask | SubstructureNotifyMask);
     grab_keys(root);
+}
+
+void
+snap_left(Client *c)
+{
+    move_absolute(c, BORDER_WIDTH, TOP_GAP + BORDER_WIDTH);
+    resize_absolute(c, (1920 / 2) - (2 * BORDER_WIDTH), 1080 - TOP_GAP - TITLE_HEIGHT - 2 * BORDER_WIDTH);
+}
+
+void
+snap_right(Client *c)
+{
+    move_absolute(c, (1920 / 2) + BORDER_WIDTH, TOP_GAP + BORDER_WIDTH);
+    resize_absolute(c, (1920 / 2) - (2 * BORDER_WIDTH), 1080 - TOP_GAP - TITLE_HEIGHT - 2 * BORDER_WIDTH);
 }
 
 /*
