@@ -453,47 +453,51 @@ handle_keypress(XEvent *e)
 {
     XKeyEvent *ev = &e->xkey;
 
-    if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-        move_relative(focused_client, config.resize_step, 0);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-        move_relative(focused_client, -config.resize_step, 0); 
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-        move_relative(focused_client, 0, config.resize_step);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-        move_relative(focused_client, 0, -config.resize_step);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
-        XKillClient(display, focused_client->win);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-        focus_next(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
-        resize_relative(focused_client, -config.resize_step, 0);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
-        resize_relative(focused_client, 0, config.resize_step);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_O)))
-        resize_relative(focused_client, 0, -config.resize_step);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
-        resize_relative(focused_client, config.resize_step, 0);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
-        running = False;
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
-        cardinal_focus(focused_client, 3);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_S)))
-        cardinal_focus(focused_client, 1);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Z)))
-        cardinal_focus(focused_client, 2);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_X)))
-        cardinal_focus(focused_client, 4);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-        focus_next(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
-        monocle(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
-        toggle_decorations(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_T)))
-        snap_left(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
-        snap_right(focused_client);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_1)))
+    if (focused_client != NULL)
+        if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
+            move_relative(focused_client, config.resize_step, 0);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
+            move_relative(focused_client, -config.resize_step, 0); 
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
+            move_relative(focused_client, 0, config.resize_step);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
+            move_relative(focused_client, 0, -config.resize_step);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
+            XKillClient(display, focused_client->win);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
+            focus_next(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
+            resize_relative(focused_client, -config.resize_step, 0);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
+            resize_relative(focused_client, 0, config.resize_step);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_O)))
+            resize_relative(focused_client, 0, -config.resize_step);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
+            resize_relative(focused_client, config.resize_step, 0);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
+            running = False;
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
+            cardinal_focus(focused_client, 3);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_S)))
+            cardinal_focus(focused_client, 1);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Z)))
+            cardinal_focus(focused_client, 2);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_X)))
+            cardinal_focus(focused_client, 4);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
+            focus_next(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
+            monocle(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
+            toggle_decorations(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_T)))
+            snap_left(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
+            snap_right(focused_client);
+
+
+    /* We can switch workspaces even if we have no focused windows */
+    if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_1)))
         switch_workspace(1);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_2)))
         switch_workspace(2);
@@ -990,22 +994,33 @@ switch_workspace(int i)
      * the focus decorations on that when we switch back, but for now
      * this is a sufficent but hideious solution.
      */
-    Client *k = clients;
+    /*Client *k = clients;*/
+    Client *k;
     int count = 0;
 
-    while (k != NULL)
-    {
+    for (k = clients; k != NULL; k = k->next)
         if (k->ws == current_ws)
-            if (count == 0)
-            {
-                manage_client_focus(k);
-                count++;
-            }
-            else
-                set_color(k, config.unfocus_color);
+        {
+            manage_client_focus(k);
+            count++;
+        }
+        else
+            set_color(k, config.unfocus_color);
 
-        k = k->next;
-    }
+
+    /*while (k != NULL)*/
+    /*{*/
+        /*if (k->ws == current_ws)*/
+            /*if (count == 0)*/
+            /*{*/
+                /*manage_client_focus(k);*/
+                /*count++;*/
+            /*}*/
+            /*else*/
+                /*set_color(k, config.unfocus_color);*/
+
+        /*k = k->next;*/
+    /*}*/
 }
 
 /*
