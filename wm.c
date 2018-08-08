@@ -35,7 +35,6 @@ static void decorations_create(Client *c);
 static void decorations_destroy(Client *c);
 static void delete_client(Client *c);
 static int euclidean_distance(Client *a, Client *b);
-static void focus_next(Client *c);
 static Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
@@ -160,24 +159,6 @@ cardinal_focus(Client *c, int dir)
     }
 
     manage_client_focus(focus_next);
-}
-
-/*
- * Cycles focus to the next Client on the same
- * workspace from the specific starting Client.
- *
- * @arg1 struct Client c to start from
- *
- * Focuses the next Client on the same workspace.
- * Cycling is sorted base on the order that windows
- * requested MapRequest events (order in which they 
- * were opened). If only one window exists on the
- * workspace, focus does not change.
- */
-void
-cycle_focus(Client *c)
-{
-    focus_next(c);
 }
 
 /*
@@ -472,7 +453,7 @@ handle_keypress(XEvent *e)
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
         XKillClient(display, focused_client->win);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-        cycle_focus(focused_client);
+        focus_next(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
         resize_relative(focused_client, -config.resize_step, 0);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
@@ -492,7 +473,7 @@ handle_keypress(XEvent *e)
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_X)))
         cardinal_focus(focused_client, 4);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-        cycle_focus(focused_client);
+        focus_next(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
         monocle(focused_client);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
@@ -542,7 +523,7 @@ handle_unmap_notify(XEvent *e)
 
     if (c != NULL)
     {
-        /*cycle_focus(c);*/
+        /*focus_next(c);*/
         focus_next(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
@@ -639,7 +620,6 @@ ipc_title_height(char arg)
 void
 manage_client_focus(Client *c)
 {
-    /*if (c != NULL && focused_client != NULL) */
     if (c != NULL && focused_client != NULL) 
         set_color(focused_client, config.unfocus_color);
 
@@ -985,8 +965,8 @@ switch_workspace(int i)
      * change focus here. This will focus to the first window that it finds
      * on the active workspace.
      */
-    /*cycle_focus(focused_client);*/
-    /*cycle_focus(clients);*/
+    /*focus_next(focused_client);*/
+    /*focus_next(clients);*/
 
     Client *k = clients;
     int count = 0;
