@@ -35,6 +35,7 @@ static void decorations_create(Client *c);
 static void decorations_destroy(Client *c);
 static void delete_client(Client *c);
 static int euclidean_distance(Client *a, Client *b);
+static void focus_next(Client *c);
 static Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
@@ -176,23 +177,7 @@ cardinal_focus(Client *c, int dir)
 void
 cycle_focus(Client *c)
 {
-    Client *t = c;
-
-    if (t == clients && clients->next == NULL)
-        return;
-
-    if (t->next == NULL)
-        t = clients;
-    else
-        t = t->next;
-
-    while (t != NULL && t->ws != current_ws)
-        if (!t->next)
-            t = clients;
-        else
-            t = t->next;
-
-    manage_client_focus(t);
+    focus_next(c);
 }
 
 /*
@@ -271,8 +256,10 @@ delete_client(Client *c)
     else
     {
         Client *t = clients;
-        while (t->next != c)
+        while (t != NULL && t->next != c)
             t = t->next;
+
+        /*t->next = t->next->next;*/
 
         if (t->next == NULL)
             t->next = clients;
@@ -301,6 +288,24 @@ euclidean_distance(Client *a, Client *b)
     int xDiff = a->x - b->x;
     int yDiff = a->y - b->y;
     return pow(xDiff, 3) + pow(yDiff, 2);
+}
+
+void
+focus_next(Client *c)
+{
+    Client *t = c;
+
+    do {
+        if (t->next == NULL)
+            t = clients;
+        else
+            t = t->next;
+    } while (t->ws != current_ws && t!= c);
+
+    if (t != c)
+        manage_client_focus(t);
+    else
+        focused_client = NULL;
 }
 
 /*
@@ -419,9 +424,9 @@ handle_client_message(XEvent *e)
         arg2 = cme->data.b[2];
 
         if (cme->data.b[0] == 0)
-            move_relative(focused_client, 50, 0);
+            move_relative(focused_client, config.move_step, 0);
         else if (cme->data.b[0] == 1)
-            move_relative(focused_client, -50, 0);
+            move_relative(focused_client, -config.move_step, 0);
     }
 }
 
@@ -537,7 +542,8 @@ handle_unmap_notify(XEvent *e)
 
     if (c != NULL)
     {
-        cycle_focus(c);
+        /*cycle_focus(c);*/
+        focus_next(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
         delete_client(c);
@@ -633,7 +639,8 @@ ipc_title_height(char arg)
 void
 manage_client_focus(Client *c)
 {
-    if (c && focused_client) 
+    /*if (c != NULL && focused_client != NULL) */
+    if (c != NULL && focused_client != NULL) 
         set_color(focused_client, config.unfocus_color);
 
     if (c != NULL)
@@ -914,8 +921,10 @@ snap_left(Client *c)
         + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
     int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
-        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
-    int x_size = c->decorated ? MONITOR_WIDTH  /2 - (2 * config.border_width) : MONITOR_WIDTH / 2;
+        - config.top_gap - (2 * config.border_width) 
+        : MONITOR_HEIGHT - config.top_gap;
+    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) 
+        : MONITOR_WIDTH / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -932,10 +941,13 @@ snap_right(Client *c)
 {
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
-    int x_off = c->decorated ? (MONITOR_WIDTH / 2) + config.border_width : MONITOR_WIDTH / 2;
+    int x_off = c->decorated ? (MONITOR_WIDTH / 2) + config.border_width 
+        : MONITOR_WIDTH / 2;
     int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
-        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
-    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) : MONITOR_WIDTH / 2;
+        - config.top_gap - (2 * config.border_width) 
+        : MONITOR_HEIGHT - config.top_gap;
+    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) 
+        : MONITOR_WIDTH / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
@@ -973,7 +985,25 @@ switch_workspace(int i)
      * change focus here. This will focus to the first window that it finds
      * on the active workspace.
      */
-    cycle_focus(focused_client);
+    /*cycle_focus(focused_client);*/
+    /*cycle_focus(clients);*/
+
+    Client *k = clients;
+    int count = 0;
+
+    while (k != NULL)
+    {
+        if (k->ws == current_ws)
+            if (count == 0)
+            {
+                manage_client_focus(k);
+                count++;
+            }
+            else
+                set_color(k, config.unfocus_color);
+
+        k = k->next;
+    }
 }
 
 /*
