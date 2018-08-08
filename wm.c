@@ -271,6 +271,17 @@ euclidean_distance(Client *a, Client *b)
     return pow(xDiff, 3) + pow(yDiff, 2);
 }
 
+/*
+ * Focuses the next available Client that appears on the same
+ * workspace as the currently focused Client.
+ *
+ * @arg1 Client *c to focus
+ *
+ * Removes focus from the currently active window and changes
+ * focused to the new window, changing decoration colors in the
+ * process. If no window exists on the given workspace, the 
+ * focused Client will be set to NULL.
+ */
 void
 focus_next(Client *c)
 {
@@ -523,7 +534,6 @@ handle_unmap_notify(XEvent *e)
 
     if (c != NULL)
     {
-        /*focus_next(c);*/
         focus_next(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
@@ -968,6 +978,18 @@ switch_workspace(int i)
     /*focus_next(focused_client);*/
     /*focus_next(clients);*/
 
+    /*
+     * This codes makes me cry inside but it was the only way for me to
+     * maintain my sanity. We run into a weird case where open have multiple
+     * open windows on different workspaces. We delete all the windows on one
+     * workspace and then try to switch to another workspace. This will cause
+     * two windows on the new workspace to "appear" focused, even though they
+     * are not. However, our current focus_next implementation does not work
+     * with any other way, so I'm not going to change it right now. 
+     * Perhaps I could try to keep track of a focus_last window and change
+     * the focus decorations on that when we switch back, but for now
+     * this is a sufficent but hideious solution.
+     */
     Client *k = clients;
     int count = 0;
 
