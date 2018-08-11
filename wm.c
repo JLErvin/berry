@@ -13,28 +13,32 @@
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
 #define MIN(a, b) ((a < b) ? (a) : (b)) 
-#define MONITOR_HEIGHT 1080
-#define MONITOR_WIDTH 1920
+/*#define screen_height 1080*/
+/*#define screen_width 1920*/
+#define WORKSPACE_NUMBER 10
 
 /* List of ALL clients, currently focused client */
-static Client *clients = NULL, *focused_client = NULL;
+static struct Client *focused_client = NULL;
+static struct Client *workspaces[WORKSPACE_NUMBER];
 /* Config struct to keep track of internal state*/
 static Config config;
+static int current_ws = 0;
 static Display *display;
 static Window root;
 static bool running = true;
 static int screen;
+static int screen_width;
+static int screen_height;
 /* Currently active workspace */
-static int current_ws = 1;
 
 /* All functions */
-static void cardinal_focus(Client *c, int dir);
+static void cardinal_focus(struct Client *c, int dir);
 static void close(void);
-static void decorate_new_client(Client *c);
-static void decorations_create(Client *c);
-static void decorations_destroy(Client *c);
-static void delete_client(Client *c);
-static int euclidean_distance(Client *a, Client *b);
+static void decorate_new_client(struct Client *c);
+static void decorations_create(struct Client *c);
+static void decorations_destroy(struct Client *c);
+static void delete_client(struct Client *c);
+static int euclidean_distance(struct Client *a, struct Client *b);
 static Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
@@ -42,7 +46,7 @@ static void handle_configure_request(XEvent *e);
 static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
-static void hide_client(Client *c);
+static void hide_client(struct Client *c);
 static void ipc_move_relative(char arg);
 static void ipc_move_absolute(char arg);
 static void ipc_monocle(char arg);
@@ -54,24 +58,24 @@ static void ipc_focus_color(char arg);
 static void ipc_unfocus_color(char arg);
 static void ipc_border_width(char arg);
 static void ipc_title_height(char arg);
-static void manage_client_focus(Client *c);
+static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
-static void move_relative(Client *c, int x, int y);
-static void move_absolute(Client *c, int x, int y);
-static void monocle(Client *c);
-static void raise_client(Client *c);
-static void resize_relative(Client *c, int x, int y);
-static void resize_absolute(Client *c, int x, int y);
+static void move_relative(struct Client *c, int x, int y);
+static void move_absolute(struct Client *c, int x, int y);
+static void monocle(struct Client *c);
+static void raise_client(struct Client *c);
+static void resize_relative(struct Client *c, int x, int y);
+static void resize_absolute(struct Client *c, int x, int y);
 static void run(void);
-static void save_client(Client *c);
-static void set_color(Client *c, unsigned long color);
-static void set_input(Client *c);
+static void save_client(struct Client *c, int ws);
+static void set_color(struct Client *c, unsigned long color);
+static void set_input(struct Client *c);
 static void setup(void);
-static void show_client(Client *c);
-static void snap_left(Client *c);
-static void snap_right(Client *c);
+static void show_client(struct Client *c);
+static void snap_left(struct Client *c);
+static void snap_right(struct Client *c);
 static void switch_workspace(int i);
-static void toggle_decorations(Client *c);
+static void toggle_decorations(struct Client *c);
 
 /* Native X11 Event handler */
 static void (*event_handler[LASTEvent])(XEvent *e) = 
@@ -100,24 +104,11 @@ static void (*ipc_handler[IPCLast])(char arg) =
 };
 
 
-/*
- * Focuses from the given Client in the specified
- * direction.
- *
- * @arg1 struct Client to focus from
- * @arg2 int dir to focus (1=EAST,2=NORTH,3=WEST,4=SOUTH)
- *
- * From a specific starting Client, manages focus to the nearest
- * Window in the specific direction. For focus change to occur,
- * the entirety of the desired window must be in the specified
- * direction, otherwise no focusing will occur.
- *
- */
-void
-cardinal_focus(Client *c, int dir)
+static void
+cardinal_focus(struct Client *c, int dir)
 {
-    Client *t = clients;
-    Client *focus_next = NULL;
+    struct Client *t = workspaces[current_ws];
+    struct Client *focus_next = NULL;
     int min = INT_MAX;
 
     while (t != NULL)
@@ -161,177 +152,132 @@ cardinal_focus(Client *c, int dir)
     manage_client_focus(focus_next);
 }
 
-/*
- * Closes the current connection to the XServer
- */
-void
+static void
 close(void)
 {
     XCloseDisplay(display);
 }
 
-/*
- * Creates a new associated decoration window
- * for the specific Client.
- *
- * @arg1 struct Client c to create decoration for
- *
- * Initializes a new XSimpleWindow and saves it in the
- * specific Client. Decoration settings are created
- * using the current config.
- */
-void
-decorate_new_client(Client *c)
+static void
+decorate_new_client(struct Client *c)
 {
-    Window dec = XCreateSimpleWindow(
-            display,
-            root,
-            c->x - config.border_width,
-            c->y - config.title_height,
-            c->w,
-            c->h + config.title_height,
-            config.border_width,
-            config.focus_color,
-            config.focus_color);
+    Window dec = XCreateSimpleWindow(display, root, c->x - config.border_width,
+            c->y - config.title_height, c->w, c->h + config.title_height,
+            config.border_width, config.focus_color, config.focus_color);
 
     XMapWindow(display, dec);
     c->dec = dec;
     c->decorated = true;
 }
 
-/*
- * Adds decorations to the specified Window. 
- * 
- * @arg1 Client *c to add decorations for
- */
-void
-decorations_create(Client *c)
+static void
+decorations_create(struct Client *c)
 {
     decorate_new_client(c);
 }
 
-/*
- * Removes decorations to the specified Window. 
- * 
- * @arg1 Client *c to remove decorations for
- */
-void 
-decorations_destroy(Client *c)
+static void 
+decorations_destroy(struct Client *c)
 {
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
     c->decorated = false;
 }
 
-/*
- * Deletes the specified Client from the 
- * global client list
- *
- * @arg1 struct Client c to be deleted
- */
-void
-delete_client(Client *c)
+static void
+delete_client(struct Client *c)
 {
-    if (clients == c)
-        clients = clients->next;
+    /*for (int i = 0; i < WORKSPACE_NUMBER; i++)*/
+    /*{*/
+        /*struct Client *tmp;*/
+        /*tmp = workspaces[i];*/
+        /*//if (tmp != NULL)*/
+        /*//{*/
+            /*if (tmp == c) */
+            /*{*/
+                /*workspaces[i] = workspaces[i]->next;*/
+                /*return;*/
+            /*}*/
+            /*else*/
+            /*{*/
+                /*while (tmp->next != NULL && tmp->next != c)*/
+                    /*tmp = tmp->next;*/
+
+                /*if (tmp->next == c)*/
+                /*{*/
+                    /*tmp->next = tmp->next->next;*/
+                    /*return;*/
+                /*}*/
+            /*}*/
+        /*//}*/
+    /*}*/
+
+    int ws = current_ws;
+    if (workspaces[ws] == c)
+        workspaces[ws] = workspaces[ws]->next;
     else
     {
-        Client *t = clients;
-        while (t != NULL && t->next != c)
-            t = t->next;
+        struct Client *tmp = workspaces[ws];
+        while (tmp != NULL && tmp->next != c)
+            tmp = tmp->next;
 
-        /*t->next = t->next->next;*/
-
-        if (t->next == NULL)
-            t->next = clients;
-        else
-            t->next = t->next->next;
+        tmp->next = tmp->next->next;
     }
+
+    if (workspaces[ws] == NULL)
+        focused_client = NULL;
 }
 
-/*
- * Calculates and returns an int representing the distance
- * between the top-left corner of two Clients.
- *
- * @arg1 struct Client a to compare
- * @arg2 struct Client b to compare
- *
- * Calculated distances are not absolute, instead just computing
- * the square of the differences between the x and y coordinates
- * of the top-left corner of each Client. Useful only for
- * comparisson of distances/
- *
- * @return int representing distance between two clients
- */
-int
-euclidean_distance(Client *a, Client *b)
+static int
+euclidean_distance(struct Client *a, struct Client *b)
 {
     int xDiff = a->x - b->x;
     int yDiff = a->y - b->y;
     return pow(xDiff, 3) + pow(yDiff, 2);
 }
 
-/*
- * Focuses the next available Client that appears on the same
- * workspace as the currently focused Client.
- *
- * @arg1 Client *c to focus
- *
- * Removes focus from the currently active window and changes
- * focused to the new window, changing decoration colors in the
- * process. If no window exists on the given workspace, the 
- * focused Client will be set to NULL.
- */
-void
-focus_next(Client *c)
+static void
+focus_next(struct Client *c)
 {
-    Client *t = c;
+    if (c == NULL)
+        return;
 
-    do {
-        if (t->next == NULL)
-            t = clients;
-        else
-            t = t->next;
-    } while (t->ws != current_ws && t!= c);
+    if (workspaces[current_ws] == c && workspaces[current_ws]->next == NULL)
+        return;
 
-    if (t != c)
-        manage_client_focus(t);
+    struct Client *tmp = c;
+    if (tmp->next == NULL)
+        manage_client_focus(workspaces[current_ws]);
     else
-        focused_client = NULL;
+        manage_client_focus(tmp->next);
 }
 
-/*
- * Returns the Client associated with the given Window
- *
- * @arg1 Window w to search for
- *
- * @return struct Client* to Client containing Window
- *         returns NULL if the Client is not found
- */
-Client*
+static Client*
 get_client_from_window(Window w)
 {
-    Client *c;
-    c = clients;
-
-    while (c != NULL)
-    {
-        if (c->win == w)
-            return c;
-
-        c = c->next;
-    }
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct Client *tmp = workspaces[i]; tmp != NULL; tmp = tmp->next)
+            if (tmp->win == w)
+                return tmp;
 
     return NULL;
+
+
+    /*struct Client *c;*/
+    /*c = clients;*/
+
+    /*while (c != NULL)*/
+    /*{*/
+        /*if (c->win == w)*/
+            /*return c;*/
+
+        /*c = c->next;*/
+    /*}*/
+
+    /*return NULL;*/
 }
 
-/*
- * Grabs all necessary keys on the given window
- *
- * @arg1 Window w to grab keys on
- *
- */
-void
+static void
 grab_keys(Window w)
 {
     XGrabKey(display, XKeysymToKeycode(display, XK_L), Mod4Mask,
@@ -395,11 +341,7 @@ grab_keys(Window w)
             GrabModeAsync, GrabModeAsync, None, None);
 }
 
-/*
- * Handles XClientMessageEvents from XEvents by redirecting
- * them to the IPCEvent handler
- */
-void
+static void
 handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
@@ -422,12 +364,7 @@ handle_client_message(XEvent *e)
     }
 }
 
-/*
- * Manages XConfigureRequestEvent from the display's XServer
- *
- * @arg1 XEvent *e of type XConfigureRequestEvent
- */
-void
+static void
 handle_configure_request(XEvent *e) 
 {
     XConfigureRequestEvent *ev = &e->xconfigurerequest;
@@ -443,12 +380,7 @@ handle_configure_request(XEvent *e)
     XConfigureWindow(display, ev->window, ev->value_mask, &wc);
 }
 
-/*
- * Manages XKeyEvent from the display's XServer
- *
- * @arg1 XEvent *e of type XKeyEvent
- */
-void
+static void
 handle_keypress(XEvent *e) 
 {
     XKeyEvent *ev = &e->xkey;
@@ -498,20 +430,12 @@ handle_keypress(XEvent *e)
 
     /* We can switch workspaces even if we have no focused windows */
     if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_1)))
-        switch_workspace(1);
+        switch_workspace(0);
     else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_2)))
-        switch_workspace(2);
+        switch_workspace(1);
 }
 
-/*
- * Manages XMapRequestEvents from the display's XServer.
- *
- * @arg1 XEvent *e of type XMapRequestEvent
- *
- * Creates a new Client for the given window. Adds and maps
- * decorations for the Client.
- */
-void
+static void
 handle_map_request(XEvent *e)
 {
     static XWindowAttributes wa;
@@ -520,20 +444,11 @@ handle_map_request(XEvent *e)
     manage_new_window(ev->window, &wa);
 }
 
-/*
- * Manages XUnmapEvents from the display's XServer
- *
- * @arg1 XEvent *e of type xunmap
- *
- * Finds the Client associated with the event's
- * given window and destroys the associated decoration.
- * Deletes and frees the associates Client.
- */
-void
+static void
 handle_unmap_notify(XEvent *e)
 {
     XUnmapEvent *ev = &e->xunmap;
-    Client *c;
+    struct Client *c;
     c = get_client_from_window(ev->window);
 
     if (c != NULL)
@@ -546,40 +461,33 @@ handle_unmap_notify(XEvent *e)
     }
 }
 
-/*
- * Hides the specified Client by moving it off of the current screen.
- * Records the previous location of the window and changes the interal
- * state of the Client to hidden
- *
- * @arg1 Client *c to hide
- */
-void
-hide_client(Client *c)
+static void
+hide_client(struct Client *c)
 {
     if (!c->hidden)
     {
         c->x_hide = c->x;
-        move_absolute(c, MONITOR_WIDTH + config.border_width, c->y);
+        move_absolute(c, screen_width + config.border_width, c->y);
         c->hidden = true;
     }
 }
 
-void
+static void
 ipc_move_relative(char arg)
 {
 }
 
-void
+static void
 ipc_move_absolute(char arg)
 {
 }
 
-void
+static void
 ipc_monocle(char arg)
 {
 }
 
-void
+static void
 ipc_raise(char arg) 
 {
 }
@@ -619,20 +527,8 @@ ipc_title_height(char arg)
 {
 }
 
-/*
- * Manages focus by taking focus away from the currently
- * focused client and giving focus to the specified Client
- *
- * @arg1 struct Client c to give focus to
- *
- * Removes focus from the currently focused client, in turn
- * setting its decoration color to the unfocused state.
- * Sets focus to the specified Client, if it exists. Sets color
- * for the specified Client, raises it to the top of all windows
- * on that workspace, and sets XInputFocus for that window.
- */
-void
-manage_client_focus(Client *c)
+static void
+manage_client_focus(struct Client *c)
 {
     if (c != NULL && focused_client != NULL) 
         set_color(focused_client, config.unfocus_color);
@@ -646,21 +542,10 @@ manage_client_focus(Client *c)
     }
 }
 
-/*
- * Manages a newly created window. 
- *
- * @arg1 Window w that has been mapped
- * @arg2 XWindowAttributes of new Window
- *
- * Creates a new Client for the specified window.
- * Creates decorations for that Client and updates
- * the interal state to that of the given 
- * XWindowAttributes. Focuses the newly created window.
- */
-void
+static void
 manage_new_window(Window w, XWindowAttributes *wa)
 {
-    Client *c;
+    struct Client *c;
     c = malloc(sizeof(Client));
     c->win = w;
     c->ws = current_ws;
@@ -675,35 +560,17 @@ manage_new_window(Window w, XWindowAttributes *wa)
     manage_client_focus(c);
     move_absolute(c, config.border_width, 
             config.top_gap + config.title_height + config.border_width);
-    save_client(c);
+    save_client(c, current_ws);
 }
 
-/*
- * Shifts the given Client by the specified x and y 
- * coordinates. 
- *
- * @arg1 Client *c to move
- * @arg2 int x to shift by (+ moves right, - moves left)
- * @arg3 int y t0 shift by (+ move down, - moves up)
- */
-void
-move_relative(Client *c, int x, int y) 
+static void
+move_relative(struct Client *c, int x, int y) 
 {
     move_absolute(c, c->x + x, c->y + y);
 }
 
-/*
- * Moves the given Client to the specified x and y 
- * coordinates, regardless of current position.
- *
- * @arg1 Client *c to move
- * @arg2 int x to move to
- * @arg3 int y to move to
- *
- * Absolute movement refers to the top-left corner of the window
- */
-void
-move_absolute(Client *c, int x, int y)
+static void
+move_absolute(struct Client *c, int x, int y)
 {
     if (config.edge_lock)
     {
@@ -720,36 +587,21 @@ move_absolute(Client *c, int x, int y)
     c->y = y;
 }
 
-/*
- * Moves the current Client to fill the current screen
- *
- * @arg1 Client *c to monocle
- */
-void
-monocle(Client *c)
+static void
+monocle(struct Client *c)
 {
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
-        - config.top_gap - (2 * config.border_width) : MONITOR_HEIGHT - config.top_gap;
-    int x_size = c->decorated ? MONITOR_WIDTH - (2 * config.border_width) : MONITOR_WIDTH;
+    int y_size = c->decorated ? screen_height - config.title_height 
+        - config.top_gap - (2 * config.border_width) : screen_height - config.top_gap;
+    int x_size = c->decorated ? screen_width - (2 * config.border_width) : screen_width;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
 
-/*
- * If the specified Client exists, raises the associated
- * window and decoration to the top of all active windows
- * on the current workspace.
- *
- * @arg1 struct Client c to raise
- *
- * Resizing is done from the top left corner, which will stay
- * stationary during all resizing operations
- */
-void
-raise_client(Client *c)
+static void
+raise_client(struct Client *c)
 {
     if (c != NULL)
     {
@@ -760,33 +612,14 @@ raise_client(Client *c)
     }
 }
 
-/*
- * Resizes the current Client relative to its current
- * size by the specified amounts. 
- *
- * @arg1 Client *c to resize
- * @arg2 int x to resize by (- = shrink left, + = grow right)
- * @arg3 int y to resize by (- = shrink up, + = grow down)
- *
- * Resizing is done from the top left corner, which will stay
- * stationary during all resizing operations
- */
-void
-resize_relative(Client *c, int x, int y) 
+static void
+resize_relative(struct Client *c, int x, int y) 
 {
     resize_absolute(c, c->w + x, c->h + y);
 }
 
-/*
- * Resizes the specified Client to the given width and height
- * on an absolute scale.
- *
- * @arg1 Client *c to resize
- * @arg2 int x to resize to
- * @arg3 int y to resize to
- */
-void
-resize_absolute(Client *c, int x, int y) 
+static void
+resize_absolute(struct Client *c, int x, int y) 
 {
     XResizeWindow(display, c->win, MAX(x, 1), MAX(y, 1));
     if (c->decorated)
@@ -796,13 +629,7 @@ resize_absolute(Client *c, int x, int y)
     c->h = MAX(y, MINIMUM_DIM);
 }
 
-/*
- * Main event loop. Intercepts XEvents from the 
- * X server and redirects them to their specified
- * functions. Will continue to run as long as the global
- * running bool is set to true.
- */
-void
+static void
 run(void)
 {
     XEvent e;
@@ -815,27 +642,15 @@ run(void)
     }
 }
 
-/*
- * Saves the Client for future use by adding it to 
- * the linked list of clients
- *
- * @arg1 Client *c to add
- */
-void
-save_client(Client *c)
+static void
+save_client(struct Client *c, int ws)
 {
-    c->next = clients;
-    clients = c;
+    c->next = workspaces[ws];
+    workspaces[ws] = c;
 }
 
-/*
- * Sets the decoration color of the specified Client.
- *
- * @arg1 struct Client c to focus
- * @arg2 unsigned long color to change to
- */
-void
-set_color(Client *c, unsigned long color)
+static void
+set_color(struct Client *c, unsigned long color)
 {
     if (c->decorated)
     {
@@ -846,24 +661,13 @@ set_color(Client *c, unsigned long color)
 }
 
 
-/*
- * Change XInputFocus to the window associated with the given Client
- *
- * @arg1 struct Client c to set input for
- */
-void
-set_input(Client *c)
+static void
+set_input(struct Client *c)
 {
     XSetInputFocus(display, c->win, RevertToParent, CurrentTime);
 }
 
-/*
- * Initializes the state of the window manager.
- * Sets the config values to that specified in config.h,
- * creates the display, root, and screen. Redirects input
- * to the default root window. Grabs keys on the root window.
- */
-void
+static void
 setup(void)
 {
     // Setup our config initially
@@ -880,19 +684,15 @@ setup(void)
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
+    screen_height = DisplayHeight(display, screen);
+    screen_width = DisplayWidth(display, screen);
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
     grab_keys(root);
 }
 
-/*
- * Moves the specified Client to the active workspace.
- * Changes the state of the Client so it is not hidden
- *
- * @arg1 Client *c to show
- */
-void
-show_client(Client *c)
+static void
+show_client(struct Client *c)
 {
     if (c->hidden)
     {
@@ -901,141 +701,55 @@ show_client(Client *c)
     }
 }
 
-/*
- * Snaps the specified Client to the left half of the screen.
- * Fills the entire space considering window decorations and 
- * respecting config's top gap
- *
- * @arg1 Client *c to snap
- */
-void
-snap_left(Client *c)
+static void
+snap_left(struct Client *c)
 {
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
     int x_off = c->decorated ? config.border_width : 0;
-    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
+    int y_size = c->decorated ? screen_height - config.title_height 
         - config.top_gap - (2 * config.border_width) 
-        : MONITOR_HEIGHT - config.top_gap;
-    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) 
-        : MONITOR_WIDTH / 2;
+        : screen_height - config.top_gap;
+    int x_size = c->decorated ? screen_width / 2 - (2 * config.border_width) 
+        : screen_width / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
 
-/*
- * Snaps the specified Client to the right half of the screen.
- * Fills the entire space considering window decorations and 
- * respecting config's top gap
- *
- * @arg1 Client *c to snap
- */
-void
-snap_right(Client *c)
+static void
+snap_right(struct Client *c)
 {
     int y_off = c->decorated ? config.title_height 
         + config.border_width + config.top_gap : config.top_gap;
-    int x_off = c->decorated ? (MONITOR_WIDTH / 2) + config.border_width 
-        : MONITOR_WIDTH / 2;
-    int y_size = c->decorated ? MONITOR_HEIGHT - config.title_height 
+    int x_off = c->decorated ? (screen_width / 2) + config.border_width 
+        : screen_width / 2;
+    int y_size = c->decorated ? screen_height - config.title_height 
         - config.top_gap - (2 * config.border_width) 
-        : MONITOR_HEIGHT - config.top_gap;
-    int x_size = c->decorated ? MONITOR_WIDTH / 2 - (2 * config.border_width) 
-        : MONITOR_WIDTH / 2;
+        : screen_height - config.top_gap;
+    int x_size = c->decorated ? screen_width / 2 - (2 * config.border_width) 
+        : screen_width / 2;
     move_absolute(c, x_off, y_off); 
     resize_absolute(c, x_size, y_size);
 }
 
-/*
- * Changes to the specified workspaces. Hides all windows not
- * on the current workspace and shows all windows on the 
- * new workspace. Changes focus the the first available window
- * on the new workspace.
- *
- * @arg1 int i workspace to  switch to
- */
-void
-switch_workspace(int i)
+static void
+switch_workspace(int ws)
 {
-    /* 
-     * TODO: Find a way to record the window that was last focused on
-     * each desktop so that we can focus it again when we switch to
-     * that workspace.
-     */
-    Client *t = clients;
-    current_ws = i;
-
-    while (t != NULL)
-    {
-        if (t->ws == current_ws)
-            show_client(t);
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        if (i != ws)
+            for (struct Client *tmp = workspaces[i]; tmp != NULL; tmp = tmp->next)
+                hide_client(tmp);
         else
-            hide_client(t);
+            for (struct Client *tmp = workspaces[i]; tmp != NULL; tmp = tmp->next)
+                show_client(tmp);
 
-        t = t->next;
-    }
+    current_ws = ws;
 
-    /* We will still be focused on the last window selected if we don't
-     * change focus here. This will focus to the first window that it finds
-     * on the active workspace.
-     */
-    /*focus_next(focused_client);*/
-    /*focus_next(clients);*/
-
-    /*
-     * This codes makes me cry inside but it was the only way for me to
-     * maintain my sanity. We run into a weird case where open have multiple
-     * open windows on different workspaces. We delete all the windows on one
-     * workspace and then try to switch to another workspace. This will cause
-     * two windows on the new workspace to "appear" focused, even though they
-     * are not. However, our current focus_next implementation does not work
-     * with any other way, so I'm not going to change it right now. 
-     * Perhaps I could try to keep track of a focus_last window and change
-     * the focus decorations on that when we switch back, but for now
-     * this is a sufficent but hideious solution.
-     */
-    /*Client *k = clients;*/
-    Client *k;
-    int count = 0;
-
-    for (k = clients; k != NULL; k = k->next)
-        if (k->ws == current_ws)
-        {
-            manage_client_focus(k);
-            count++;
-        }
-        else
-            set_color(k, config.unfocus_color);
-
-
-    /*while (k != NULL)*/
-    /*{*/
-        /*if (k->ws == current_ws)*/
-            /*if (count == 0)*/
-            /*{*/
-                /*manage_client_focus(k);*/
-                /*count++;*/
-            /*}*/
-            /*else*/
-                /*set_color(k, config.unfocus_color);*/
-
-        /*k = k->next;*/
-    /*}*/
+    manage_client_focus(workspaces[current_ws]);
 }
 
-/*
- * Toggles decorations for the given Client and moves the Client
- * accordingly so that it occupies the same footprint.
- *
- * @arg1 struct Client *c to toggle decorations
- *
- * Toggles decorations for the given Client and moves the Window 
- * so that it occupies the same space (aka shrinks the window when
- * adding decorations, grows when removing them). Also raises the 
- * specified Client.
- */
-void
-toggle_decorations(Client *c)
+static void
+toggle_decorations(struct Client *c)
 {
     if (c->decorated)
     {
