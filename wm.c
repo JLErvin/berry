@@ -574,8 +574,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_absolute(c, conf.b_width, 
-            conf.top_gap + conf.t_height + conf.b_width);
+    move_relative(c, 0, 0);
+    resize_relative(c, 0, 0);
     save_client(c, current_ws);
 }
 
@@ -629,18 +629,20 @@ resize_absolute(struct Client *c, int w, int h)
 {
     int dest_w = w;
     int dest_h = h;
+    int dec_w = w;
+    int dec_h = h;
     if (c->decorated) 
     {
         dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
         dest_h = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
-    }
 
-    w -= 2 * conf.b_width;
-    h -= 2 * conf.b_width;
+        dec_w = w - (2 * conf.b_width);
+        dec_h = h - (2 * conf.b_width);
+    }
 
     XResizeWindow(display, c->win, MAX(dest_w, MINIMUM_DIM), MAX(dest_h, MINIMUM_DIM));
     if (c->decorated)
-        XResizeWindow(display, c->dec, MAX(w, MINIMUM_DIM), MAX(h, MINIMUM_DIM));
+        XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
 
     c->w = MAX(w, MINIMUM_DIM);
     c->h = MAX(h, MINIMUM_DIM);
@@ -785,18 +787,16 @@ toggle_decorations(struct Client *c)
     if (c->decorated)
     {
         decorations_destroy(c);
-        move_relative(c, -conf.b_width, 
-                -conf.t_height - conf.b_width);
-        resize_relative(c, conf.b_width * 2,
-                conf.t_height + (2 * conf.b_width));
+        move_relative(c, 0, 0);
+        resize_relative(c, 2 * conf.i_width + 2 * conf.b_width,
+                2 * conf.i_width + 2 * conf.b_width + conf.t_height);
+        c->h -= conf.t_height;
     }
     else
     {
         decorations_create(c);
-        move_relative(c, conf.b_width,
-                conf.t_height + conf.b_width);
-        resize_relative(c, -conf.b_width * 2,
-                -conf.t_height - (2 * conf.b_width));
+        move_relative(c, 0, 0);
+        resize_relative(c, 0, 0);
     }
 
     raise_client(c);
