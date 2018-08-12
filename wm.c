@@ -9,17 +9,38 @@
 
 #include "config.h"
 #include "ipc.h"
-#include "types.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
 #define MIN(a, b) ((a < b) ? (a) : (b)) 
 #define WORKSPACE_NUMBER 10
+#define NORTH 2
+#define SOUTH 4
+#define EAST 1
+#define WEST 3
+
+struct Client 
+{
+    int x, y, w, h, x_hide, ws;
+    bool decorated, hidden;
+    Window win;
+    Window dec;
+    struct Client *next;
+};
+
+struct Config
+{
+    int8_t border_width, title_height, top_gap;
+    uint32_t focus_color, unfocus_color;
+    int32_t resize_step, move_step;
+    bool focus_new, edge_lock;
+};
+
 
 /* List of ALL clients, currently focused client */
 static struct Client *focused_client = NULL;
 static struct Client *clients[WORKSPACE_NUMBER];
 /* Config struct to keep track of internal state*/
-static Config conf;
+static struct Config conf;
 static int current_ws = 0;
 static Display *display;
 static Window root;
@@ -37,7 +58,7 @@ static void decorations_create(struct Client *c);
 static void decorations_destroy(struct Client *c);
 static void delete_client(struct Client *c);
 static int euclidean_distance(struct Client *a, struct Client *b);
-static Client* get_client_from_window(Window w);
+static struct Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
 static void handle_configure_request(XEvent *e);
@@ -66,13 +87,14 @@ static void resize_relative(struct Client *c, int x, int y);
 static void resize_absolute(struct Client *c, int x, int y);
 static void run(void);
 static void save_client(struct Client *c, int ws);
+static void send_to_workspace(struct Client *c, int s);
 static void set_color(struct Client *c, unsigned long color);
 static void set_input(struct Client *c);
 static void setup(void);
 static void show_client(struct Client *c);
 static void snap_left(struct Client *c);
 static void snap_right(struct Client *c);
-static void switch_workspace(int i);
+static void switch_workspace(uint16_t ws);
 static void toggle_decorations(struct Client *c);
 
 /* Native X11 Event handler */
@@ -252,7 +274,7 @@ focus_next(struct Client *c)
         manage_client_focus(tmp->next);
 }
 
-static Client*
+static struct Client*
 get_client_from_window(Window w)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
@@ -281,6 +303,10 @@ grab_keys(Window w)
     XGrabKey(display, XKeysymToKeycode(display, XK_1), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(display, XKeysymToKeycode(display, XK_2), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_9), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_0), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
 
     XGrabKey(display, XKeysymToKeycode(display, XK_U), Mod4Mask,
@@ -412,6 +438,10 @@ handle_keypress(XEvent *e)
             snap_left(focused_client);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
             snap_right(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_9)))
+            send_to_workspace(focused_client, 0);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_0)))
+            send_to_workspace(focused_client, 1);
 
 
     /* We can switch clients even if we have no focused windows */
@@ -532,7 +562,7 @@ static void
 manage_new_window(Window w, XWindowAttributes *wa)
 {
     struct Client *c;
-    c = malloc(sizeof(Client));
+    c = malloc(sizeof(struct Client));
     c->win = w;
     c->ws = current_ws;
     c->x = wa->x;
@@ -630,6 +660,16 @@ save_client(struct Client *c, int ws)
 }
 
 static void
+send_to_workspace(struct Client *c, int ws)
+{
+    c->ws = ws;
+    delete_client(c);
+    save_client(c, ws);
+    hide_client(c);
+    focus_next(clients[current_ws]);
+}
+
+static void
 set_color(struct Client *c, unsigned long color)
 {
     if (c->decorated)
@@ -713,7 +753,7 @@ snap_right(struct Client *c)
 }
 
 static void
-switch_workspace(int ws)
+switch_workspace(uint16_t ws)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         if (i != ws)
