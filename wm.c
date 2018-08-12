@@ -58,6 +58,7 @@ static void decorations_create(struct Client *c);
 static void decorations_destroy(struct Client *c);
 static void delete_client(struct Client *c);
 static int euclidean_distance(struct Client *a, struct Client *b);
+static void fullscreen(struct Client *c);
 static struct Client* get_client_from_window(Window w);
 static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
@@ -259,6 +260,13 @@ euclidean_distance(struct Client *a, struct Client *b)
 }
 
 static void
+fullscreen(struct Client *c)
+{
+    move_absolute(c, 0, 0);
+    resize_absolute(c, screen_width, screen_height);
+}
+
+static void
 focus_next(struct Client *c)
 {
     if (c == NULL)
@@ -342,6 +350,8 @@ grab_keys(Window w)
     XGrabKey(display, XKeysymToKeycode(display, XK_1), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(display, XKeysymToKeycode(display, XK_2), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_F), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
 
     XGrabButton(display, Button3, Mod4Mask, w, True,
@@ -442,6 +452,8 @@ handle_keypress(XEvent *e)
             send_to_workspace(focused_client, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_0)))
             send_to_workspace(focused_client, 1);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F)))
+            fullscreen(focused_client);
 
 
     /* We can switch clients even if we have no focused windows */
