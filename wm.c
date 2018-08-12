@@ -29,9 +29,9 @@ struct Client
 
 struct Config
 {
-    int8_t border_width, title_height, top_gap;
-    uint32_t focus_color, unfocus_color;
-    int32_t resize_step, move_step;
+    int8_t b_width, i_width, t_height, top_gap;
+    uint32_t bf_color, bu_color, if_color, iu_color;
+    int32_t r_step, m_step;
     bool focus_new, edge_lock;
 };
 
@@ -74,22 +74,24 @@ static void ipc_raise(char arg);
 static void ipc_resize_relative(char arg);
 static void ipc_resize_absolute(char arg);
 static void ipc_toggle_decorations(char arg);
-static void ipc_focus_color(char arg);
-static void ipc_unfocus_color(char arg);
-static void ipc_border_width(char arg);
-static void ipc_title_height(char arg);
+static void ipc_bf_color(char arg);
+static void ipc_bu_color(char arg);
+static void ipc_b_width(char arg);
+static void ipc_t_height(char arg);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
 static void move_absolute(struct Client *c, int x, int y);
+static void move_relative_limit(struct Client *c, int x, int y);
 static void monocle(struct Client *c);
 static void raise_client(struct Client *c);
-static void resize_relative(struct Client *c, int x, int y);
-static void resize_absolute(struct Client *c, int x, int y);
+static void resize_relative(struct Client *c, int w, int h);
+static void resize_absolute(struct Client *c, int w, int h);
+static void resize_relative_limit(struct Client *c, int w, int h);
 static void run(void);
 static void save_client(struct Client *c, int ws);
 static void send_to_workspace(struct Client *c, int s);
-static void set_color(struct Client *c, unsigned long color);
+static void set_color(struct Client *c, unsigned long i_color, unsigned long b_color);
 static void set_input(struct Client *c);
 static void setup(void);
 static void show_client(struct Client *c);
@@ -118,10 +120,10 @@ static void (*ipc_handler[IPCLast])(char arg) =
     [IPCWindowResizeRelative]       = ipc_resize_relative,
     [IPCWindowResizeAbsolute]       = ipc_resize_absolute,
     [IPCWindowToggleDecorations]    = ipc_toggle_decorations,
-    [IPCFocusColor]                 = ipc_focus_color,
-    [IPCUnfocusColor]               = ipc_unfocus_color,
-    [IPCBorderWidth]                = ipc_border_width,
-    [IPCTitleHeight]                = ipc_title_height
+    [IPCFocusColor]                 = ipc_bf_color,
+    [IPCUnfocusColor]               = ipc_bu_color,
+    [IPCBorderWidth]                = ipc_b_width,
+    [IPCTitleHeight]                = ipc_t_height
 };
 
 
@@ -181,9 +183,12 @@ close(void)
 static void
 decorate_new_client(struct Client *c)
 {
-    Window dec = XCreateSimpleWindow(display, root, c->x - conf.border_width,
-            c->y - conf.title_height, c->w, c->h + conf.title_height,
-            conf.border_width, conf.focus_color, conf.focus_color);
+    int w = c->w + 2 * conf.i_width;
+    int h = c->h + 2 * conf.i_width + conf.t_height;
+    int x = c->x - conf.i_width - conf.b_width;
+    int y = c->y - conf.i_width - conf.b_width - conf.t_height; 
+    Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
+            conf.bu_color, conf.bf_color);
 
     XMapWindow(display, dec);
     c->dec = dec;
@@ -207,31 +212,6 @@ decorations_destroy(struct Client *c)
 static void
 delete_client(struct Client *c)
 {
-    /*for (int i = 0; i < WORKSPACE_NUMBER; i++)*/
-    /*{*/
-        /*struct Client *tmp;*/
-        /*tmp = clients[i];*/
-        /*//if (tmp != NULL)*/
-        /*//{*/
-            /*if (tmp == c) */
-            /*{*/
-                /*clients[i] = clients[i]->next;*/
-                /*return;*/
-            /*}*/
-            /*else*/
-            /*{*/
-                /*while (tmp->next != NULL && tmp->next != c)*/
-                    /*tmp = tmp->next;*/
-
-                /*if (tmp->next == c)*/
-                /*{*/
-                    /*tmp->next = tmp->next->next;*/
-                    /*return;*/
-                /*}*/
-            /*}*/
-        /*//}*/
-    /*}*/
-
     /* TODO: will we ever have to delete a client
      * that is not on the active workspace?
      */
@@ -353,6 +333,10 @@ grab_keys(Window w)
             w, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(display, XKeysymToKeycode(display, XK_F), Mod4Mask,
             w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_B), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(display, XKeysymToKeycode(display, XK_V), Mod4Mask,
+            w, True, GrabModeAsync, GrabModeAsync);
 
     XGrabButton(display, Button3, Mod4Mask, w, True,
             ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
@@ -380,9 +364,9 @@ handle_client_message(XEvent *e)
         arg2 = cme->data.b[2];
 
         if (cme->data.b[0] == 0)
-            move_relative(focused_client, conf.move_step, 0);
+            move_relative(focused_client, conf.m_step, 0);
         else if (cme->data.b[0] == 1)
-            move_relative(focused_client, -conf.move_step, 0);
+            move_relative(focused_client, -conf.m_step, 0);
     }
 }
 
@@ -409,25 +393,25 @@ handle_keypress(XEvent *e)
 
     if (focused_client != NULL)
         if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-            move_relative(focused_client, conf.resize_step, 0);
+            move_relative(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-            move_relative(focused_client, -conf.resize_step, 0); 
+            move_relative(focused_client, -conf.r_step, 0); 
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-            move_relative(focused_client, 0, conf.resize_step);
+            move_relative(focused_client, 0, conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-            move_relative(focused_client, 0, -conf.resize_step);
+            move_relative(focused_client, 0, -conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
             XKillClient(display, focused_client->win);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
             focus_next(focused_client);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
-            resize_relative(focused_client, -conf.resize_step, 0);
+            resize_relative(focused_client, -conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
-            resize_relative(focused_client, 0, conf.resize_step);
+            resize_relative(focused_client, 0, conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_O)))
-            resize_relative(focused_client, 0, -conf.resize_step);
+            resize_relative(focused_client, 0, -conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
-            resize_relative(focused_client, conf.resize_step, 0);
+            resize_relative(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
             running = False;
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
@@ -454,6 +438,10 @@ handle_keypress(XEvent *e)
             send_to_workspace(focused_client, 1);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F)))
             fullscreen(focused_client);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_B)))
+            resize_relative_limit(focused_client, 50, 0);
+        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_V)))
+            resize_relative_limit(focused_client, 0, 50);
 
 
     /* We can switch clients even if we have no focused windows */
@@ -495,7 +483,7 @@ hide_client(struct Client *c)
     if (!c->hidden)
     {
         c->x_hide = c->x;
-        move_absolute(c, screen_width + conf.border_width, c->y);
+        move_absolute(c, screen_width + conf.b_width, c->y);
         c->hidden = true;
     }
 }
@@ -536,22 +524,22 @@ ipc_toggle_decorations(char arg)
 }
 
 void 
-ipc_focus_color(char arg)
+ipc_bf_color(char arg)
 {
 }
 
 void 
-ipc_unfocus_color(char arg)
+ipc_bu_color(char arg)
 {
 }
 
 void 
-ipc_border_width(char arg)
+ipc_b_width(char arg)
 {
 }
 
 void 
-ipc_title_height(char arg)
+ipc_t_height(char arg)
 {
 }
 
@@ -559,11 +547,11 @@ static void
 manage_client_focus(struct Client *c)
 {
     if (c != NULL && focused_client != NULL) 
-        set_color(focused_client, conf.unfocus_color);
+        set_color(focused_client, conf.iu_color, conf.bu_color);
 
     if (c != NULL)
     {
-        set_color(c, conf.focus_color);
+        set_color(c, conf.if_color, conf.bf_color);
         raise_client(c);
         set_input(c);
         focused_client = c;
@@ -586,8 +574,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_absolute(c, conf.border_width, 
-            conf.top_gap + conf.title_height + conf.border_width);
+    move_absolute(c, conf.b_width, 
+            conf.top_gap + conf.t_height + conf.b_width);
     save_client(c, current_ws);
 }
 
@@ -600,10 +588,18 @@ move_relative(struct Client *c, int x, int y)
 static void
 move_absolute(struct Client *c, int x, int y)
 {
-    XMoveWindow(display, c->win, x, y);
+    int dest_x = x;
+    int dest_y = y;
+
+    if (c->decorated) {
+        dest_x = x + conf.i_width + conf.b_width;
+        dest_y = y + conf.i_width + conf.b_width + conf.t_height;
+    }
+
+    /* move relative to where decorations should go */
+    XMoveWindow(display, c->win, dest_x, dest_y);
     if (c->decorated)
-        XMoveWindow(display, c->dec, x - conf.border_width, 
-                y - conf.title_height - conf.border_width);
+        XMoveWindow(display, c->dec, x, y);
 
     c->x = x;
     c->y = y;
@@ -612,14 +608,8 @@ move_absolute(struct Client *c, int x, int y)
 static void
 monocle(struct Client *c)
 {
-    int y_off = c->decorated ? conf.title_height 
-        + conf.border_width + conf.top_gap : conf.top_gap;
-    int x_off = c->decorated ? conf.border_width : 0;
-    int y_size = c->decorated ? screen_height - conf.title_height 
-        - conf.top_gap - (2 * conf.border_width) : screen_height - conf.top_gap;
-    int x_size = c->decorated ? screen_width - (2 * conf.border_width) : screen_width;
-    move_absolute(c, x_off, y_off); 
-    resize_absolute(c, x_size, y_size);
+    move_absolute(c, 0, conf.top_gap); 
+    resize_absolute(c, screen_width, screen_height - conf.top_gap);
 }
 
 static void
@@ -635,20 +625,43 @@ raise_client(struct Client *c)
 }
 
 static void
-resize_relative(struct Client *c, int x, int y) 
+resize_absolute(struct Client *c, int w, int h) 
 {
-    resize_absolute(c, c->w + x, c->h + y);
+    int dest_w = w;
+    int dest_h = h;
+    if (c->decorated) 
+    {
+        dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
+        dest_h = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
+    }
+
+    w -= 2 * conf.b_width;
+    h -= 2 * conf.b_width;
+
+    XResizeWindow(display, c->win, MAX(dest_w, MINIMUM_DIM), MAX(dest_h, MINIMUM_DIM));
+    if (c->decorated)
+        XResizeWindow(display, c->dec, MAX(w, MINIMUM_DIM), MAX(h, MINIMUM_DIM));
+
+    c->w = MAX(w, MINIMUM_DIM);
+    c->h = MAX(h, MINIMUM_DIM);
 }
 
 static void
-resize_absolute(struct Client *c, int x, int y) 
+resize_relative(struct Client *c, int w, int h) 
 {
-    XResizeWindow(display, c->win, MAX(x, 1), MAX(y, 1));
-    if (c->decorated)
-        XResizeWindow(display, c->dec, MAX(x, 1), y + conf.title_height);
+    resize_absolute(c, c->w + w, c->h + h);
+}
 
-    c->w = MAX(x, MINIMUM_DIM);
-    c->h = MAX(y, MINIMUM_DIM);
+static void
+resize_relative_limit(struct Client *c, int w, int h) 
+{
+    int right_side = c->x + c->w + (2 * conf.b_width);
+    int bot_side = c->y + c->h + conf.t_height + (2 * conf.b_width);
+
+    int shift_w = MIN(screen_width - right_side, right_side + w);
+    int shift_h = MIN(screen_height - bot_side, bot_side + h);
+
+    resize_absolute(c, c->w + shift_w, c->h + shift_h);
 }
 
 static void
@@ -682,12 +695,12 @@ send_to_workspace(struct Client *c, int ws)
 }
 
 static void
-set_color(struct Client *c, unsigned long color)
+set_color(struct Client *c, unsigned long i_color, unsigned long b_color)
 {
     if (c->decorated)
     {
-        XSetWindowBackground(display, c->dec, color);
-        XSetWindowBorder(display, c->dec, color);
+        XSetWindowBackground(display, c->dec, i_color);
+        XSetWindowBorder(display, c->dec, b_color);
         XClearWindow(display, c->dec);
     }
 }
@@ -703,15 +716,18 @@ static void
 setup(void)
 {
     // Setup our conf initially
-    conf.border_width  = BORDER_WIDTH;
-    conf.title_height  = TITLE_HEIGHT;
-    conf.focus_color   = FOCUS_COLOR;
-    conf.unfocus_color = UNFOCUS_COLOR;
-    conf.move_step     = MOVE_STEP;
-    conf.resize_step   = RESIZE_STEP;
-    conf.focus_new     = FOCUS_NEW;
-    conf.edge_lock     = EDGE_LOCK;
-    conf.top_gap       = TOP_GAP;
+    conf.b_width   = BORDER_WIDTH;
+    conf.t_height  = TITLE_HEIGHT;
+    conf.i_width   = BORDER_WIDTH;
+    conf.bf_color  = BORDER_FOCUS_COLOR;
+    conf.bu_color  = BORDER_UNFOCUS_COLOR;
+    conf.if_color  = INNER_FOCUS_COLOR;
+    conf.iu_color  = INNER_UNFOCUS_COLOR; 
+    conf.m_step    = MOVE_STEP;
+    conf.r_step    = RESIZE_STEP;
+    conf.focus_new = FOCUS_NEW;
+    conf.edge_lock = EDGE_LOCK;
+    conf.top_gap   = TOP_GAP;
 
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
@@ -736,32 +752,15 @@ show_client(struct Client *c)
 static void
 snap_left(struct Client *c)
 {
-    int y_off = c->decorated ? conf.title_height 
-        + conf.border_width + conf.top_gap : conf.top_gap;
-    int x_off = c->decorated ? conf.border_width : 0;
-    int y_size = c->decorated ? screen_height - conf.title_height 
-        - conf.top_gap - (2 * conf.border_width) 
-        : screen_height - conf.top_gap;
-    int x_size = c->decorated ? screen_width / 2 - (2 * conf.border_width) 
-        : screen_width / 2;
-    move_absolute(c, x_off, y_off); 
-    resize_absolute(c, x_size, y_size);
+    move_absolute(c, 0, conf.top_gap); 
+    resize_absolute(c, screen_width / 2, screen_height - conf.top_gap);
 }
 
 static void
 snap_right(struct Client *c)
 {
-    int y_off = c->decorated ? conf.title_height 
-        + conf.border_width + conf.top_gap : conf.top_gap;
-    int x_off = c->decorated ? (screen_width / 2) + conf.border_width 
-        : screen_width / 2;
-    int y_size = c->decorated ? screen_height - conf.title_height 
-        - conf.top_gap - (2 * conf.border_width) 
-        : screen_height - conf.top_gap;
-    int x_size = c->decorated ? screen_width / 2 - (2 * conf.border_width) 
-        : screen_width / 2;
-    move_absolute(c, x_off, y_off); 
-    resize_absolute(c, x_size, y_size);
+    move_absolute(c, screen_width / 2, conf.top_gap); 
+    resize_absolute(c, screen_width / 2, screen_height - conf.top_gap);
 }
 
 static void
@@ -786,18 +785,18 @@ toggle_decorations(struct Client *c)
     if (c->decorated)
     {
         decorations_destroy(c);
-        move_relative(c, -conf.border_width, 
-                -conf.title_height - conf.border_width);
-        resize_relative(c, conf.border_width * 2,
-                conf.title_height + (2 * conf.border_width));
+        move_relative(c, -conf.b_width, 
+                -conf.t_height - conf.b_width);
+        resize_relative(c, conf.b_width * 2,
+                conf.t_height + (2 * conf.b_width));
     }
     else
     {
         decorations_create(c);
-        move_relative(c, conf.border_width,
-                conf.title_height + conf.border_width);
-        resize_relative(c, -conf.border_width * 2,
-                -conf.title_height - (2 * conf.border_width));
+        move_relative(c, conf.b_width,
+                conf.t_height + conf.b_width);
+        resize_relative(c, -conf.b_width * 2,
+                -conf.t_height - (2 * conf.b_width));
     }
 
     raise_client(c);
