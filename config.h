@@ -13,11 +13,16 @@
 
 #define TOP_GAP 30
 
-#define UNFOCUS_COLOR 0x41485f
-#define FOCUS_COLOR 0xC792EA
+#define BORDER_UNFOCUS_COLOR 0x41485f
+#define BORDER_FOCUS_COLOR 0xC792EA
+
+#define INNER_UNFOCUS_COLOR 0xC792EA
+#define INNER_FOCUS_COLOR 0x41485f
 
 #define FOCUS_NEW true
 #define EDGE_LOCK true
+
+#define MINIMUM_DIM 30
 
 #endif
 

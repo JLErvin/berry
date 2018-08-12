@@ -11,8 +11,8 @@ typedef struct Config Config;
 
 struct Client 
 {
-    int x, y, w, h, ws;
-    bool decorated;
+    int x, y, w, h, x_hide, ws;
+    bool decorated, hidden;
     Window win;
     Window dec;
     Client *next;

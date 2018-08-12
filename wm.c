@@ -393,13 +393,17 @@ handle_keypress(XEvent *e)
 
     if (focused_client != NULL)
         if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-            move_relative(focused_client, conf.r_step, 0);
+            /*move_relative(focused_client, conf.r_step, 0);*/
+            move_relative_limit(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-            move_relative(focused_client, -conf.r_step, 0); 
+            /*move_relative(focused_client, -conf.r_step, 0); */
+            move_relative_limit(focused_client, -conf.r_step, 0); 
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-            move_relative(focused_client, 0, conf.r_step);
+            /*move_relative(focused_client, 0, conf.r_step);*/
+            move_relative_limit(focused_client, 0, conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-            move_relative(focused_client, 0, -conf.r_step);
+            /*move_relative(focused_client, 0, -conf.r_step);*/
+            move_relative_limit(focused_client, 0, -conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
             XKillClient(display, focused_client->win);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
@@ -582,6 +586,24 @@ manage_new_window(Window w, XWindowAttributes *wa)
 static void
 move_relative(struct Client *c, int x, int y) 
 {
+    move_absolute(c, c->x + x, c->y + y);
+}
+
+static void
+move_relative_limit(struct Client *c, int x, int y)
+{
+    if (c->x + c->w + x > screen_width)
+        x = screen_width - c->w - c->x;
+
+    if (c->y + c->h + y > screen_height)
+        y = screen_height - c->h - c->y;
+
+    if (c->x + x < 0)
+        x = -c->x;
+
+    if (c->y + y < 0)
+        y = -c->y;
+
     move_absolute(c, c->x + x, c->y + y);
 }
 
@@ -788,9 +810,7 @@ toggle_decorations(struct Client *c)
     {
         decorations_destroy(c);
         move_relative(c, 0, 0);
-        resize_relative(c, 2 * conf.i_width + 2 * conf.b_width,
-                2 * conf.i_width + 2 * conf.b_width + conf.t_height);
-        c->h -= conf.t_height;
+        resize_relative(c, 0, 0);
     }
     else
     {
