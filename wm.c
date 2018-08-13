@@ -370,9 +370,9 @@ handle_client_message(XEvent *e)
         arg2 = cme->data.b[2];
 
         if (cme->data.b[0] == 0)
-            move_relative(focused_client, conf.m_step, 0);
-        else if (cme->data.b[0] == 1)
-            move_relative(focused_client, -conf.m_step, 0);
+            move_relative(focused_client, arg1, arg2);
+        if (cme->data.b[0] == 4)
+            resize_relative(focused_client, arg1, arg2);
     }
 }
 
