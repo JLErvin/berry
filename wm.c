@@ -52,6 +52,7 @@ static int screen_height;
 
 /* All functions */
 static void cardinal_focus(struct Client *c, int dir);
+static void center_client(struct Client *c);
 static void close(void);
 static void decorate_new_client(struct Client *c);
 static void decorations_create(struct Client *c);
@@ -171,6 +172,12 @@ cardinal_focus(struct Client *c, int dir)
     }
 
     manage_client_focus(focus_next);
+}
+
+static void
+center_client(struct Client *c)
+{
+    move_absolute(c, screen_width / 2 - (c->w / 2), screen_height / 2 - (c->h / 2));
 }
 
 static void
@@ -412,7 +419,7 @@ handle_keypress(XEvent *e)
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
             resize_relative(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
-            running = False;
+            center_client(focused_client);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
             cardinal_focus(focused_client, 3);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_S)))
@@ -575,6 +582,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     manage_client_focus(c);
     refresh_client(c); // using our current factoring, w/h are set incorrectly
     save_client(c, current_ws);
+    center_client(c);
 }
 
 static void
