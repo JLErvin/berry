@@ -5,11 +5,11 @@
 #define _CONFIG_H
 
 #define BORDER_WIDTH 3
-#define INTERNAL_BORDER_WIDTH 0
-#define TITLE_HEIGHT 30
+#define INTERNAL_BORDER_WIDTH 3
+#define TITLE_HEIGHT 0
 
-#define MOVE_STEP 50
-#define RESIZE_STEP 50
+#define MOVE_STEP 40
+#define RESIZE_STEP 40
 
 #define TOP_GAP 30
 

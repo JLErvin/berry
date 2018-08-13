@@ -82,12 +82,11 @@ static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
 static void move_absolute(struct Client *c, int x, int y);
-static void move_relative_limit(struct Client *c, int x, int y);
 static void monocle(struct Client *c);
 static void raise_client(struct Client *c);
+static void refresh_client(struct Client *c);
 static void resize_relative(struct Client *c, int w, int h);
 static void resize_absolute(struct Client *c, int w, int h);
-static void resize_relative_limit(struct Client *c, int w, int h);
 static void run(void);
 static void save_client(struct Client *c, int ws);
 static void send_to_workspace(struct Client *c, int s);
@@ -393,17 +392,13 @@ handle_keypress(XEvent *e)
 
     if (focused_client != NULL)
         if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-            /*move_relative(focused_client, conf.r_step, 0);*/
-            move_relative_limit(focused_client, conf.r_step, 0);
+            move_relative(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-            /*move_relative(focused_client, -conf.r_step, 0); */
-            move_relative_limit(focused_client, -conf.r_step, 0); 
+            move_relative(focused_client, -conf.r_step, 0); 
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-            /*move_relative(focused_client, 0, conf.r_step);*/
-            move_relative_limit(focused_client, 0, conf.r_step);
+            move_relative(focused_client, 0, conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-            /*move_relative(focused_client, 0, -conf.r_step);*/
-            move_relative_limit(focused_client, 0, -conf.r_step);
+            move_relative(focused_client, 0, -conf.r_step);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
             XKillClient(display, focused_client->win);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
@@ -442,10 +437,10 @@ handle_keypress(XEvent *e)
             send_to_workspace(focused_client, 1);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F)))
             fullscreen(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_B)))
-            resize_relative_limit(focused_client, 50, 0);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_V)))
-            resize_relative_limit(focused_client, 0, 50);
+        /*else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_B)))*/
+            /*[>resize_relative_limit(focused_client, 50, 0);<]*/
+        /*else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_V)))*/
+            /*[>resize_relative_limit(focused_client, 0, 50);<]*/
 
 
     /* We can switch clients even if we have no focused windows */
@@ -578,31 +573,28 @@ manage_new_window(Window w, XWindowAttributes *wa)
     decorate_new_client(c);
     XMapWindow(display, c->win);
     manage_client_focus(c);
-    move_relative(c, 0, 0);
-    resize_relative(c, 0, 0);
+    refresh_client(c); // using our current factoring, w/h are set incorrectly
     save_client(c, current_ws);
 }
 
 static void
 move_relative(struct Client *c, int x, int y) 
 {
-    move_absolute(c, c->x + x, c->y + y);
-}
+    /* Constrain the current client to the w/h of display */
+    if (conf.edge_lock)
+    {
+        if (c->x + c->w + x > screen_width)
+            x = screen_width - c->w - c->x;
 
-static void
-move_relative_limit(struct Client *c, int x, int y)
-{
-    if (c->x + c->w + x > screen_width)
-        x = screen_width - c->w - c->x;
+        if (c->y + c->h + y > screen_height)
+            y = screen_height - c->h - c->y;
 
-    if (c->y + c->h + y > screen_height)
-        y = screen_height - c->h - c->y;
+        if (c->x + x < 0)
+            x = -c->x;
 
-    if (c->x + x < 0)
-        x = -c->x;
-
-    if (c->y + y < 0)
-        y = -c->y;
+        if (c->y + y < 0)
+            y = -c->y;
+    }
 
     move_absolute(c, c->x + x, c->y + y);
 }
@@ -647,6 +639,13 @@ raise_client(struct Client *c)
 }
 
 static void
+refresh_client(struct Client *c)
+{
+    move_relative(c, 0, 0);
+    resize_relative(c, 0, 0);
+}
+
+static void
 resize_absolute(struct Client *c, int w, int h) 
 {
     int dest_w = w;
@@ -674,18 +673,6 @@ static void
 resize_relative(struct Client *c, int w, int h) 
 {
     resize_absolute(c, c->w + w, c->h + h);
-}
-
-static void
-resize_relative_limit(struct Client *c, int w, int h) 
-{
-    int right_side = c->x + c->w + (2 * conf.b_width);
-    int bot_side = c->y + c->h + conf.t_height + (2 * conf.b_width);
-
-    int shift_w = MIN(screen_width - right_side, right_side + w);
-    int shift_h = MIN(screen_height - bot_side, bot_side + h);
-
-    resize_absolute(c, c->w + shift_w, c->h + shift_h);
 }
 
 static void
@@ -742,7 +729,7 @@ setup(void)
     // Setup our conf initially
     conf.b_width   = BORDER_WIDTH;
     conf.t_height  = TITLE_HEIGHT;
-    conf.i_width   = BORDER_WIDTH;
+    conf.i_width   = INTERNAL_BORDER_WIDTH;
     conf.bf_color  = BORDER_FOCUS_COLOR;
     conf.bu_color  = BORDER_UNFOCUS_COLOR;
     conf.if_color  = INNER_FOCUS_COLOR;
@@ -807,18 +794,11 @@ static void
 toggle_decorations(struct Client *c)
 {
     if (c->decorated)
-    {
         decorations_destroy(c);
-        move_relative(c, 0, 0);
-        resize_relative(c, 0, 0);
-    }
     else
-    {
         decorations_create(c);
-        move_relative(c, 0, 0);
-        resize_relative(c, 0, 0);
-    }
 
+    refresh_client(c);
     raise_client(c);
 }
 
