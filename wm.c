@@ -68,17 +68,17 @@ static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
 static void hide_client(struct Client *c);
-static void ipc_move_relative(char arg);
-static void ipc_move_absolute(char arg);
-static void ipc_monocle(char arg);
-static void ipc_raise(char arg);
-static void ipc_resize_relative(char arg);
-static void ipc_resize_absolute(char arg);
-static void ipc_toggle_decorations(char arg);
-static void ipc_bf_color(char arg);
-static void ipc_bu_color(char arg);
-static void ipc_b_width(char arg);
-static void ipc_t_height(char arg);
+static void ipc_move_relative(uint32_t *d);
+static void ipc_move_absolute(uint32_t *d);
+static void ipc_monocle(uint32_t *d);
+static void ipc_raise(uint32_t *d);
+static void ipc_resize_relative(uint32_t *d);
+static void ipc_resize_absolute(uint32_t *d);
+static void ipc_toggle_decorations(uint32_t *d);
+static void ipc_bf_color(uint32_t *d);
+static void ipc_bu_color(uint32_t *d);
+static void ipc_b_width(uint32_t *d);
+static void ipc_t_height(uint32_t *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
@@ -111,7 +111,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 };
 
 /* Event handler for our IPC protocle */
-static void (*ipc_handler[IPCLast])(char arg) =
+static void (*ipc_handler[IPCLast])(uint32_t *) =
 {
     [IPCWindowMoveRelative]         = ipc_move_relative,
     [IPCWindowMoveAbsolute]         = ipc_move_absolute,
@@ -358,12 +358,12 @@ handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
     enum IPCCommand cmd;
-    char arg1, arg2;
+    uint32_t arg1, arg2;
 
     // We need to handle our own client message,
     // we can redirect them to our IPC Handler,
     // much like we do with regular XEvents
-    if (cme->message_type == XInternAtom(display, "BERRY_CLIENT_EVENT", False))
+    if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False))
     {
         cmd = (enum IPCCommand)cme->data.b[0];
         arg1 = cme->data.b[1];
@@ -495,57 +495,105 @@ hide_client(struct Client *c)
 }
 
 static void
-ipc_move_relative(char arg)
+ipc_move_relative(uint32_t *d)
 {
+    int x, y;
+
+    if (focused_client == NULL)
+        return;
+
+    x = d[1];
+    y = d[2];
+
+    move_relative(focused_client, x, y);
 }
 
 static void
-ipc_move_absolute(char arg)
+ipc_move_absolute(uint32_t *d)
 {
+    int x, y;
+
+    if (focused_client == NULL)
+        return;
+
+    x = d[1];
+    y = d[2];
+
+    move_absolute(focused_client, x, y);
 }
 
 static void
-ipc_monocle(char arg)
+ipc_monocle(uint32_t *d)
 {
+    if (focused_client == NULL)
+        return;
+
+    monocle(focused_client);
 }
 
 static void
-ipc_raise(char arg) 
+ipc_raise(uint32_t *d) 
+{
+    if (focused_client == NULL)
+        return;
+
+    raise_client(focused_client);
+}
+
+void 
+ipc_resize_relative(uint32_t *d)
+{
+    int w, h;
+
+    if (focused_client == NULL)
+        return;
+
+    w = d[1];
+    h = d[2];
+
+    resize_relative(focused_client, w, h);
+}
+
+void 
+ipc_resize_absolute(uint32_t *d)
+{
+    int w, h;
+
+    if (focused_client == NULL)
+        return;
+
+    w = d[1];
+    h = d[2];
+
+    resize_absolute(focused_client, w, h);
+}
+
+void 
+ipc_toggle_decorations(uint32_t *d)
+{
+    if (focused_client == NULL)
+        return ;
+
+    toggle_decorations(focused_client);
+}
+
+void 
+ipc_bf_color(uint32_t *d)
 {
 }
 
 void 
-ipc_resize_relative(char arg)
+ipc_bu_color(uint32_t *d)
 {
 }
 
 void 
-ipc_resize_absolute(char arg)
+ipc_b_width(uint32_t *d)
 {
 }
 
 void 
-ipc_toggle_decorations(char arg)
-{
-}
-
-void 
-ipc_bf_color(char arg)
-{
-}
-
-void 
-ipc_bu_color(char arg)
-{
-}
-
-void 
-ipc_b_width(char arg)
-{
-}
-
-void 
-ipc_t_height(char arg)
+ipc_t_height(uint32_t *d)
 {
 }
 
