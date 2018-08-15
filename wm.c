@@ -20,7 +20,7 @@
 
 struct Client 
 {
-    int x, y, w, h, x_hide, ws;
+    int16_t x, y, w, h, x_hide, ws;
     bool decorated, hidden;
     Window win;
     Window dec;
@@ -81,13 +81,14 @@ static void ipc_b_width(uint32_t *d);
 static void ipc_t_height(uint32_t *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
-static void move_relative(struct Client *c, int x, int y);
-static void move_absolute(struct Client *c, int x, int y);
+static void move_relative(struct Client *c, int16_t x, int16_t y);
+static void move_absolute(struct Client *c, int16_t x, int16_t y);
 static void monocle(struct Client *c);
 static void raise_client(struct Client *c);
 static void refresh_client(struct Client *c);
-static void resize_relative(struct Client *c, int w, int h);
-static void resize_absolute(struct Client *c, int w, int h);
+static void refresh_config(void);
+static void resize_relative(struct Client *c, int16_t w, int16_t h);
+static void resize_absolute(struct Client *c, int16_t w, int16_t h); 
 static void run(void);
 static void save_client(struct Client *c, int ws);
 static void send_to_workspace(struct Client *c, int s);
@@ -497,7 +498,7 @@ hide_client(struct Client *c)
 static void
 ipc_move_relative(uint32_t *d)
 {
-    int x, y;
+    int16_t x, y;
 
     if (focused_client == NULL)
         return;
@@ -511,7 +512,7 @@ ipc_move_relative(uint32_t *d)
 static void
 ipc_move_absolute(uint32_t *d)
 {
-    int x, y;
+    int16_t x, y;
 
     if (focused_client == NULL)
         return;
@@ -543,7 +544,7 @@ ipc_raise(uint32_t *d)
 void 
 ipc_resize_relative(uint32_t *d)
 {
-    int w, h;
+    int16_t w, h;
 
     if (focused_client == NULL)
         return;
@@ -557,7 +558,7 @@ ipc_resize_relative(uint32_t *d)
 void 
 ipc_resize_absolute(uint32_t *d)
 {
-    int w, h;
+    int16_t w, h;
 
     if (focused_client == NULL)
         return;
@@ -580,21 +581,41 @@ ipc_toggle_decorations(uint32_t *d)
 void 
 ipc_bf_color(uint32_t *d)
 {
+    unsigned long nc;
+    nc = d[1];
+    conf.bf_color = nc;
+
+    refresh_config();
 }
 
 void 
 ipc_bu_color(uint32_t *d)
 {
+    unsigned long nc;
+    nc = d[1];
+    conf.bu_color = nc;
+
+    refresh_config();
 }
 
 void 
 ipc_b_width(uint32_t *d)
 {
+    uint16_t w;
+    w = d[1];
+    conf.b_width = w;
+
+    refresh_config();
 }
 
 void 
 ipc_t_height(uint32_t *d)
 {
+    uint16_t th;
+    th = d[1];
+    conf.t_height = th;
+
+    refresh_config();
 }
 
 static void
@@ -634,7 +655,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
 }
 
 static void
-move_relative(struct Client *c, int x, int y) 
+move_relative(struct Client *c, int16_t x, int16_t y) 
 {
     /* Constrain the current client to the w/h of display */
     if (conf.edge_lock)
@@ -656,10 +677,10 @@ move_relative(struct Client *c, int x, int y)
 }
 
 static void
-move_absolute(struct Client *c, int x, int y)
+move_absolute(struct Client *c, int16_t x, int16_t y)
 {
-    int dest_x = x;
-    int dest_y = y;
+    int16_t dest_x = x;
+    int16_t dest_y = y;
 
     if (c->decorated) {
         dest_x = x + conf.i_width + conf.b_width;
@@ -702,12 +723,17 @@ refresh_client(struct Client *c)
 }
 
 static void
-resize_absolute(struct Client *c, int w, int h) 
+refresh_config(void)
 {
-    int dest_w = w;
-    int dest_h = h;
-    int dec_w = w;
-    int dec_h = h;
+}
+
+static void
+resize_absolute(struct Client *c, int16_t w, int16_t h) 
+{
+    int16_t dest_w = w;
+    int16_t dest_h = h;
+    int16_t dec_w = w;
+    int16_t dec_h = h;
     if (c->decorated) 
     {
         dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
@@ -726,7 +752,7 @@ resize_absolute(struct Client *c, int w, int h)
 }
 
 static void
-resize_relative(struct Client *c, int w, int h) 
+resize_relative(struct Client *c, int16_t w, int16_t h) 
 {
     resize_absolute(c, c->w + w, c->h + h);
 }
