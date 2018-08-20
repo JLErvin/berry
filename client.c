@@ -18,12 +18,12 @@ struct Command
 };
 
 static struct Command c[] = {
-    { "window_move", IPCWindowMoveRelative, 2 } ,
-    { "window_move_absolute", IPCWindowMoveAbsolute, 2 }, 
-    { "window_resize", IPCWindowResizeRelative, 2 },
-    { "window_resize_absolute", IPCWindowResizeAbsolute, 2 },
-    { "window_raise", IPCWindowRaise, 2 },
-    { "window_monocle", IPCWindowMonocle, 2 }
+    { "window_move",            IPCWindowMoveRelative,    2 } ,
+    { "window_move_absolute",   IPCWindowMoveAbsolute,    2 }, 
+    { "window_resize",          IPCWindowResizeRelative,  2 },
+    { "window_resize_absolute", IPCWindowResizeAbsolute,  2 },
+    { "window_raise",           IPCWindowRaise,           0 },
+    { "window_monocle",         IPCWindowMonocle,         0 }
 };
 
 static void
@@ -47,14 +47,11 @@ send_command(struct Command *c, int argc, char **argv)
 
     ev.xclient.message_type = XInternAtom(display, BERRY_CLIENT_EVENT, False);
     ev.xclient.format = 32;
-    ev.xclient.data.b[0] = c->cmd;
-    /* Kill me for writing this I just want to see if it
-     * works ok fam */
-    if (c->cmd == 0 || c->cmd == 4) {
-        printf("Found data\n");
-        ev.xclient.data.b[1] = strtol(argv[0], NULL, 10);
-        ev.xclient.data.b[2] = strtol(argv[1], NULL, 10);
-    }
+    ev.xclient.data.l[0] = c->cmd;
+    if (c->argc == 1)
+        ev.xclient.data.l[1] = strtol(argv[0], NULL, 10);
+    if (c->argc == 2)
+        ev.xclient.data.l[2] = strtol(argv[1], NULL, 10);
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);
@@ -73,18 +70,28 @@ main(int argc, char **argv)
     /* s/o Vain for this loop :) */
     for (int i = 0; i < sizeof c / sizeof c[0]; i++)
     {
-        printf("Made it this far!\n");
         /* for now keep this check very simple, but
          * in the future we will want to make sure all the
          * arguments line up 
          */
         if (strcmp(argv[1], c[i].name) == 0)
         {
+            if (c->argc > c_argc)
+            {
+                printf("Error, too many arguments\n");
+                return 1;
+            }
+            else if (c->argc < c_argc)
+            {
+                printf("Error, too few arguments\n");
+                return 1;
+            }
             send_command(&c[i], c_argc, c_argv);
-            printf("Command matches\n");
+            printf("Command %s found\n", argv[1]);
             return 0;
         }
     }
+    printf("Command not found %s, exiting\n", argv[1]);
 }
 
 

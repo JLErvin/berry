@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -36,6 +37,7 @@ struct Config
 };
 
 
+FILE *f;
 /* List of ALL clients, currently focused client */
 static struct Client *focused_client = NULL;
 static struct Client *clients[WORKSPACE_NUMBER];
@@ -68,17 +70,17 @@ static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
 static void hide_client(struct Client *c);
-static void ipc_move_relative(uint32_t *d);
-static void ipc_move_absolute(uint32_t *d);
-static void ipc_monocle(uint32_t *d);
-static void ipc_raise(uint32_t *d);
-static void ipc_resize_relative(uint32_t *d);
-static void ipc_resize_absolute(uint32_t *d);
-static void ipc_toggle_decorations(uint32_t *d);
-static void ipc_bf_color(uint32_t *d);
-static void ipc_bu_color(uint32_t *d);
-static void ipc_b_width(uint32_t *d);
-static void ipc_t_height(uint32_t *d);
+static void ipc_move_relative(long *d);
+static void ipc_move_absolute(long *d);
+static void ipc_monocle(long *d);
+static void ipc_raise(long *d);
+static void ipc_resize_relative(long *d);
+static void ipc_resize_absolute(long *d);
+static void ipc_toggle_decorations(long *d);
+static void ipc_bf_color(long *d);
+static void ipc_bu_color(long *d);
+static void ipc_b_width(long *d);
+static void ipc_t_height(long *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int16_t x, int16_t y);
@@ -112,7 +114,8 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 };
 
 /* Event handler for our IPC protocle */
-static void (*ipc_handler[IPCLast])(uint32_t *) =
+/*static void (*ipc_handler[IPCLast])(uint32_t *) =*/
+static void (*ipc_handler[IPCLast])(long *) =
 {
     [IPCWindowMoveRelative]         = ipc_move_relative,
     [IPCWindowMoveAbsolute]         = ipc_move_absolute,
@@ -358,22 +361,30 @@ static void
 handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
-    enum IPCCommand cmd;
+    /*enum IPCCommand cmd;*/
+    uint32_t cmd;
     uint32_t arg1, arg2;
+    /*uint32_t data;*/
+    long *data;
+    fprintf(f, "Reached client_message handling\n");
+    fflush(f);
 
     // We need to handle our own client message,
     // we can redirect them to our IPC Handler,
     // much like we do with regular XEvents
     if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False))
     {
-        cmd = (enum IPCCommand)cme->data.b[0];
-        arg1 = cme->data.b[1];
-        arg2 = cme->data.b[2];
+        if (cme->format != 32)
+            return;
 
-        if (cme->data.b[0] == 0)
-            move_relative(focused_client, arg1, arg2);
-        if (cme->data.b[0] == 4)
-            resize_relative(focused_client, arg1, arg2);
+        /*cmd = (enum IPCCommand)cme->data.l[0];*/
+        cmd = cme->data.l[0];
+        fprintf(f, "WM cmd = %ld\n", (int)cmd);
+        fflush(f);
+        data = cme->data.l;
+        ipc_handler[cmd](data);
+        fprintf(f, "Args = %ld, %ld, %ld, %ld\n", data[1], data[2], data[3], data[4]);
+        fflush(f);
     }
 }
 
@@ -496,9 +507,12 @@ hide_client(struct Client *c)
 }
 
 static void
-ipc_move_relative(uint32_t *d)
+ipc_move_relative(long *d)
 {
-    int16_t x, y;
+    /*int16_t x, y;*/
+    int32_t x, y;
+    fprintf(f, "Reached move relative\n");
+    fflush(f);
 
     if (focused_client == NULL)
         return;
@@ -506,11 +520,14 @@ ipc_move_relative(uint32_t *d)
     x = d[1];
     y = d[2];
 
+    fprintf(f, "x = %ld, y = %ld", x, y);
+    fflush(f);
+
     move_relative(focused_client, x, y);
 }
 
 static void
-ipc_move_absolute(uint32_t *d)
+ipc_move_absolute(long *d)
 {
     int16_t x, y;
 
@@ -524,7 +541,7 @@ ipc_move_absolute(uint32_t *d)
 }
 
 static void
-ipc_monocle(uint32_t *d)
+ipc_monocle(long *d)
 {
     if (focused_client == NULL)
         return;
@@ -533,7 +550,7 @@ ipc_monocle(uint32_t *d)
 }
 
 static void
-ipc_raise(uint32_t *d) 
+ipc_raise(long *d) 
 {
     if (focused_client == NULL)
         return;
@@ -542,7 +559,7 @@ ipc_raise(uint32_t *d)
 }
 
 void 
-ipc_resize_relative(uint32_t *d)
+ipc_resize_relative(long *d)
 {
     int16_t w, h;
 
@@ -556,7 +573,7 @@ ipc_resize_relative(uint32_t *d)
 }
 
 void 
-ipc_resize_absolute(uint32_t *d)
+ipc_resize_absolute(long *d)
 {
     int16_t w, h;
 
@@ -570,7 +587,7 @@ ipc_resize_absolute(uint32_t *d)
 }
 
 void 
-ipc_toggle_decorations(uint32_t *d)
+ipc_toggle_decorations(long *d)
 {
     if (focused_client == NULL)
         return ;
@@ -579,7 +596,7 @@ ipc_toggle_decorations(uint32_t *d)
 }
 
 void 
-ipc_bf_color(uint32_t *d)
+ipc_bf_color(long *d)
 {
     unsigned long nc;
     nc = d[1];
@@ -589,7 +606,7 @@ ipc_bf_color(uint32_t *d)
 }
 
 void 
-ipc_bu_color(uint32_t *d)
+ipc_bu_color(long *d)
 {
     unsigned long nc;
     nc = d[1];
@@ -599,7 +616,7 @@ ipc_bu_color(uint32_t *d)
 }
 
 void 
-ipc_b_width(uint32_t *d)
+ipc_b_width(long *d)
 {
     uint16_t w;
     w = d[1];
@@ -609,7 +626,7 @@ ipc_b_width(uint32_t *d)
 }
 
 void 
-ipc_t_height(uint32_t *d)
+ipc_t_height(long *d)
 {
     uint16_t th;
     th = d[1];
@@ -887,6 +904,10 @@ toggle_decorations(struct Client *c)
 int
 main(void)
 {
+    f = fopen("/home/jle/log.txt", "w");
+    fprintf(f, "Opening display\n");
+    fflush(f);
+
     display = XOpenDisplay(NULL);
     if (!display)
         return 0;
@@ -894,4 +915,6 @@ main(void)
     setup();
     run();
     close();
+
+    fclose(f);
 }
