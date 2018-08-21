@@ -21,7 +21,7 @@
 
 struct Client 
 {
-    int16_t x, y, w, h, x_hide, ws;
+    int x, y, w, h, x_hide, ws;
     bool decorated, hidden;
     Window win;
     Window dec;
@@ -30,12 +30,26 @@ struct Client
 
 struct Config
 {
-    int8_t b_width, i_width, t_height, top_gap;
-    uint32_t bf_color, bu_color, if_color, iu_color;
-    int32_t r_step, m_step;
+    int b_width, i_width, t_height, top_gap;
+    unsigned long bf_color, bu_color, if_color, iu_color;
+    int r_step, m_step;
     bool focus_new, edge_lock;
 };
 
+enum
+{
+    NetWMFullscreen, 
+    NetActiveWindow, 
+    NetWMName, 
+    NetWMCheck,
+    NetWMSupported,
+    NetWMNumberDesktops,
+    NetDesktopGeometry,
+    NetCurrentDesktop,
+    NetLast 
+};
+
+static Atom net_atom[NetLast];
 
 FILE *f;
 /* List of ALL clients, currently focused client */
@@ -45,7 +59,7 @@ static struct Client *clients[WORKSPACE_NUMBER];
 static struct Config conf;
 static int current_ws = 0;
 static Display *display;
-static Window root;
+static Window root, check;
 static bool running = true;
 static int screen;
 static int screen_width;
@@ -81,16 +95,18 @@ static void ipc_bf_color(long *d);
 static void ipc_bu_color(long *d);
 static void ipc_b_width(long *d);
 static void ipc_t_height(long *d);
+static void ipc_switch_ws(long *d);
+static void ipc_send_to_ws(long *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
-static void move_relative(struct Client *c, int16_t x, int16_t y);
-static void move_absolute(struct Client *c, int16_t x, int16_t y);
+static void move_relative(struct Client *c, int x, int y);
+static void move_absolute(struct Client *c, int x, int y);
 static void monocle(struct Client *c);
 static void raise_client(struct Client *c);
 static void refresh_client(struct Client *c);
 static void refresh_config(void);
-static void resize_relative(struct Client *c, int16_t w, int16_t h);
-static void resize_absolute(struct Client *c, int16_t w, int16_t h); 
+static void resize_relative(struct Client *c, int w, int h);
+static void resize_absolute(struct Client *c, int w, int h); 
 static void run(void);
 static void save_client(struct Client *c, int ws);
 static void send_to_workspace(struct Client *c, int s);
@@ -100,7 +116,7 @@ static void setup(void);
 static void show_client(struct Client *c);
 static void snap_left(struct Client *c);
 static void snap_right(struct Client *c);
-static void switch_workspace(uint16_t ws);
+static void switch_workspace(int ws);
 static void toggle_decorations(struct Client *c);
 
 /* Native X11 Event handler */
@@ -114,7 +130,6 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 };
 
 /* Event handler for our IPC protocle */
-/*static void (*ipc_handler[IPCLast])(uint32_t *) =*/
 static void (*ipc_handler[IPCLast])(long *) =
 {
     [IPCWindowMoveRelative]         = ipc_move_relative,
@@ -127,7 +142,9 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCFocusColor]                 = ipc_bf_color,
     [IPCUnfocusColor]               = ipc_bu_color,
     [IPCBorderWidth]                = ipc_b_width,
-    [IPCTitleHeight]                = ipc_t_height
+    [IPCTitleHeight]                = ipc_t_height,
+    [IPCSwitchWorkspace]            = ipc_switch_ws,
+    [IPCSendWorkspace]              = ipc_send_to_ws,
 };
 
 
@@ -361,25 +378,15 @@ static void
 handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
-    /*enum IPCCommand cmd;*/
-    uint32_t cmd;
-    uint32_t arg1, arg2;
-    /*uint32_t data;*/
-    long *data;
-    fprintf(f, "Reached client_message handling\n");
-    fflush(f);
+    long cmd, *data;
 
-    // We need to handle our own client message,
-    // we can redirect them to our IPC Handler,
-    // much like we do with regular XEvents
     if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False))
     {
         if (cme->format != 32)
             return;
 
-        /*cmd = (enum IPCCommand)cme->data.l[0];*/
         cmd = cme->data.l[0];
-        fprintf(f, "WM cmd = %ld\n", (int)cmd);
+        fprintf(f, "WM cmd = %d\n", (int)cmd);
         fflush(f);
         data = cme->data.l;
         ipc_handler[cmd](data);
@@ -410,6 +417,7 @@ handle_keypress(XEvent *e)
     XKeyEvent *ev = &e->xkey;
 
     if (focused_client != NULL)
+    {
         if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
             move_relative(focused_client, conf.r_step, 0);
         else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
@@ -460,6 +468,7 @@ handle_keypress(XEvent *e)
             /*[>resize_relative_limit(focused_client, 50, 0);<]*/
         /*else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_V)))*/
             /*[>resize_relative_limit(focused_client, 0, 50);<]*/
+    }
 
 
     /* We can switch clients even if we have no focused windows */
@@ -509,10 +518,7 @@ hide_client(struct Client *c)
 static void
 ipc_move_relative(long *d)
 {
-    /*int16_t x, y;*/
-    int32_t x, y;
-    fprintf(f, "Reached move relative\n");
-    fflush(f);
+    int x, y;
 
     if (focused_client == NULL)
         return;
@@ -520,16 +526,13 @@ ipc_move_relative(long *d)
     x = d[1];
     y = d[2];
 
-    fprintf(f, "x = %ld, y = %ld", x, y);
-    fflush(f);
-
     move_relative(focused_client, x, y);
 }
 
 static void
 ipc_move_absolute(long *d)
 {
-    int16_t x, y;
+    int x, y;
 
     if (focused_client == NULL)
         return;
@@ -561,7 +564,7 @@ ipc_raise(long *d)
 void 
 ipc_resize_relative(long *d)
 {
-    int16_t w, h;
+    int w, h;
 
     if (focused_client == NULL)
         return;
@@ -575,7 +578,7 @@ ipc_resize_relative(long *d)
 void 
 ipc_resize_absolute(long *d)
 {
-    int16_t w, h;
+    int w, h;
 
     if (focused_client == NULL)
         return;
@@ -618,7 +621,7 @@ ipc_bu_color(long *d)
 void 
 ipc_b_width(long *d)
 {
-    uint16_t w;
+    int w;
     w = d[1];
     conf.b_width = w;
 
@@ -628,11 +631,23 @@ ipc_b_width(long *d)
 void 
 ipc_t_height(long *d)
 {
-    uint16_t th;
+    int th;
     th = d[1];
     conf.t_height = th;
 
     refresh_config();
+}
+
+static void
+ipc_switch_ws(long *d)
+{
+    int ws = d[1];
+    switch_workspace(ws);
+}
+
+static void
+ipc_send_to_ws(long *d)
+{
 }
 
 static void
@@ -672,7 +687,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
 }
 
 static void
-move_relative(struct Client *c, int16_t x, int16_t y) 
+move_relative(struct Client *c, int x, int y) 
 {
     /* Constrain the current client to the w/h of display */
     if (conf.edge_lock)
@@ -694,10 +709,10 @@ move_relative(struct Client *c, int16_t x, int16_t y)
 }
 
 static void
-move_absolute(struct Client *c, int16_t x, int16_t y)
+move_absolute(struct Client *c, int x, int y)
 {
-    int16_t dest_x = x;
-    int16_t dest_y = y;
+    int dest_x = x;
+    int dest_y = y;
 
     if (c->decorated) {
         dest_x = x + conf.i_width + conf.b_width;
@@ -745,12 +760,12 @@ refresh_config(void)
 }
 
 static void
-resize_absolute(struct Client *c, int16_t w, int16_t h) 
+resize_absolute(struct Client *c, int w, int h) 
 {
-    int16_t dest_w = w;
-    int16_t dest_h = h;
-    int16_t dec_w = w;
-    int16_t dec_h = h;
+    int dest_w = w;
+    int dest_h = h;
+    int dec_w = w;
+    int dec_h = h;
     if (c->decorated) 
     {
         dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
@@ -769,7 +784,7 @@ resize_absolute(struct Client *c, int16_t w, int16_t h)
 }
 
 static void
-resize_relative(struct Client *c, int16_t w, int16_t h) 
+resize_relative(struct Client *c, int w, int h) 
 {
     resize_absolute(c, c->w + w, c->h + h);
 }
@@ -825,6 +840,7 @@ set_input(struct Client *c)
 static void
 setup(void)
 {
+    unsigned long data[1];
     // Setup our conf initially
     conf.b_width   = BORDER_WIDTH;
     conf.t_height  = TITLE_HEIGHT;
@@ -847,6 +863,33 @@ setup(void)
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
     grab_keys(root);
+
+    Atom utf8string;
+    check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
+
+    utf8string = XInternAtom(display, "UTF8_STRING", False);
+    net_atom[NetWMFullscreen] = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN" , False);
+    net_atom[NetActiveWindow] = XInternAtom(display, "_NET_ACTIVE_WINDOW" , False);
+    net_atom[NetWMName] = XInternAtom(display, "_NET_WM_NAME" , False);
+    net_atom[NetWMCheck] = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK" , False);
+    net_atom[NetWMSupported] = XInternAtom(display, "_NET_SUPPORTED" , False);
+    net_atom[NetWMNumberDesktops] = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS" , False);
+    net_atom[NetDesktopGeometry] = XInternAtom(display, "_NET_DESKTOP_GEOMETRY" , False);
+    net_atom[NetCurrentDesktop] = XInternAtom(display, "_NET_CURRENT_DESKTOP" , False);
+
+    XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32,
+            PropModeReplace, (unsigned char *) &check, 1);
+    XChangeProperty(display, check, net_atom[NetWMName], utf8string, 8, PropModeReplace, 
+            (unsigned char *) "berry", 5);
+    XChangeProperty(display, root, net_atom[NetWMCheck], XA_WINDOW, 32,
+            PropModeReplace, (unsigned char *) &check, 1);
+
+    XChangeProperty(display, root, net_atom[NetWMSupported], XA_ATOM, 32,
+            PropModeReplace, (unsigned char *) net_atom, NetLast);
+
+    data[0] = WORKSPACE_NUMBER;
+    XChangeProperty(display, root, net_atom[NetWMNumberDesktops], XA_CARDINAL, 32,
+            PropModeReplace, (unsigned char *) data, 1);
 }
 
 static void
@@ -874,8 +917,10 @@ snap_right(struct Client *c)
 }
 
 static void
-switch_workspace(uint16_t ws)
+switch_workspace(int ws)
 {
+    unsigned long data[1];
+
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         if (i != ws)
             for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
@@ -885,8 +930,11 @@ switch_workspace(uint16_t ws)
                 show_client(tmp);
 
     current_ws = ws;
-
     manage_client_focus(clients[current_ws]);
+
+    data[0] = ws;
+    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32,
+            PropModeReplace, (unsigned char *) data, 1);
 }
 
 static void

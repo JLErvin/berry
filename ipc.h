@@ -14,8 +14,15 @@ enum IPCCommand
     IPCWindowToggleDecorations,
     IPCFocusColor,
     IPCUnfocusColor,
+    IPCInnerFocusColor,
+    IPCInnerUnfocusColor,
+    IPCTitleFocusColor,
+    IPCTitleUnfocusColor,
     IPCBorderWidth,
+    IPCInnerBorderWidth,
     IPCTitleHeight,
+    IPCSwitchWorkspace,
+    IPCSendWorkspace,
     IPCLast
 };
 
