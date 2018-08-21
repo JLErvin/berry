@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
+
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -14,10 +15,6 @@
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
 #define MIN(a, b) ((a < b) ? (a) : (b)) 
 #define WORKSPACE_NUMBER 10
-#define NORTH 2
-#define SOUTH 4
-#define EAST 1
-#define WEST 3
 
 struct Client 
 {
@@ -49,9 +46,14 @@ enum
     NetLast 
 };
 
-static Atom net_atom[NetLast];
+enum direction
+{
+    EAST,
+    NORTH,
+    WEST,
+    SOUTH
+};
 
-FILE *f;
 /* List of ALL clients, currently focused client */
 static struct Client *focused_client = NULL;
 static struct Client *clients[WORKSPACE_NUMBER];
@@ -59,6 +61,7 @@ static struct Client *clients[WORKSPACE_NUMBER];
 static struct Config conf;
 static int current_ws = 0;
 static Display *display;
+static Atom net_atom[NetLast];
 static Window root, check;
 static bool running = true;
 static int screen;
@@ -93,7 +96,10 @@ static void ipc_resize_absolute(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_bf_color(long *d);
 static void ipc_bu_color(long *d);
+static void ipc_if_color(long *d);
+static void ipc_iu_color(long *d);
 static void ipc_b_width(long *d);
+static void ipc_i_width(long *d);
 static void ipc_t_height(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
@@ -130,21 +136,41 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 };
 
 /* Event handler for our IPC protocle */
-static void (*ipc_handler[IPCLast])(long *) =
+/*static void (*ipc_handler[IPCLast])(long *) =*/
+/*{*/
+    /*[IPCWindowMoveRelative]         = ipc_move_relative,*/
+    /*[IPCWindowMoveAbsolute]         = ipc_move_absolute,*/
+    /*[IPCWindowMonocle]              = ipc_monocle,*/
+    /*[IPCWindowRaise]                = ipc_raise,*/
+    /*[IPCWindowResizeRelative]       = ipc_resize_relative,*/
+    /*[IPCWindowResizeAbsolute]       = ipc_resize_absolute,*/
+    /*[IPCWindowToggleDecorations]    = ipc_toggle_decorations,*/
+    /*[IPCFocusColor]                 = ipc_bf_color,*/
+    /*[IPCUnfocusColor]               = ipc_bu_color,*/
+    /*[IPCBorderWidth]                = ipc_b_width,*/
+    /*[IPCTitleHeight]                = ipc_t_height,*/
+    /*[IPCSwitchWorkspace]            = ipc_switch_ws,*/
+    /*[IPCSendWorkspace]              = ipc_send_to_ws,*/
+/*};*/
+
+static void (*ipc_handler[IPCLast])(long *) = 
 {
-    [IPCWindowMoveRelative]         = ipc_move_relative,
-    [IPCWindowMoveAbsolute]         = ipc_move_absolute,
-    [IPCWindowMonocle]              = ipc_monocle,
-    [IPCWindowRaise]                = ipc_raise,
-    [IPCWindowResizeRelative]       = ipc_resize_relative,
-    [IPCWindowResizeAbsolute]       = ipc_resize_absolute,
-    [IPCWindowToggleDecorations]    = ipc_toggle_decorations,
-    [IPCFocusColor]                 = ipc_bf_color,
-    [IPCUnfocusColor]               = ipc_bu_color,
-    [IPCBorderWidth]                = ipc_b_width,
-    [IPCTitleHeight]                = ipc_t_height,
-    [IPCSwitchWorkspace]            = ipc_switch_ws,
-    [IPCSendWorkspace]              = ipc_send_to_ws,
+    [IPCWindowMoveRelative]= ipc_move_relative,
+    [IPCWindowMoveAbsolute]= ipc_move_absolute,
+    [IPCWindowMonocle]=  ipc_monocle,
+    [IPCWindowRaise]= ipc_raise,
+    [IPCWindowResizeRelative]= ipc_resize_relative,
+    [IPCWindowResizeAbsolute]= ipc_resize_absolute,
+    [IPCWindowToggleDecorations]= ipc_toggle_decorations,
+    [IPCFocusColor]= ipc_bf_color,
+    [IPCUnfocusColor]= ipc_bu_color,
+    [IPCInnerFocusColor]= ipc_if_color,
+    [IPCInnerUnfocusColor]= ipc_iu_color,
+    [IPCBorderWidth]= ipc_b_width,
+    [IPCInnerBorderWidth]= ipc_i_width,
+    [IPCTitleHeight]= ipc_t_height,
+    [IPCSwitchWorkspace]= ipc_switch_ws,
+    [IPCSendWorkspace]= ipc_send_to_ws
 };
 
 
@@ -386,12 +412,8 @@ handle_client_message(XEvent *e)
             return;
 
         cmd = cme->data.l[0];
-        fprintf(f, "WM cmd = %d\n", (int)cmd);
-        fflush(f);
         data = cme->data.l;
         ipc_handler[cmd](data);
-        fprintf(f, "Args = %ld, %ld, %ld, %ld\n", data[1], data[2], data[3], data[4]);
-        fflush(f);
     }
 }
 
@@ -561,7 +583,7 @@ ipc_raise(long *d)
     raise_client(focused_client);
 }
 
-void 
+static void 
 ipc_resize_relative(long *d)
 {
     int w, h;
@@ -575,7 +597,7 @@ ipc_resize_relative(long *d)
     resize_relative(focused_client, w, h);
 }
 
-void 
+static void 
 ipc_resize_absolute(long *d)
 {
     int w, h;
@@ -589,7 +611,7 @@ ipc_resize_absolute(long *d)
     resize_absolute(focused_client, w, h);
 }
 
-void 
+static void 
 ipc_toggle_decorations(long *d)
 {
     if (focused_client == NULL)
@@ -598,7 +620,7 @@ ipc_toggle_decorations(long *d)
     toggle_decorations(focused_client);
 }
 
-void 
+static void 
 ipc_bf_color(long *d)
 {
     unsigned long nc;
@@ -618,7 +640,17 @@ ipc_bu_color(long *d)
     refresh_config();
 }
 
-void 
+static void
+ipc_if_color(long *d)
+{
+}
+
+static void
+ipc_iu_color(long *d)
+{
+}
+
+static void 
 ipc_b_width(long *d)
 {
     int w;
@@ -628,7 +660,12 @@ ipc_b_width(long *d)
     refresh_config();
 }
 
-void 
+static void
+ipc_i_width(long *d)
+{
+}
+
+static void 
 ipc_t_height(long *d)
 {
     int th;
@@ -952,10 +989,6 @@ toggle_decorations(struct Client *c)
 int
 main(void)
 {
-    f = fopen("/home/jle/log.txt", "w");
-    fprintf(f, "Opening display\n");
-    fflush(f);
-
     display = XOpenDisplay(NULL);
     if (!display)
         return 0;
@@ -963,6 +996,4 @@ main(void)
     setup();
     run();
     close();
-
-    fclose(f);
 }
