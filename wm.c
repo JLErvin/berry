@@ -1,12 +1,12 @@
 /* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
 /* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
 
+#include <limits.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <limits.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -760,6 +760,11 @@ refresh_config(void)
 
             if (i != current_ws)
                 hide_client(tmp);
+            else
+            {
+                show_client(tmp);
+                raise_client(tmp);
+            }
         }
 }
 
