@@ -151,31 +151,30 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 
 static void (*ipc_handler[IPCLast])(long *) = 
 {
-    [IPCWindowMoveRelative]= ipc_move_relative,
-    [IPCWindowMoveAbsolute]= ipc_move_absolute,
-    [IPCWindowMonocle]=  ipc_monocle,
-    [IPCWindowRaise]= ipc_raise,
-    [IPCWindowResizeRelative]= ipc_resize_relative,
-    [IPCWindowResizeAbsolute]= ipc_resize_absolute,
-    [IPCWindowToggleDecorations]= ipc_toggle_decorations,
-    [IPCWindowClose]= ipc_window_close,
-    [IPCFocusColor]= ipc_bf_color,
-    [IPCUnfocusColor]= ipc_bu_color,
-    [IPCInnerFocusColor]= ipc_if_color,
-    [IPCInnerUnfocusColor]= ipc_iu_color,
-    [IPCBorderWidth]= ipc_b_width,
-    [IPCInnerBorderWidth]= ipc_i_width,
-    [IPCTitleHeight]= ipc_t_height,
-    [IPCSwitchWorkspace]= ipc_switch_ws,
-    [IPCSendWorkspace]= ipc_send_to_ws,
-    [IPCFullscreen]= ipc_fullscreen,
-    [IPCSnapLeft]= ipc_snap_left,
-    [IPCSnapRight]= ipc_snap_right,
-    [IPCSnapRight]= ipc_snap_right,
-    [IPCCardinalFocus]= ipc_cardinal_focus,
-    [IPCCycleFocus]= ipc_cycle_focus,
+    [IPCWindowMoveRelative]       = ipc_move_relative,
+    [IPCWindowMoveAbsolute]       = ipc_move_absolute,
+    [IPCWindowMonocle]            = ipc_monocle,
+    [IPCWindowRaise]              = ipc_raise,
+    [IPCWindowResizeRelative]     = ipc_resize_relative,
+    [IPCWindowResizeAbsolute]     = ipc_resize_absolute,
+    [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
+    [IPCWindowClose]              = ipc_window_close,
+    [IPCFocusColor]               = ipc_bf_color,
+    [IPCUnfocusColor]             = ipc_bu_color,
+    [IPCInnerFocusColor]          = ipc_if_color,
+    [IPCInnerUnfocusColor]        = ipc_iu_color,
+    [IPCBorderWidth]              = ipc_b_width,
+    [IPCInnerBorderWidth]         = ipc_i_width,
+    [IPCTitleHeight]              = ipc_t_height,
+    [IPCSwitchWorkspace]          = ipc_switch_ws,
+    [IPCSendWorkspace]            = ipc_send_to_ws,
+    [IPCFullscreen]               = ipc_fullscreen,
+    [IPCSnapLeft]                 = ipc_snap_left,
+    [IPCSnapRight]                = ipc_snap_right,
+    [IPCSnapRight]                = ipc_snap_right,
+    [IPCCardinalFocus]            = ipc_cardinal_focus,
+    [IPCCycleFocus]               = ipc_cycle_focus,
 };
-
 
 static void
 cardinal_focus(struct Client *c, int dir)
@@ -561,8 +560,8 @@ ipc_b_width(long *d)
     w = d[1];
     conf.b_width = w;
 
-    decorations_destroy(focused_client);
-    decorations_create(focused_client);
+    /*decorations_destroy(focused_client);*/
+    /*decorations_create(focused_client);*/
     refresh_config();
     raise_client(focused_client);
 }
@@ -745,12 +744,14 @@ refresh_config(void)
             decorations_destroy(tmp);
             decorations_create(tmp);
             refresh_client(tmp);
+            show_client(tmp);
             if (focused_client != tmp) 
                 set_color(tmp, conf.iu_color, conf.bu_color);
             else
                 set_color(tmp, conf.if_color, conf.bf_color);
 
-            raise_client(tmp);
+            if (i != current_ws)
+                hide_client(tmp);
         }
 }
 
@@ -904,6 +905,7 @@ show_client(struct Client *c)
     if (c->hidden)
     {
         move_absolute(c, c->x_hide, c->y);
+        raise_client(c);
         c->hidden = false;
     }
 }
