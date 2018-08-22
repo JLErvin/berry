@@ -80,10 +80,8 @@ static void delete_client(struct Client *c);
 static int euclidean_distance(struct Client *a, struct Client *b);
 static void fullscreen(struct Client *c);
 static struct Client* get_client_from_window(Window w);
-static void grab_keys(Window w);
 static void handle_client_message(XEvent *e);
 static void handle_configure_request(XEvent *e);
-static void handle_keypress(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
 static void hide_client(struct Client *c);
@@ -103,6 +101,10 @@ static void ipc_i_width(long *d);
 static void ipc_t_height(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
+static void ipc_fullscreen(long *d);
+static void ipc_snap_left(long *d);
+static void ipc_snap_right(long *d);
+static void ipc_cardinal_focus(long *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
@@ -129,29 +131,10 @@ static void toggle_decorations(struct Client *c);
 static void (*event_handler[LASTEvent])(XEvent *e) = 
 {
     [MapRequest]       = handle_map_request,
-    [KeyPress]         = handle_keypress,
     [UnmapNotify]      = handle_unmap_notify,
     [ConfigureRequest] = handle_configure_request,
     [ClientMessage]    = handle_client_message
 };
-
-/* Event handler for our IPC protocle */
-/*static void (*ipc_handler[IPCLast])(long *) =*/
-/*{*/
-    /*[IPCWindowMoveRelative]         = ipc_move_relative,*/
-    /*[IPCWindowMoveAbsolute]         = ipc_move_absolute,*/
-    /*[IPCWindowMonocle]              = ipc_monocle,*/
-    /*[IPCWindowRaise]                = ipc_raise,*/
-    /*[IPCWindowResizeRelative]       = ipc_resize_relative,*/
-    /*[IPCWindowResizeAbsolute]       = ipc_resize_absolute,*/
-    /*[IPCWindowToggleDecorations]    = ipc_toggle_decorations,*/
-    /*[IPCFocusColor]                 = ipc_bf_color,*/
-    /*[IPCUnfocusColor]               = ipc_bu_color,*/
-    /*[IPCBorderWidth]                = ipc_b_width,*/
-    /*[IPCTitleHeight]                = ipc_t_height,*/
-    /*[IPCSwitchWorkspace]            = ipc_switch_ws,*/
-    /*[IPCSendWorkspace]              = ipc_send_to_ws,*/
-/*};*/
 
 static void (*ipc_handler[IPCLast])(long *) = 
 {
@@ -170,7 +153,12 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCInnerBorderWidth]= ipc_i_width,
     [IPCTitleHeight]= ipc_t_height,
     [IPCSwitchWorkspace]= ipc_switch_ws,
-    [IPCSendWorkspace]= ipc_send_to_ws
+    [IPCSendWorkspace]= ipc_send_to_ws,
+    [IPCFullscreen]= ipc_fullscreen,
+    [IPCSnapLeft]= ipc_snap_left,
+    [IPCSnapRight]= ipc_snap_right,
+    [IPCSnapRight]= ipc_snap_right,
+    [IPCCardinalFocus]= ipc_cardinal_focus,
 };
 
 
@@ -327,80 +315,6 @@ get_client_from_window(Window w)
 }
 
 static void
-grab_keys(Window w)
-{
-    XGrabKey(display, XKeysymToKeycode(display, XK_L), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_H), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_J), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_K), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_Q), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_Tab), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_1), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_2), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_9), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_0), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-
-    XGrabKey(display, XKeysymToKeycode(display, XK_U), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_I), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_O), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_P), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-
-    // Cardinal focusing
-    XGrabKey(display, XKeysymToKeycode(display, XK_A), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_S), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_X), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_Z), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-
-    XGrabKey(display, XKeysymToKeycode(display, XK_C), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_N), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    // monocle
-    XGrabKey(display, XKeysymToKeycode(display, XK_M), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_T), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_Y), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_1), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_2), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_F), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_B), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(display, XKeysymToKeycode(display, XK_V), Mod4Mask,
-            w, True, GrabModeAsync, GrabModeAsync);
-
-    XGrabButton(display, Button3, Mod4Mask, w, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask,
-            GrabModeAsync, GrabModeAsync, None, None);
-
-    XGrabButton(display, Button1, Mod4Mask, w, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, 
-            GrabModeAsync, GrabModeAsync, None, None);
-}
-
-static void
 handle_client_message(XEvent *e)
 {
     XClientMessageEvent *cme = &e->xclient;
@@ -431,73 +345,6 @@ handle_configure_request(XEvent *e)
     wc.sibling = ev->above;
     wc.stack_mode = ev->detail;
     XConfigureWindow(display, ev->window, ev->value_mask, &wc);
-}
-
-static void
-handle_keypress(XEvent *e) 
-{
-    XKeyEvent *ev = &e->xkey;
-
-    if (focused_client != NULL)
-    {
-        if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_L)))
-            move_relative(focused_client, conf.r_step, 0);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_H)))
-            move_relative(focused_client, -conf.r_step, 0); 
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_J)))
-            move_relative(focused_client, 0, conf.r_step);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_K)))
-            move_relative(focused_client, 0, -conf.r_step);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Q)))
-            XKillClient(display, focused_client->win);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-            focus_next(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_U)))
-            resize_relative(focused_client, -conf.r_step, 0);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_I)))
-            resize_relative(focused_client, 0, conf.r_step);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_O)))
-            resize_relative(focused_client, 0, -conf.r_step);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_P)))
-            resize_relative(focused_client, conf.r_step, 0);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_C)))
-            center_client(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_A)))
-            cardinal_focus(focused_client, 3);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_S)))
-            cardinal_focus(focused_client, 1);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Z)))
-            cardinal_focus(focused_client, 2);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_X)))
-            cardinal_focus(focused_client, 4);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab)))
-            focus_next(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_M)))
-            monocle(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_N)))
-            toggle_decorations(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_T)))
-            snap_left(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Y)))
-            snap_right(focused_client);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_9)))
-            send_to_workspace(focused_client, 0);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_0)))
-            send_to_workspace(focused_client, 1);
-        else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F)))
-            fullscreen(focused_client);
-        /*else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_B)))*/
-            /*[>resize_relative_limit(focused_client, 50, 0);<]*/
-        /*else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_V)))*/
-            /*[>resize_relative_limit(focused_client, 0, 50);<]*/
-    }
-
-
-    /* We can switch clients even if we have no focused windows */
-    if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_1)))
-        switch_workspace(0);
-    else if ((ev->state &Mod4Mask) && (ev->keycode == XKeysymToKeycode(display, XK_2)))
-        switch_workspace(1);
 }
 
 static void
@@ -679,12 +526,39 @@ static void
 ipc_switch_ws(long *d)
 {
     int ws = d[1];
-    switch_workspace(ws);
+    switch_workspace(ws - 1);
 }
 
 static void
 ipc_send_to_ws(long *d)
 {
+    int ws = d[1];
+    send_to_workspace(focused_client, ws - 1);
+}
+
+static void
+ipc_fullscreen(long *d)
+{
+    fullscreen(focused_client);
+}
+
+static void
+ipc_snap_left(long *d)
+{
+    snap_left(focused_client);
+}
+
+static void
+ipc_snap_right(long *d)
+{
+    snap_right(focused_client);
+}
+
+static void
+ipc_cardinal_focus(long *d)
+{
+    int dir = d[1];
+    cardinal_focus(focused_client, dir);
 }
 
 static void
@@ -899,7 +773,6 @@ setup(void)
     screen_width = DisplayWidth(display, screen);
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
-    grab_keys(root);
 
     Atom utf8string;
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
