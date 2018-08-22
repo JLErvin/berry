@@ -30,6 +30,7 @@ static struct Command c[] = {
     { "window_resize_absolute", IPCWindowResizeAbsolute,    2, NULL   },
     { "window_raise",           IPCWindowRaise,             0, NULL   },
     { "window_monocle",         IPCWindowMonocle,           0, NULL   },
+    { "window_close",           IPCWindowClose,             0, NULL   },
     { "focus_color",            IPCFocusColor,              1, fn_hex },
     { "unfocus_color",          IPCUnfocusColor,            1, fn_hex }, 
     { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex },

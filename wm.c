@@ -36,7 +36,7 @@ struct Config
     bool focus_new, edge_lock;
 };
 
-enum
+enum AtomsNet
 {
     NetWMFullscreen, 
     NetActiveWindow, 
@@ -47,6 +47,13 @@ enum
     NetDesktopGeometry,
     NetCurrentDesktop,
     NetLast 
+};
+
+enum AtomsWm
+{
+    WMDeleteWindow,
+    WMProtocols,
+    WMLast,
 };
 
 enum direction
@@ -64,7 +71,7 @@ static struct Client *clients[WORKSPACE_NUMBER];
 static struct Config conf;
 static int current_ws = 0;
 static Display *display;
-static Atom net_atom[NetLast];
+static Atom net_atom[NetLast], wm_atom[WMLast];
 static Window root, check;
 static bool running = true;
 static int screen;
@@ -96,6 +103,7 @@ static void ipc_raise(long *d);
 static void ipc_resize_relative(long *d);
 static void ipc_resize_absolute(long *d);
 static void ipc_toggle_decorations(long *d);
+static void ipc_window_close(long *d);
 static void ipc_bf_color(long *d);
 static void ipc_bu_color(long *d);
 static void ipc_if_color(long *d);
@@ -150,6 +158,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCWindowResizeRelative]= ipc_resize_relative,
     [IPCWindowResizeAbsolute]= ipc_resize_absolute,
     [IPCWindowToggleDecorations]= ipc_toggle_decorations,
+    [IPCWindowClose]= ipc_window_close,
     [IPCFocusColor]= ipc_bf_color,
     [IPCUnfocusColor]= ipc_bu_color,
     [IPCInnerFocusColor]= ipc_if_color,
@@ -225,6 +234,19 @@ static void
 close(void)
 {
     XCloseDisplay(display);
+}
+
+static void
+close_window(struct Client *c)
+{
+    XEvent ev;
+    ev.type = ClientMessage;
+    ev.xclient.window = c->win;
+    ev.xclient.message_type = wm_atom[WMProtocols];
+    ev.xclient.format = 32;
+    ev.xclient.data.l[0] = wm_atom[WMDeleteWindow];
+    ev.xclient.data.l[1] = CurrentTime;
+    XSendEvent(display, c->win, False, NoEventMask, &ev);
 }
 
 static void
@@ -361,7 +383,12 @@ handle_map_request(XEvent *e)
 {
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
-    XGetWindowAttributes(display, ev->window, &wa);
+    if (! XGetWindowAttributes(display, ev->window, &wa))
+        return;
+
+    if (wa.override_redirect)
+        return;
+
     manage_new_window(ev->window, &wa);
 }
 
@@ -474,6 +501,15 @@ ipc_toggle_decorations(long *d)
         return ;
 
     toggle_decorations(focused_client);
+}
+
+static void
+ipc_window_close(long *d)
+{
+    if (focused_client == NULL)
+        return;
+
+    close_window(focused_client);
 }
 
 static void 
@@ -801,6 +837,9 @@ setup(void)
     net_atom[NetWMNumberDesktops] = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS" , False);
     net_atom[NetDesktopGeometry] = XInternAtom(display, "_NET_DESKTOP_GEOMETRY" , False);
     net_atom[NetCurrentDesktop] = XInternAtom(display, "_NET_CURRENT_DESKTOP" , False);
+
+    wm_atom[WMDeleteWindow] = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    wm_atom[WMProtocols] = XInternAtom(display, "WM_PROTOCOLS", False);
 
     XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32,
             PropModeReplace, (unsigned char *) &check, 1);
