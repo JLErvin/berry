@@ -4,6 +4,8 @@
 
 A healthy, bite-sized window manager written in C over the XLib library.
 
+![Screenshot](https://i.imgur.com/J7nwibt.png)
+
 # Description
 `berry` is a floating window manager that responds to X events and manages window decorations.
 
