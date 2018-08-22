@@ -537,11 +537,21 @@ ipc_bu_color(long *d)
 static void
 ipc_if_color(long *d)
 {
+    unsigned long nc;
+    nc = d[1];
+    conf.if_color = nc;
+
+    refresh_config();
 }
 
 static void
 ipc_iu_color(long *d)
 {
+    unsigned long nc;
+    nc = d[1];
+    conf.iu_color = nc;
+
+    refresh_config();
 }
 
 static void 
@@ -551,12 +561,20 @@ ipc_b_width(long *d)
     w = d[1];
     conf.b_width = w;
 
+    decorations_destroy(focused_client);
+    decorations_create(focused_client);
     refresh_config();
+    raise_client(focused_client);
 }
 
 static void
 ipc_i_width(long *d)
 {
+    int w;
+    w = d[1];
+    conf.i_width = w;
+
+    refresh_config();
 }
 
 static void 
@@ -721,6 +739,19 @@ refresh_client(struct Client *c)
 static void
 refresh_config(void)
 {
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
+        {
+            decorations_destroy(tmp);
+            decorations_create(tmp);
+            refresh_client(tmp);
+            if (focused_client != tmp) 
+                set_color(tmp, conf.iu_color, conf.bu_color);
+            else
+                set_color(tmp, conf.if_color, conf.bf_color);
+
+            raise_client(tmp);
+        }
 }
 
 static void
@@ -730,6 +761,7 @@ resize_absolute(struct Client *c, int w, int h)
     int dest_h = h;
     int dec_w = w;
     int dec_h = h;
+
     if (c->decorated) 
     {
         dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
@@ -921,6 +953,7 @@ toggle_decorations(struct Client *c)
 
     refresh_client(c);
     raise_client(c);
+    manage_client_focus(c);
 }
 
 int

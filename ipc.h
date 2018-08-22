@@ -26,6 +26,7 @@ enum IPCCommand
     IPCSnapRight,
     IPCCardinalFocus,
     IPCCycleFocus,
+    IPCWindowClose,
     IPCLast
 };
 

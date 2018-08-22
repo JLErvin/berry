@@ -53,3 +53,6 @@ super + n
 
 super + Tab
     berryc cycle_focus
+
+super + q
+    berryc window_close

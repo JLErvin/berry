@@ -14,6 +14,7 @@
 #include "ipc.h"
 
 static void fn_hex(long *, int, char **);
+static void fn_int(long *, int, char **);
 
 struct Command
 {
@@ -24,10 +25,10 @@ struct Command
 };
 
 static struct Command c[] = {
-    { "window_move",            IPCWindowMoveRelative,      2, NULL   },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, NULL   }, 
-    { "window_resize",          IPCWindowResizeRelative,    2, NULL   },
-    { "window_resize_absolute", IPCWindowResizeAbsolute,    2, NULL   },
+    { "window_move",            IPCWindowMoveRelative,      2, fn_int },
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int }, 
+    { "window_resize",          IPCWindowResizeRelative,    2, fn_int },
+    { "window_resize_absolute", IPCWindowResizeAbsolute,    2, fn_int },
     { "window_raise",           IPCWindowRaise,             0, NULL   },
     { "window_monocle",         IPCWindowMonocle,           0, NULL   },
     { "window_close",           IPCWindowClose,             0, NULL   },
@@ -35,25 +36,29 @@ static struct Command c[] = {
     { "unfocus_color",          IPCUnfocusColor,            1, fn_hex }, 
     { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex },
     { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex }, 
-    { "border_width",           IPCBorderWidth,             1, NULL   },
-    { "inner_border_width",     IPCInnerBorderWidth,        1, NULL   },
-    { "title_height",           IPCTitleHeight,             1, NULL   },
-    { "switch_workspace",       IPCSwitchWorkspace,         1, NULL   },
-    { "send_to_workspace",      IPCSendWorkspace,           1, NULL   },
+    { "border_width",           IPCBorderWidth,             1, fn_int },
+    { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int },
+    { "title_height",           IPCTitleHeight,             1, fn_int },
+    { "switch_workspace",       IPCSwitchWorkspace,         1, fn_int },
+    { "send_to_workspace",      IPCSendWorkspace,           1, fn_int },
     { "fullscreen",             IPCFullscreen,              0, NULL   },
     { "snap_left",              IPCSnapLeft,                0, NULL   },
     { "snap_right",             IPCSnapRight,               0, NULL   },
-    { "cardinal_focus",         IPCCardinalFocus,           1, NULL   },
+    { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },
     { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL   },
     { "cycle_focus",            IPCCycleFocus,              0, NULL   },
 };
 
 static void
-fn_hex(long *data, int argc, char **argv)
+fn_hex(long *data, int i, char **argv)
 {
-    for (int i = 0; i < argc; i++) {
-        data[i] = strtoul(argv[i], NULL, 16);
-    }
+    data[i] = strtoul(argv[i - 1], NULL, 16);
+}
+
+static void
+fn_int(long *data, int i, char **argv)
+{
+    data[i] = strtol(argv[i - 1], NULL, 10);
 }
 
 static void
@@ -77,14 +82,9 @@ send_command(struct Command *c, int argc, char **argv)
     ev.xclient.format = 32;
     ev.xclient.data.l[0] = c->cmd;
     if (c->argc >= 1)
-    {
-        if (c->cmd == 7)
-            ev.xclient.data.l[1] = strtoul(argv[0], NULL, 16);
-        else
-            ev.xclient.data.l[1] = strtol(argv[0], NULL, 10);
-    }
+        (c->handler)(ev.xclient.data.l, 1, argv);
     if (c->argc == 2)
-        ev.xclient.data.l[2] = strtol(argv[1], NULL, 10);
+        (c->handler)(ev.xclient.data.l, 2, argv);
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);
