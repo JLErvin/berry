@@ -1,3 +1,6 @@
+/* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
+/* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
+
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -73,6 +76,7 @@ static int screen_height;
 static void cardinal_focus(struct Client *c, int dir);
 static void center_client(struct Client *c);
 static void close(void);
+static void close_window(struct Client *c);
 static void decorate_new_client(struct Client *c);
 static void decorations_create(struct Client *c);
 static void decorations_destroy(struct Client *c);
@@ -105,6 +109,7 @@ static void ipc_fullscreen(long *d);
 static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
+static void ipc_cycle_focus(long *d);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
@@ -159,6 +164,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCSnapRight]= ipc_snap_right,
     [IPCSnapRight]= ipc_snap_right,
     [IPCCardinalFocus]= ipc_cardinal_focus,
+    [IPCCycleFocus]= ipc_cycle_focus,
 };
 
 
@@ -334,6 +340,7 @@ handle_client_message(XEvent *e)
 static void
 handle_configure_request(XEvent *e) 
 {
+    struct Client *c;
     XConfigureRequestEvent *ev = &e->xconfigurerequest;
     XWindowChanges wc;
 
@@ -345,6 +352,8 @@ handle_configure_request(XEvent *e)
     wc.sibling = ev->above;
     wc.stack_mode = ev->detail;
     XConfigureWindow(display, ev->window, ev->value_mask, &wc);
+    c = get_client_from_window(ev->window);
+    refresh_client(c);
 }
 
 static void
@@ -562,6 +571,12 @@ ipc_cardinal_focus(long *d)
 }
 
 static void
+ipc_cycle_focus(long *d)
+{
+    focus_next(focused_client);
+}
+
+static void
 manage_client_focus(struct Client *c)
 {
     if (c != NULL && focused_client != NULL) 
@@ -751,7 +766,7 @@ set_input(struct Client *c)
 static void
 setup(void)
 {
-    unsigned long data[1];
+    unsigned long data[1], data2[1];
     // Setup our conf initially
     conf.b_width   = BORDER_WIDTH;
     conf.t_height  = TITLE_HEIGHT;
@@ -800,6 +815,10 @@ setup(void)
     data[0] = WORKSPACE_NUMBER;
     XChangeProperty(display, root, net_atom[NetWMNumberDesktops], XA_CARDINAL, 32,
             PropModeReplace, (unsigned char *) data, 1);
+
+    data2[0] = current_ws;
+    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32,
+            PropModeReplace, (unsigned char *) data2, 1);
 }
 
 static void

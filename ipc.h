@@ -16,13 +16,16 @@ enum IPCCommand
     IPCUnfocusColor,
     IPCInnerFocusColor,
     IPCInnerUnfocusColor,
-    IPCTitleFocusColor,
-    IPCTitleUnfocusColor,
     IPCBorderWidth,
     IPCInnerBorderWidth,
     IPCTitleHeight,
     IPCSwitchWorkspace,
     IPCSendWorkspace,
+    IPCFullscreen,
+    IPCSnapLeft,
+    IPCSnapRight,
+    IPCCardinalFocus,
+    IPCCycleFocus,
     IPCLast
 };
 

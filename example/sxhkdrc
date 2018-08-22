@@ -50,3 +50,6 @@ super + alt + {h, j, k, l}
 
 super + n
     berryc toggle_decorations
+
+super + Tab
+    berryc cycle_focus
