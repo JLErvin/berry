@@ -375,7 +375,9 @@ handle_configure_request(XEvent *e)
     wc.stack_mode = ev->detail;
     XConfigureWindow(display, ev->window, ev->value_mask, &wc);
     c = get_client_from_window(ev->window);
-    refresh_client(c);
+
+    if (c != NULL)
+        refresh_client(c);
 }
 
 static void
@@ -383,7 +385,7 @@ handle_map_request(XEvent *e)
 {
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
-    if (! XGetWindowAttributes(display, ev->window, &wa))
+    if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
 
     if (wa.override_redirect)
@@ -758,9 +760,13 @@ run(void)
     XSync(display, false);
     while(running)
     {
+        fprintf(stderr, "Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
         if (event_handler[e.type])
+        {
+            fprintf(stderr, "Handling %d event\n", e.type);
             event_handler[e.type](&e);
+        }
     }
 }
 
