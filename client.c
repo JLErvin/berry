@@ -32,6 +32,7 @@ static struct Command c[] = {
     { "window_raise",           IPCWindowRaise,             0, NULL   },
     { "window_monocle",         IPCWindowMonocle,           0, NULL   },
     { "window_close",           IPCWindowClose,             0, NULL   },
+    { "window_center",          IPCWindowCenter,            0, NULL   },
     { "focus_color",            IPCFocusColor,              1, fn_hex },
     { "unfocus_color",          IPCUnfocusColor,            1, fn_hex }, 
     { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex },
@@ -109,11 +110,7 @@ main(int argc, char **argv)
         {
             if (c[i].argc != c_argc)
             {
-                if (c->argc < c_argc)
-                    printf("Too many arguments\n");
-                else
-                    printf("Too few arguments\n");
-
+                printf("Wrong number of arguments\n");
                 printf("%d expected for command %s\n", c[i].argc, c[i].name);
                 return 1;
             }

@@ -104,6 +104,7 @@ static void ipc_resize_relative(long *d);
 static void ipc_resize_absolute(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_window_close(long *d);
+static void ipc_window_center(long *d);
 static void ipc_bf_color(long *d);
 static void ipc_bu_color(long *d);
 static void ipc_if_color(long *d);
@@ -159,6 +160,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCWindowResizeAbsolute]     = ipc_resize_absolute,
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
     [IPCWindowClose]              = ipc_window_close,
+    [IPCWindowCenter]             = ipc_window_center,
     [IPCFocusColor]               = ipc_bf_color,
     [IPCUnfocusColor]             = ipc_bu_color,
     [IPCInnerFocusColor]          = ipc_if_color,
@@ -511,6 +513,12 @@ ipc_window_close(long *d)
         return;
 
     close_window(focused_client);
+}
+
+static void
+ipc_window_center(long *d)
+{
+    center_client(focused_client);
 }
 
 static void 
