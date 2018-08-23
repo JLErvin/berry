@@ -16,6 +16,8 @@ Instead, a program like `sxhkd` is needed to translate input events to `berryc` 
 
 # Installation
 
+First, install the XLib C headers on your distribution. On Ubuntu/Debian, for example, they are available as `libx11-dev`
+
 Clone the repository and make it
 
 ``` bash
