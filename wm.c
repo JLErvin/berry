@@ -16,8 +16,6 @@
 #include "ipc.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
-#define MIN(a, b) ((a < b) ? (a) : (b)) 
-#define WORKSPACE_NUMBER 10
 
 struct Client 
 {
@@ -749,6 +747,12 @@ refresh_config(void)
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
         {
+            /* We run into this annoying issue when where we have to 
+             * re-create these windows since the border_width has changed.
+             * We end up destroying and recreating this windows, but this
+             * causes them to be redrawn on the wrong screen, regardless of
+             * their current desktop. The easiest way around this is to move
+             * them all to the current desktop and then back agian */
             decorations_destroy(tmp);
             decorations_create(tmp);
             refresh_client(tmp);
