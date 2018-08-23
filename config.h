@@ -4,6 +4,8 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+#define WORKSPACE_NUMBER 10
+
 #define BORDER_WIDTH 3
 #define INTERNAL_BORDER_WIDTH 3
 #define TITLE_HEIGHT 0

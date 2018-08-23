@@ -56,3 +56,6 @@ super + Tab
 
 super + q
     berryc window_close
+
+super + c
+    berryc window_center

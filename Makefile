@@ -11,6 +11,7 @@ install:
 	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
 	install $(__NAME__) "$(DESTDIR)$(PREFIX)/bin/$(__NAME__)"
 	install $(__NAME_CLIENT__) "$(DESTDIR)$(PREFIX)/bin/$(__NAME_CLIENT__)"
+	cd ./man; $(MAKE) install
 
 clean:
 	rm -f berry
