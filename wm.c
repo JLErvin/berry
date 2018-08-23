@@ -38,15 +38,32 @@ struct Config
 
 enum AtomsNet
 {
-    NetWMFullscreen, 
-    NetActiveWindow, 
-    NetWMName, 
+    NetSupported,
+    NetNumberOfDesktops,
+    NetActiveWindow,
+    NetWMStateFullscreen,
+    NetWMIconName,
+    NetWMTypeDoc,
+    NetWMTypeToolbar,
     NetWMCheck,
-    NetWMSupported,
-    NetWMNumberDesktops,
-    NetDesktopGeometry,
+    NetWMDesktop,
     NetCurrentDesktop,
-    NetLast 
+    NetWMState,
+    NetWMName,
+    NetWMWindowType,
+    NetWMPID,
+    NetWMWindowTypeDesktop,
+    NetDesktopViewport,
+    NetLast
+    /*NetWMFullscreen, */
+    /*NetActiveWindow, */
+    /*NetWMName, */
+    /*NetWMCheck,*/
+    /*NetWMSupported,*/
+    /*NetWMNumberDesktops,*/
+    /*NetDesktopGeometry,*/
+    /*NetCurrentDesktop,*/
+    /*NetLast */
 };
 
 enum AtomsWm
@@ -900,36 +917,41 @@ setup(void)
     Atom utf8string;
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 
-    utf8string = XInternAtom(display, "UTF8_STRING", False);
-    net_atom[NetWMFullscreen] = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN" , False);
-    net_atom[NetActiveWindow] = XInternAtom(display, "_NET_ACTIVE_WINDOW" , False);
-    net_atom[NetWMName] = XInternAtom(display, "_NET_WM_NAME" , False);
-    net_atom[NetWMCheck] = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK" , False);
-    net_atom[NetWMSupported] = XInternAtom(display, "_NET_SUPPORTED" , False);
-    net_atom[NetWMNumberDesktops] = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS" , False);
-    net_atom[NetDesktopGeometry] = XInternAtom(display, "_NET_DESKTOP_GEOMETRY" , False);
-    net_atom[NetCurrentDesktop] = XInternAtom(display, "_NET_CURRENT_DESKTOP" , False);
+    /* ewmh supported atoms */
+    utf8string                       = XInternAtom(display, "UTF8_STRING", False);
+    net_atom[NetSupported]           = XInternAtom(display, "_NET_SUPPORTED", False);
+    net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
+    net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
+    net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_ICON_NAME", False);
+    net_atom[NetWMIconName]          = XInternAtom(display, "_NET_WM_ICON_NAME", False);
+    net_atom[NetWMTypeDoc]           = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", False);
+    net_atom[NetWMTypeToolbar]       = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", False);
+    net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
+    net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
+    net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
+    net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
+    net_atom[NetWMName]              = XInternAtom(display, "_NET_WM_NAME", False);
+    net_atom[NetWMWindowType]        = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    net_atom[NetWMPID]               = XInternAtom(display, "_NET_WM_PID", False);
+    net_atom[NetWMWindowTypeDesktop] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
+    net_atom[NetDesktopViewport]     = XInternAtom(display, "_NET_DESKTOP_VIEWPORT", False);
 
+    /* Some icccm atoms */
     wm_atom[WMDeleteWindow] = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMProtocols] = XInternAtom(display, "WM_PROTOCOLS", False);
 
-    XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32,
-            PropModeReplace, (unsigned char *) &check, 1);
-    XChangeProperty(display, check, net_atom[NetWMName], utf8string, 8, PropModeReplace, 
-            (unsigned char *) "berry", 5);
-    XChangeProperty(display, root, net_atom[NetWMCheck], XA_WINDOW, 32,
-            PropModeReplace, (unsigned char *) &check, 1);
+    XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &check, 1);
+    XChangeProperty(display, check, net_atom[NetWMName], utf8string, 8, PropModeReplace, (unsigned char *) WINDOW_MANAGER_NAME, 5);
+    XChangeProperty(display, root, net_atom[NetWMCheck], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &check, 1);
+    XChangeProperty(display, root, net_atom[NetSupported], XA_ATOM, 32, PropModeReplace, (unsigned char *) net_atom, NetLast);
 
-    XChangeProperty(display, root, net_atom[NetWMSupported], XA_ATOM, 32,
-            PropModeReplace, (unsigned char *) net_atom, NetLast);
-
+    /* Set the total number of desktops */
     data[0] = WORKSPACE_NUMBER;
-    XChangeProperty(display, root, net_atom[NetWMNumberDesktops], XA_CARDINAL, 32,
-            PropModeReplace, (unsigned char *) data, 1);
+    XChangeProperty(display, root, net_atom[NetNumberOfDesktops], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
 
+    /* Set the intial "current desktop" to 0 */
     data2[0] = current_ws;
-    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32,
-            PropModeReplace, (unsigned char *) data2, 1);
+    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
 }
 
 static void

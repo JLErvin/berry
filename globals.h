@@ -1,5 +1,5 @@
-#ifndef __HERBSTLUFT_GLOBALS_H_
-#define __HERBSTLUFT_GLOBALS_H_
+#ifndef __BERRY_GLOBALS_H_
+#define __BERRY_GLOBALS_H_
 
 #define BERRY_AUTOSTART "berry/autostart"
 #define WINDOW_MANAGER_NAME "berry"
