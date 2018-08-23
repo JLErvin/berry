@@ -11,10 +11,13 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
+#include "globals.h"
 #include "ipc.h"
 
 static void fn_hex(long *, int, char **);
 static void fn_int(long *, int, char **);
+static void usage(void);
+static void version(void);
 
 struct Command
 {
@@ -63,6 +66,20 @@ fn_int(long *data, int i, char **argv)
 }
 
 static void
+usage(void)
+{
+    printf("Usage: berryc [-h|-v] <command> [args...]\n");
+    exit(EXIT_SUCCESS);
+}
+
+static void
+version(void)
+{
+    printf("berryc %s\n", __THIS_VERSION__);
+    exit(EXIT_SUCCESS);
+}
+
+static void
 send_command(struct Command *c, int argc, char **argv)
 {
     Display *display;
@@ -103,6 +120,10 @@ main(int argc, char **argv)
 
     if (c_argc == -1) 
         return 1;
+    else if (strcmp(argv[1], "-h") == 0)
+        usage();
+    else if (strcmp(argv[1], "-v") == 0)
+        version();
 
     for (int i = 0; i < sizeof c / sizeof c[0]; i++)
     {
