@@ -649,6 +649,7 @@ load_config(char *conf_path)
     {
         setsid();
         execl(conf_path, conf_path, NULL);
+        fprintf(stderr, "CONFIG PATH: %s\n", conf_path);
     }
 }
 
@@ -1011,6 +1012,7 @@ main(int argc, char *argv[])
 {
     int opt;
     char *conf_path = malloc(MAXLEN * sizeof(char));
+    bool conf_found = true;
     conf_path[0] = '\0';
 
     while ((opt = getopt(argc, argv, "hvc:")) != -1)
@@ -1032,7 +1034,20 @@ main(int argc, char *argv[])
     if (conf_path[0] == '\0') 
     {
         char *xdg_home = getenv("XDG_CONFIG_HOME");
-        snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s", xdg_home, BERRY_AUTOSTART);
+        if (xdg_home != NULL)
+            snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s", xdg_home, BERRY_AUTOSTART);
+        else
+        {
+            char *home = getenv("HOME");
+            if (home == NULL) 
+            {
+                fprintf(stderr, "Warning $XDG_CONFIG_HOME and $HOME not found"
+                        "autostart will not be loaded.\n");
+                conf_found = false;
+
+            }
+            snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s/%s", home, ".config", BERRY_AUTOSTART);
+        }
     }
 
     display = XOpenDisplay(NULL);
@@ -1040,7 +1055,8 @@ main(int argc, char *argv[])
         return 0;
 
     setup();
-    load_config(conf_path);
+    if (conf_found)
+        load_config(conf_path);
     run();
     close_wm();
 }
