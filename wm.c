@@ -14,6 +14,7 @@
 #include <X11/Xatom.h>
 
 #include "config.h"
+#include "globals.h"
 #include "ipc.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
@@ -993,12 +994,13 @@ static void
 usage(void)
 {
     fprintf(stderr, "Usage: berry [-h|-v|-c CONFIG_PATH]\n");
+    exit(EXIT_SUCCESS);
 }
 
 static void
 version(void)
 {
-    /*fprintf(stderr, "%s %s\n" __NAME__, __THIS_VERSION__);*/
+    fprintf(stderr, "%s %s\n", WINDOW_MANAGER_NAME, __THIS_VERSION__);
     fprintf(stderr, "Copyright (c) 2018 Joshua L Ervin\n");
     fprintf(stderr, "Released under the MIT License\n");
     exit(EXIT_SUCCESS);
@@ -1008,7 +1010,7 @@ int
 main(int argc, char *argv[])
 {
     int opt;
-    char *conf_path = malloc(256 * sizeof(char));
+    char *conf_path = malloc(MAXLEN * sizeof(char));
     conf_path[0] = '\0';
 
     while ((opt = getopt(argc, argv, "hvc:")) != -1)
@@ -1019,7 +1021,7 @@ main(int argc, char *argv[])
                 usage();
                 break;
             case 'c':
-                snprintf(conf_path, 256 * sizeof(char), "%s", optarg);
+                snprintf(conf_path, MAXLEN * sizeof(char), "%s", optarg);
                 break;
             case 'v':
                 version();
@@ -1030,7 +1032,7 @@ main(int argc, char *argv[])
     if (conf_path[0] == '\0') 
     {
         char *xdg_home = getenv("XDG_CONFIG_HOME");
-        snprintf(conf_path, 256 * sizeof(char), "%s/%s/%s", xdg_home, "berry", "autostart");
+        snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s", xdg_home, BERRY_AUTOSTART);
     }
 
     display = XOpenDisplay(NULL);
