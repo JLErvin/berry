@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -54,7 +55,7 @@ enum AtomsWm
     WMLast,
 };
 
-enum direction
+enum Direction
 {
     EAST,
     NORTH,
@@ -80,7 +81,7 @@ static int screen_height;
 /* All functions */
 static void cardinal_focus(struct Client *c, int dir);
 static void center_client(struct Client *c);
-static void close(void);
+static void close_wm(void);
 static void close_window(struct Client *c);
 static void decorate_new_client(struct Client *c);
 static void decorations_create(struct Client *c);
@@ -117,6 +118,7 @@ static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
+static void load_config(char *conf_path);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
@@ -138,6 +140,8 @@ static void snap_left(struct Client *c);
 static void snap_right(struct Client *c);
 static void switch_workspace(int ws);
 static void toggle_decorations(struct Client *c);
+static void usage(void);
+static void version(void);
 
 /* Native X11 Event handler */
 static void (*event_handler[LASTEvent])(XEvent *e) = 
@@ -230,7 +234,7 @@ center_client(struct Client *c)
 }
 
 static void
-close(void)
+close_wm(void)
 {
     XCloseDisplay(display);
 }
@@ -638,6 +642,16 @@ ipc_cycle_focus(long *d)
 }
 
 static void
+load_config(char *conf_path)
+{
+    if (fork() == 0) 
+    {
+        setsid();
+        execl(conf_path, conf_path, NULL);
+    }
+}
+
+static void
 manage_client_focus(struct Client *c)
 {
     if (c != NULL && focused_client != NULL) 
@@ -975,14 +989,56 @@ toggle_decorations(struct Client *c)
     manage_client_focus(c);
 }
 
-int
-main(void)
+static void
+usage(void)
 {
+    fprintf(stderr, "Usage: berry [-h|-v|-c CONFIG_PATH]\n");
+}
+
+static void
+version(void)
+{
+    /*fprintf(stderr, "%s %s\n" __NAME__, __THIS_VERSION__);*/
+    fprintf(stderr, "Copyright (c) 2018 Joshua L Ervin\n");
+    fprintf(stderr, "Released under the MIT License\n");
+    exit(EXIT_SUCCESS);
+}
+
+int
+main(int argc, char *argv[])
+{
+    int opt;
+    char *conf_path = malloc(256 * sizeof(char));
+    conf_path[0] = '\0';
+
+    while ((opt = getopt(argc, argv, "hvc:")) != -1)
+    {
+        switch (opt) 
+        {
+            case 'h':
+                usage();
+                break;
+            case 'c':
+                snprintf(conf_path, 256 * sizeof(char), "%s", optarg);
+                break;
+            case 'v':
+                version();
+                break;
+        }
+    }
+
+    if (conf_path[0] == '\0') 
+    {
+        char *xdg_home = getenv("XDG_CONFIG_HOME");
+        snprintf(conf_path, 256 * sizeof(char), "%s/%s/%s", xdg_home, "berry", "autostart");
+    }
+
     display = XOpenDisplay(NULL);
     if (!display)
         return 0;
 
     setup();
+    load_config(conf_path);
     run();
-    close();
+    close_wm();
 }
