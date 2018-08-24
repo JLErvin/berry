@@ -1,0 +1,10 @@
+#!/bin/bash
+
+berryc border_width 5
+berryc inner_border_width 3
+berryc title_height 0
+
+berryc focus_color 292D3E
+berryc unfocus_color 292D3E
+berryc inner_focus_color FFCB6B
+berryc inner_unfocus_color 565679
