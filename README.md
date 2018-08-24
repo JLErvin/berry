@@ -48,6 +48,21 @@ exec berry
 You can use `man berryc` to view available commands and bind them to 
 your favorite keystrokes in `sxhkdrc`. 
 
+# Features
+
+* Multiple desktops
+* Keyboard-drive resizing and movement
+* Command line client to control windows and decorations
+* Double borders
+* Title bars
+
+
+# TODO
+
+* Add pointer move/resize support
+* Titlebar window text
+* Add more EWMH/ICCCM protocols
+
 # Credits
 
 Although I wrote `berry` on my own, it was inspired by people much smarter than I. 
