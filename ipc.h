@@ -28,6 +28,7 @@ enum IPCCommand
     IPCCycleFocus,
     IPCWindowClose,
     IPCWindowCenter,
+    IPCPointerMove,
     IPCLast
 };
 
