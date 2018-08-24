@@ -42,7 +42,7 @@ sxhdrc -c $HOME/.config/berry/sxhkdrc &
 exec berry
 ```
 
-Arch Linux users can download via the AUR [berry](https://aur.archlinux.org/packages/berry-git/)
+Arch Linux users can download via the AUR: [berry](https://aur.archlinux.org/packages/berry-git/)
 
 ```bash
 yay -S berry
@@ -77,6 +77,12 @@ A very special thanks to the following people for writing great code and open-so
 
 * Tudurom's [windowchef](https://github.com/tudurom/windowchef)
 * Vain's [katriawm](https://github.com/vain/katriawm)
+
+# Contributors
+
+Special thanks to the following people for contributing:
+
+* [Kyle G](https://www.reddit.com/user/FlashDaggerX): AUR Package Maintainer
 
 # Additional Screenshots
 
