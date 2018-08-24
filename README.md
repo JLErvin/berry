@@ -55,6 +55,13 @@ A very special thanks to the following people for writing great code and open-so
 
 * Tudurom's [windowchef](https://github.com/tudurom/windowchef)
 * Vain's [katriawm](https://github.com/vain/katriawm)
-* Venam's [2bwm](https://github.com/venam/2bwm)
-* suckless' [dwm](https://dwm.suckless.org/)
 
+# Additional Screenshots
+
+Double borders with titlebars:
+
+![Imgur](https://i.imgur.com/oRk9xzq.png)
+
+Monocle Mode
+
+![Imgur](https://i.imgur.com/DTYhOLR.png)
