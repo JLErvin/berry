@@ -80,11 +80,10 @@ static struct Config conf;
 static int current_ws = 0;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast];
+static int point_x, point_y;
 static Window root, check;
 static bool running = true;
-static int screen;
-static int screen_width;
-static int screen_height;
+static int screen, screen_width, screen_height;
 /* Currently active workspace */
 
 /* All functions */
@@ -127,6 +126,7 @@ static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
+static void ipc_pointer_move(long *d);
 static void load_config(char *conf_path);
 static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -187,6 +187,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCSnapRight]                = ipc_snap_right,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
+    [IPCPointerMove]              = ipc_pointer_move,
 };
 
 static void
@@ -375,6 +376,7 @@ handle_client_message(XEvent *e)
 
     if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False))
     {
+        fprintf(stderr, "Recieved event from berryc\n");
         if (cme->format != 32)
             return;
 
@@ -676,6 +678,28 @@ ipc_cycle_focus(long *d)
 }
 
 static void
+ipc_pointer_move(long *d)
+{
+    /* Shoutout to vain for this methodology */
+    int x, y, di, dx, dy;
+    unsigned int dui;
+    Window child, dummy;
+    struct Client *c;
+
+    XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
+
+    dx = x - point_x;
+    dy = y - point_y;
+
+    point_x = x;
+    point_y = y;
+
+    c = get_client_from_window(child);
+    fprintf(stderr, "Recieved pointer input, moving window by %d, %d\n", dx, dy);
+    move_relative(focused_client, dx, dy);
+}
+
+static void
 load_config(char *conf_path)
 {
     if (fork() == 0) 
@@ -802,8 +826,11 @@ refresh_config(void)
              * causes them to be redrawn on the wrong screen, regardless of
              * their current desktop. The easiest way around this is to move
              * them all to the current desktop and then back agian */
-            decorations_destroy(tmp);
-            decorations_create(tmp);
+            if (tmp->decorated)
+            {
+                decorations_destroy(tmp);
+                decorations_create(tmp);
+            }
             refresh_client(tmp);
             show_client(tmp);
             if (focused_client != tmp) 
@@ -1090,6 +1117,8 @@ main(int argc, char *argv[])
     display = XOpenDisplay(NULL);
     if (!display)
         return 0;
+
+    fprintf(stderr, "Successfully opened display\n");
 
     setup();
     if (conf_found)

@@ -51,6 +51,7 @@ static struct Command c[] = {
     { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },
     { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL   },
     { "cycle_focus",            IPCCycleFocus,              0, NULL   },
+    { "pointer_move",           IPCPointerMove,             0, NULL },
 };
 
 static void
@@ -107,7 +108,6 @@ send_command(struct Command *c, int argc, char **argv)
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);
 }
-
 
 int
 main(int argc, char **argv)
