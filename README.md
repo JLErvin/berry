@@ -42,6 +42,12 @@ sxhdrc -c $HOME/.config/berry/sxhkdrc &
 exec berry
 ```
 
+Arch Linux users can download via the AUR [berry](https://aur.archlinux.org/packages/berry-git/)
+
+```bash
+yay -S berry
+```
+
 # Usage
 
 `berry` relies on a program like `sxhkd` to handle keypress events. 
