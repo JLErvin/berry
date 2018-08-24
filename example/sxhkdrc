@@ -8,7 +8,7 @@ super + Return
 
 # program launcher
 super + d
-	dmenu_run
+	dmenu_squash
 
 # make sxhkd reload its configuration files:
 super + Escape
@@ -46,7 +46,7 @@ super + o
     berryc snap_left
 
 super + alt + {h, j, k, l}
-    berryc cardinal_focus{1, 2, 3, 4}
+    berryc cardinal_focus {2, 3, 1, 0}
 
 super + n
     berryc toggle_decorations
@@ -57,5 +57,8 @@ super + Tab
 super + q
     berryc window_close
 
-super + c
-    berryc window_center
+alt + button1
+    berryc pointer_move 1
+
+~button1
+    berryc pointer_move 0

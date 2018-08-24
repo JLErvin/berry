@@ -203,13 +203,15 @@ cardinal_focus(struct Client *c, int dir)
         switch (dir)
         {
             case EAST:
+                fprintf(stderr, "Focusing EAST\n");
                 if (tmp->x > c->x && dist < min)
                 {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
-            case NORTH:
+            case SOUTH:
+                fprintf(stderr, "Focusing SOUTH\n");
                 if (tmp->y > c->y && dist < min)
                 {
                     min = dist;
@@ -217,13 +219,15 @@ cardinal_focus(struct Client *c, int dir)
                 }
                 break;
             case WEST:
+                fprintf(stderr, "Focusing WEST\n");
                 if (tmp->x < c->x && dist < min)
                 {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
-            case SOUTH:
+            case NORTH:
+                fprintf(stderr, "Focusing NORTH\n");
                 if (tmp->y < c->y && dist < min)
                 {
                     min = dist;
@@ -688,6 +692,12 @@ ipc_pointer_move(long *d)
 
     XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
 
+    if (point_x == 0 && point_y == 0)
+    {
+        point_x = x;
+        point_y = y;
+    }
+
     dx = x - point_x;
     dy = y - point_y;
 
@@ -696,7 +706,13 @@ ipc_pointer_move(long *d)
 
     c = get_client_from_window(child);
     fprintf(stderr, "Recieved pointer input, moving window by %d, %d\n", dx, dy);
-    move_relative(focused_client, dx, dy);
+    if(c != NULL)
+    {
+        if (d[1] == 1)
+            move_relative(c, dx, dy);
+
+        manage_client_focus(c);
+    }
 }
 
 static void
