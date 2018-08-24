@@ -55,7 +55,8 @@ your favorite keystrokes in `sxhkdrc`.
 * Command line client to control windows and decorations
 * Double borders
 * Title bars
-
+* Left/right snapping
+* Fullscreen/monocle mode
 
 # TODO
 
