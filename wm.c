@@ -55,15 +55,6 @@ enum AtomsNet
     NetWMWindowTypeDesktop,
     NetDesktopViewport,
     NetLast
-    /*NetWMFullscreen, */
-    /*NetActiveWindow, */
-    /*NetWMName, */
-    /*NetWMCheck,*/
-    /*NetWMSupported,*/
-    /*NetWMNumberDesktops,*/
-    /*NetDesktopGeometry,*/
-    /*NetCurrentDesktop,*/
-    /*NetLast */
 };
 
 enum AtomsWm
@@ -242,18 +233,29 @@ cardinal_focus(struct Client *c, int dir)
         tmp = tmp->next;
     }
 
-    manage_client_focus(focus_next);
+    if (focus_next == NULL)
+    {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Cannot cardinal focus, no valid windows found\n");
+        return;
+    }
+    else
+    {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Valid window found in direction %d, focusing\n", dir);
+        manage_client_focus(focus_next);
+    }
 }
 
 static void
 center_client(struct Client *c)
 {
+    fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client");
     move_absolute(c, screen_width / 2 - (c->w / 2), screen_height / 2 - (c->h / 2));
 }
 
 static void
 close_wm(void)
 {
+    fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...");
     XCloseDisplay(display);
 }
 
@@ -268,6 +270,7 @@ close_window(struct Client *c)
     ev.xclient.data.l[0] = wm_atom[WMDeleteWindow];
     ev.xclient.data.l[1] = CurrentTime;
     XSendEvent(display, c->win, False, NoEventMask, &ev);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...");
 }
 
 static void
@@ -334,6 +337,7 @@ fullscreen(struct Client *c)
 {
     move_absolute(c, 0, 0);
     resize_absolute(c, screen_width, screen_height);
+    XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
 }
 
 static void
@@ -624,6 +628,9 @@ ipc_switch_ws(long *d)
 static void
 ipc_send_to_ws(long *d)
 {
+    if (focused_client == NULL)
+        return;
+
     int ws = d[1];
     send_to_workspace(focused_client, ws - 1);
 }
@@ -631,18 +638,27 @@ ipc_send_to_ws(long *d)
 static void
 ipc_fullscreen(long *d)
 {
+    if (focused_client == NULL)
+        return;
+
     fullscreen(focused_client);
 }
 
 static void
 ipc_snap_left(long *d)
 {
+    if (focused_client == NULL)
+        return;
+
     snap_left(focused_client);
 }
 
 static void
 ipc_snap_right(long *d)
 {
+    if (focused_client == NULL)
+        return;
+
     snap_right(focused_client);
 }
 
@@ -935,10 +951,9 @@ setup(void)
     net_atom[NetWMPID]               = XInternAtom(display, "_NET_WM_PID", False);
     net_atom[NetWMWindowTypeDesktop] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
     net_atom[NetDesktopViewport]     = XInternAtom(display, "_NET_DESKTOP_VIEWPORT", False);
-
     /* Some icccm atoms */
-    wm_atom[WMDeleteWindow] = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    wm_atom[WMProtocols] = XInternAtom(display, "WM_PROTOCOLS", False);
+    wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
 
     XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &check, 1);
     XChangeProperty(display, check, net_atom[NetWMName], utf8string, 8, PropModeReplace, (unsigned char *) WINDOW_MANAGER_NAME, 5);
