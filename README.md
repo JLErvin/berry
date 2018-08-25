@@ -38,7 +38,7 @@ cp berry examples/autostart $HOME/.config/berry/autostart
 Add the following to your `.xinitrc`
 
 ```bash
-sxhdrc -c $HOME/.config/berry/sxhkdrc &
+sxhkd -c $HOME/.config/berry/sxhkdrc &
 exec berry
 ```
 
