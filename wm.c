@@ -310,10 +310,17 @@ decorations_destroy(struct Client *c)
 static void
 delete_client(struct Client *c)
 {
-    /* TODO: will we ever have to delete a client
-     * that is not on the active workspace?
-     */
-    int ws = current_ws;
+    int ws;
+
+    /* Maybe a little inefficient, but it cleans up the rest of the code 
+     * for now. Find the workspace of the given window and go delete it */
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
+            if (tmp == c) {
+                ws = i;
+                break;
+            }
+
     if (clients[ws] == c)
         clients[ws] = clients[ws]->next;
     else
