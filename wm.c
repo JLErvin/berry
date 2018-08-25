@@ -22,7 +22,7 @@
 struct Client 
 {
     int x, y, w, h, x_hide, ws;
-    bool decorated, hidden;
+    bool decorated, hidden, fullscreen;
     Window win;
     Window dec;
     struct Client *next;
@@ -42,18 +42,11 @@ enum AtomsNet
     NetNumberOfDesktops,
     NetActiveWindow,
     NetWMStateFullscreen,
-    NetWMIconName,
-    NetWMTypeDoc,
-    NetWMTypeToolbar,
     NetWMCheck,
-    NetWMDesktop,
     NetCurrentDesktop,
     NetWMState,
     NetWMName,
-    NetWMWindowType,
-    NetWMPID,
-    NetWMWindowTypeDesktop,
-    NetDesktopViewport,
+    NetClientList,
     NetLast
 };
 
@@ -149,6 +142,7 @@ static void snap_left(struct Client *c);
 static void snap_right(struct Client *c);
 static void switch_workspace(int ws);
 static void toggle_decorations(struct Client *c);
+static void update_client_list(void);
 static void usage(void);
 static void version(void);
 
@@ -311,7 +305,7 @@ static void
 delete_client(struct Client *c)
 {
     int ws;
-
+    ws = -1;
     /* Maybe a little inefficient, but it cleans up the rest of the code 
      * for now. Find the workspace of the given window and go delete it */
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
@@ -320,6 +314,14 @@ delete_client(struct Client *c)
                 ws = i;
                 break;
             }
+
+    if (ws == -1)
+    {
+        fprintf(stderr, "Cannot delete client, not found\n"); 
+        return;
+    }
+    else
+        fprintf(stderr, "Deleting client on workspace %d\n", ws); 
 
     if (clients[ws] == c)
         clients[ws] = clients[ws]->next;
@@ -334,6 +336,8 @@ delete_client(struct Client *c)
 
     if (clients[ws] == NULL)
         focused_client = NULL;
+
+    update_client_list();
 }
 
 static int
@@ -349,7 +353,12 @@ fullscreen(struct Client *c)
 {
     move_absolute(c, 0, 0);
     resize_absolute(c, screen_width, screen_height);
-    XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
+    if (c->fullscreen)
+        XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
+    else
+        XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
+
+    c->fullscreen = !c->fullscreen;
 }
 
 static void
@@ -744,7 +753,11 @@ manage_client_focus(struct Client *c)
         set_color(c, conf.if_color, conf.bf_color);
         raise_client(c);
         set_input(c);
+        /* Remove focus from the old window */
+        XDeleteProperty(display, root, net_atom[NetActiveWindow]);
         focused_client = c;
+        /* Tell EWMH about our new window */
+        XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->win), 1);
     }
 }
 
@@ -760,6 +773,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->w = wa->width;
     c->h = wa->height;
     c->hidden = false;
+    c->fullscreen = false;
 
     decorate_new_client(c);
     XMapWindow(display, c->win);
@@ -767,6 +781,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     refresh_client(c); // using our current factoring, w/h are set incorrectly
     save_client(c, current_ws);
     center_client(c);
+    update_client_list();
 }
 
 static void
@@ -988,19 +1003,12 @@ setup(void)
     net_atom[NetSupported]           = XInternAtom(display, "_NET_SUPPORTED", False);
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
-    net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_ICON_NAME", False);
-    net_atom[NetWMIconName]          = XInternAtom(display, "_NET_WM_ICON_NAME", False);
-    net_atom[NetWMTypeDoc]           = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", False);
-    net_atom[NetWMTypeToolbar]       = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", False);
+    net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
-    net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
     net_atom[NetWMName]              = XInternAtom(display, "_NET_WM_NAME", False);
-    net_atom[NetWMWindowType]        = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
-    net_atom[NetWMPID]               = XInternAtom(display, "_NET_WM_PID", False);
-    net_atom[NetWMWindowTypeDesktop] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
-    net_atom[NetDesktopViewport]     = XInternAtom(display, "_NET_DESKTOP_VIEWPORT", False);
+    net_atom[NetClientList]          = XInternAtom(display, "_NET_CLIENT_LIST", False);
     /* Some icccm atoms */
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
@@ -1076,6 +1084,17 @@ toggle_decorations(struct Client *c)
     refresh_client(c);
     raise_client(c);
     manage_client_focus(c);
+}
+
+static void
+update_client_list(void)
+{
+    /* Remove all current clients */
+    XDeleteProperty(display, root, net_atom[NetClientList]);
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
+            XChangeProperty(display, root, net_atom[NetClientList], XA_WINDOW, 32, PropModeAppend,
+                    (unsigned char *) &(tmp->win), 1);
 }
 
 static void
