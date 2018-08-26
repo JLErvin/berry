@@ -78,6 +78,7 @@ alt + ~button1
     berryc pointer_move 1
 
 # Needed to update berry's internal state
+alt + @button1
     berryc pointer_move 2
 ```
 
