@@ -12,6 +12,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/Xproto.h>
 
 #include "config.h"
 #include "globals.h"
@@ -77,6 +78,7 @@ static int point_x, point_y;
 static Window root, check;
 static bool running = true;
 static int screen, screen_width, screen_height;
+static int (*xerrorxlib)(Display *, XErrorEvent *);
 /* Currently active workspace */
 
 /* All functions */
@@ -145,6 +147,7 @@ static void toggle_decorations(struct Client *c);
 static void update_client_list(void);
 static void usage(void);
 static void version(void);
+static int xerror(Display *display, XErrorEvent *e);
 
 /* Native X11 Event handler */
 static void (*event_handler[LASTEvent])(XEvent *e) = 
@@ -275,6 +278,7 @@ close_window(struct Client *c)
 static void
 decorate_new_client(struct Client *c)
 {
+    fprintf(stderr, "Decorating new client\n");
     int w = c->w + 2 * conf.i_width;
     int h = c->h + 2 * conf.i_width + conf.t_height;
     int x = c->x - conf.i_width - conf.b_width;
@@ -282,6 +286,7 @@ decorate_new_client(struct Client *c)
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
 
+    fprintf(stderr, "Mapping new decorations\n");
     XMapWindow(display, dec);
     c->dec = dec;
     c->decorated = true;
@@ -296,6 +301,7 @@ decorations_create(struct Client *c)
 static void 
 decorations_destroy(struct Client *c)
 {
+    fprintf(stderr, "Removing decorations\n");
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
     c->decorated = false;
@@ -353,7 +359,7 @@ fullscreen(struct Client *c)
 {
     move_absolute(c, 0, 0);
     resize_absolute(c, screen_width, screen_height);
-    if (c->fullscreen)
+    if (!c->fullscreen)
         XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
     else
         XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
@@ -994,6 +1000,7 @@ setup(void)
     screen_width = DisplayWidth(display, screen);
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
+    xerrorxlib = XSetErrorHandler(xerror);
 
     Atom utf8string;
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
@@ -1111,6 +1118,26 @@ version(void)
     fprintf(stderr, "Copyright (c) 2018 Joshua L Ervin\n");
     fprintf(stderr, "Released under the MIT License\n");
     exit(EXIT_SUCCESS);
+}
+
+static int
+xerror(Display *display, XErrorEvent *e)
+{
+    /* this is stolen verbatim from katriawm which stole it from dwm lol */
+    if (e->error_code == BadWindow ||
+            (e->request_code == X_SetInputFocus && e->error_code == BadMatch) ||
+            (e->request_code == X_PolyText8 && e->error_code == BadDrawable) ||
+            (e->request_code == X_PolyFillRectangle && e->error_code == BadDrawable) ||
+            (e->request_code == X_PolySegment && e->error_code == BadDrawable) ||
+            (e->request_code == X_ConfigureWindow && e->error_code == BadMatch) ||
+            (e->request_code == X_GrabButton && e->error_code == BadAccess) ||
+            (e->request_code == X_GrabKey && e->error_code == BadAccess) ||
+            (e->request_code == X_CopyArea && e->error_code == BadDrawable))
+        return 0;
+
+    fprintf(stderr, "Fatal request. request code=%d, error code=%d\n",
+            e->request_code, e->error_code);
+    return xerrorxlib(display, e);
 }
 
 int
