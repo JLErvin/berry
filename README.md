@@ -35,11 +35,21 @@ cp berry/examples/sxhkdrc $HOME/.config/berry/sxhkdrc
 cp berry examples/autostart $HOME/.config/berry/autostart
 ```
 
-Add the following to your `.xinitrc`
+If you are not using a display manager add the following to your `.xinitrc`
 
 ```bash
 sxhkd -c $HOME/.config/berry/sxhkdrc &
 exec berry
+```
+
+If you are using a display manager (`lightdm`, etc), create a file `berry.desktop` in `/usr/share/xsessions/`
+``` ini
+[Desktop Entry]
+Encoding=UTF-8
+Name=berry
+Comment=berry - a small window manager
+Exec=berry
+Type=XSession
 ```
 
 Arch Linux users can download via the AUR: [berry](https://aur.archlinux.org/packages/berry-git/)
