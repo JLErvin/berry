@@ -54,6 +54,23 @@ yay -S berry
 You can use `man berryc` to view available commands and bind them to 
 your favorite keystrokes in `sxhkdrc`. 
 
+`berry` now supports moving windows using the mouse.
+To use this feature, you must be using `sxhkd` version `0.5.5` or **earlier**.
+Use the following bindings in your `sxhkdrc` to allow moving windows using the pointer:
+
+```bash
+# Focus a window by clicking, no modifier needed
+~button1
+    berryc pointer_move 0
+
+# Move windows by holding down alt
+alt + ~button1
+    berryc pointer_move 1
+
+# Needed to update berry's internal state
+    berryc pointer_move 2
+```
+
 # Features
 
 * Multiple desktops
@@ -66,7 +83,6 @@ your favorite keystrokes in `sxhkdrc`.
 
 # TODO
 
-* Add pointer move/resize support
 * Titlebar window text
 * Add more EWMH/ICCCM protocols
 

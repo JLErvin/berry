@@ -74,7 +74,7 @@ static struct Config conf;
 static int current_ws = 0;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast];
-static int point_x, point_y;
+static int point_x = -1, point_y = -1;
 static Window root, check;
 static bool running = true;
 static int screen, screen_width, screen_height;
@@ -712,9 +712,16 @@ ipc_pointer_move(long *d)
     Window child, dummy;
     struct Client *c;
 
+    if (d[1] == 2)
+    {
+        point_x = -1;
+        point_y = -1;
+        return;
+    }
+
     XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
 
-    if (point_x == 0 && point_y == 0)
+    if (point_x == -1 && point_y == -1)
     {
         point_x = x;
         point_y = y;
@@ -730,10 +737,12 @@ ipc_pointer_move(long *d)
     fprintf(stderr, "Recieved pointer input, moving window by %d, %d\n", dx, dy);
     if(c != NULL)
     {
+        /* Focus the client for either type of event */
+        manage_client_focus(c);
+
+        /* Only move if it is of type 1 */
         if (d[1] == 1)
             move_relative(c, dx, dy);
-
-        manage_client_focus(c);
     }
 }
 
