@@ -1,6 +1,7 @@
 include ../config.mk
 
-MAN = berryc.1
+MAN = berryc.1 \
+	  berry.1
 MANUAL = "Berry Manual"
 ORG = "Berry"
 
