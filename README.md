@@ -55,7 +55,7 @@ Type=XSession
 Arch Linux users can download via the AUR: [berry](https://aur.archlinux.org/packages/berry-git/)
 
 ```bash
-yay -S berry
+yay -S berry-git
 ```
 
 # Usage

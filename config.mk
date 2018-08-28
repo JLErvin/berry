@@ -4,7 +4,7 @@ __CONFIG_NAME__ = autostart
 __THIS_VERSION__ = $(shell cat VERSION)
 
 PREFIX    = /usr/local
-MANPREFIX = $(PREFIX)/share/man
+MANPREFIX = $(PREFIX)/man
 MANDIR    = $(MANPREFIX)/man1
 DOCPREFIX = $(PREFIX)/share/doc
 X11INC    = /usr/X11R6/include

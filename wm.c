@@ -48,6 +48,13 @@ enum AtomsNet
     NetWMState,
     NetWMName,
     NetClientList,
+    NetWMWindowType,
+    NetWMWindowTypeMenu,
+    NetWMWindowTypeToolbar,
+    NetWMWindowTypeDock,
+    NetWMWindowTypeDialog,
+    NetWMWindowTypeUtility,
+    NetWMWindowTypeSplash,
     NetLast
 };
 
@@ -779,6 +786,32 @@ manage_client_focus(struct Client *c)
 static void
 manage_new_window(Window w, XWindowAttributes *wa)
 {
+    /* Credits to vain for XGWP checking */
+    Atom prop, da;
+    unsigned char *prop_ret = NULL;
+    int di;
+    unsigned long dl;
+    if (XGetWindowProperty(display, w, net_atom[NetWMWindowType], 0,
+                sizeof (Atom), False, XA_ATOM, &da, &di, &dl, &dl,
+                &prop_ret) == Success) 
+    {
+        if (prop_ret)
+        {
+            prop = ((Atom *)prop_ret)[0];
+            if (prop == net_atom[NetWMWindowTypeDock] ||
+                prop == net_atom[NetWMWindowTypeToolbar] ||
+                prop == net_atom[NetWMWindowTypeUtility] ||
+                prop == net_atom[NetWMWindowTypeMenu])
+            {
+                fprintf(stderr, "Window is of type dock, toolbar, utility, or menu: not managing\n");
+                fprintf(stderr, "Mapping new window, not managed\n");
+                XMapWindow(display, w);
+                return;
+            }
+        }
+    }
+
+
     struct Client *c;
     c = malloc(sizeof(struct Client));
     c->win = w;
@@ -1025,6 +1058,11 @@ setup(void)
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
     net_atom[NetWMName]              = XInternAtom(display, "_NET_WM_NAME", False);
     net_atom[NetClientList]          = XInternAtom(display, "_NET_CLIENT_LIST", False);
+    net_atom[NetWMWindowType]        = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    net_atom[NetWMWindowTypeDock]    = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", False);
+    net_atom[NetWMWindowTypeToolbar] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", False);
+    net_atom[NetWMWindowTypeMenu]    = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
+    net_atom[NetWMWindowTypeSplash]  = XInternAtom(display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
     /* Some icccm atoms */
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
