@@ -1232,7 +1232,7 @@ main(int argc, char *argv[])
 
     display = XOpenDisplay(NULL);
     if (!display)
-        return 0;
+        exit(EXIT_FAILURE);
 
     fprintf(stderr, "Successfully opened display\n");
 
