@@ -27,12 +27,12 @@ make
 sudo make install
 ```
 
-Copy the sample configuration files
+Copy the sample configuration files (assuming your are in the berry directory)
 
 ``` bash
 mkdir $HOME/.config/berry
-cp berry/examples/sxhkdrc $HOME/.config/berry/sxhkdrc
-cp berry examples/autostart $HOME/.config/berry/autostart
+cp example/sxhkdrc $HOME/.config/berry/sxhkdrc
+cp example/autostart $HOME/.config/berry/autostart
 ```
 
 If you are not using a display manager add the following to your `.xinitrc`
