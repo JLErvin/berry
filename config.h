@@ -1,5 +1,5 @@
-/* Copyright (c) 2016, 2017 Tudor Ioan Roman. All rights reserved. */
-/* Licensed under the ISC License. See the LICENSE file in the project root for full license information. */
+/* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
+/* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
