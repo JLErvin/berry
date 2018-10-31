@@ -20,6 +20,7 @@
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
 
+/* A Client is any window from the system that we have decided to manage */
 struct Client 
 {
     int x, y, w, h, x_hide, ws;
@@ -194,6 +195,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCPointerMove]              = ipc_pointer_move,
 };
 
+/* Give focus to the given client in the given direction */
 static void
 cardinal_focus(struct Client *c, int dir)
 {
@@ -254,6 +256,9 @@ cardinal_focus(struct Client *c, int dir)
     }
 }
 
+/* Move a client to the center of the screen, centered vertically and horizontally
+ * by the middle of the Client
+ */
 static void
 center_client(struct Client *c)
 {
@@ -261,6 +266,7 @@ center_client(struct Client *c)
     move_absolute(c, screen_width / 2 - (c->w / 2), screen_height / 2 - (c->h / 2));
 }
 
+/* Close connection to the current display */
 static void
 close_wm(void)
 {
@@ -268,6 +274,9 @@ close_wm(void)
     XCloseDisplay(display);
 }
 
+/* Communicate with the given Client, kindly telling it to close itself
+ * and terminate any associated processes using the WM_DELETE_WINDOW protocol
+ */
 static void
 close_window(struct Client *c)
 {
@@ -282,6 +291,7 @@ close_window(struct Client *c)
     fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...");
 }
 
+/* Create new "dummy" windows to be used as decorations for the given client */
 static void
 decorate_new_client(struct Client *c)
 {
@@ -305,6 +315,7 @@ decorations_create(struct Client *c)
     decorate_new_client(c);
 }
 
+/* Destroy any "dummy" windows associated with the given Client as decorations */
 static void 
 decorations_destroy(struct Client *c)
 {
@@ -314,6 +325,9 @@ decorations_destroy(struct Client *c)
     c->decorated = false;
 }
 
+/* Remove the given Client from the list of currently managed clients 
+ * Does not free the given client from memory. 
+ * */
 static void
 delete_client(struct Client *c)
 {
@@ -353,6 +367,15 @@ delete_client(struct Client *c)
     update_client_list();
 }
 
+static void
+draw_text(struct Client *c)
+{
+}
+
+/* Calculate the distance between the upper left corners of two windows
+ * NOTE: This distance can only be used for comparission 
+ * (i.e. distance(a, b) > distance(c, b)
+ */
 static int
 euclidean_distance(struct Client *a, struct Client *b)
 {
@@ -361,6 +384,10 @@ euclidean_distance(struct Client *a, struct Client *b)
     return pow(xDiff, 2) + pow(yDiff, 2);
 }
 
+/* Set the given Client to be fullscreen. Moves the window to fill the dimensions
+ * of the given display. 
+ * Updates the value of _NET_WM_STATE_FULLSCREEN to reflect fullscreen changes
+ */
 static void
 fullscreen(struct Client *c)
 {
@@ -374,6 +401,9 @@ fullscreen(struct Client *c)
     c->fullscreen = !c->fullscreen;
 }
 
+/* Focus the next window in the list. Windows are sorted by the order in which they are 
+ * created (mapped to the window manager)
+ */
 static void
 focus_next(struct Client *c)
 {
@@ -390,6 +420,7 @@ focus_next(struct Client *c)
         manage_client_focus(tmp->next);
 }
 
+/* Returns the struct Client associated with the given struct Window */
 static struct Client*
 get_client_from_window(Window w)
 {
@@ -401,6 +432,7 @@ get_client_from_window(Window w)
     return NULL;
 }
 
+/* Redirect an XEvent from berry's client program, berryc */
 static void
 handle_client_message(XEvent *e)
 {
@@ -471,6 +503,7 @@ handle_unmap_notify(XEvent *e)
     }
 }
 
+/* Hides the given Client by moving it outside of the visible display */
 static void
 hide_client(struct Client *c)
 {
@@ -847,8 +880,8 @@ move_relative(struct Client *c, int x, int y)
         if (c->x + x < 0)
             x = -c->x;
 
-        if (c->y + y < 0)
-            y = -c->y;
+        if (c->y + y < conf.top_gap)
+            y = -c->y + conf.top_gap;
     }
 
     move_absolute(c, c->x + x, c->y + y);
@@ -896,8 +929,11 @@ raise_client(struct Client *c)
 static void
 refresh_client(struct Client *c)
 {
-    move_relative(c, 0, 0);
-    resize_relative(c, 0, 0);
+    for (int i = 0; i < 2; i++)
+    {
+        move_relative(c, 0, 0);
+        resize_relative(c, 0, 0);
+    }
 }
 
 static void
