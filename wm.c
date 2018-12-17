@@ -1202,7 +1202,12 @@ switch_workspace(int ws)
                 hide_client(tmp);
         else
             for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
+            {
                 show_client(tmp);
+                XLowerWindow(display, tmp->win);
+                XLowerWindow(display, tmp->dec);
+            }
+
 
     current_ws = ws;
     manage_client_focus(clients[current_ws]);
