@@ -344,6 +344,7 @@ delete_client(struct Client *c)
     else
         fprintf(stderr, "Deleting client on workspace %d\n", ws); 
 
+    /* Delete in the stack */
     if (clients[ws] == c)
         clients[ws] = clients[ws]->next;
     else
@@ -353,6 +354,19 @@ delete_client(struct Client *c)
             tmp = tmp->next;
 
         tmp->next = tmp->next->next;
+    }
+
+    /* Delete in the focus list */
+    /* I'll factor this out later */
+    if (focus_list[ws] == c)
+        focus_list[ws] = focus_list[ws]->fnext;
+    else
+    {
+        struct Client *tmp = focus_list[ws];
+        while (tmp != NULL && tmp->fnext != c)
+            tmp = tmp->fnext;
+
+        tmp->fnext = tmp->fnext->fnext;
     }
 
     if (clients[ws] == NULL)
