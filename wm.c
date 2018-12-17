@@ -25,9 +25,8 @@ struct Client
 {
     int x, y, w, h, x_hide, ws;
     bool decorated, hidden, fullscreen;
-    Window win;
-    Window dec;
-    struct Client *next;
+    Window win, dec;
+    struct Client *next, *fnext;
 };
 
 struct Config
@@ -77,6 +76,7 @@ enum Direction
 /* List of ALL clients, currently focused client */
 static struct Client *focused_client = NULL;
 static struct Client *clients[WORKSPACE_NUMBER];
+static struct Client *focus_list[WORKSPACE_NUMBER];
 /* Config struct to keep track of internal state*/
 static struct Config conf;
 static int current_ws = 0;
@@ -399,14 +399,15 @@ focus_next(struct Client *c)
     if (c == NULL)
         return;
 
-    if (clients[current_ws] == c && clients[current_ws]->next == NULL)
+    int ws;
+    ws = get_ws_from_client(c);
+
+    if (focus_list[ws] == c && focus_list[ws]->fnext == NULL)
         return;
 
-    struct Client *tmp = c;
-    if (tmp->next == NULL)
-        manage_client_focus(clients[current_ws]);
-    else
-        manage_client_focus(tmp->next);
+    struct Client *tmp;
+    tmp = c->fnext == NULL ? focus_list[ws] : c->fnext;
+    manage_client_focus(tmp);
 }
 
 /* Returns the struct Client associated with the given struct Window */
@@ -819,6 +820,7 @@ manage_client_focus(struct Client *c)
         focused_client = c;
         /* Tell EWMH about our new window */
         XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->win), 1);
+        move_to_front(c);
     }
 }
 
@@ -864,9 +866,9 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     decorate_new_client(c);
     XMapWindow(display, c->win);
-    manage_client_focus(c);
     refresh_client(c); // using our current factoring, w/h are set incorrectly
     save_client(c, current_ws);
+    manage_client_focus(c);
     center_client(c);
     update_client_list();
 }
@@ -919,8 +921,22 @@ move_to_front(struct Client *c)
     int ws;
     ws = get_ws_from_client(c);
 
+    /* If we didn't find the client */
     if (ws == -1)
         return;
+
+    /* If the Client is at the front of the list, ignore command */
+    if (clients[ws] == c || clients[ws]->next == NULL)
+        return;
+
+    struct Client *tmp;
+    for (tmp = clients[ws]; tmp->next != NULL; tmp = tmp->next)
+        if (tmp->next == c)
+            break;
+
+    tmp->next = tmp->next->next; /* remove the Client from the list */
+    c->next = clients[ws]; /* add the client to the front of the list */
+    clients[ws] = c;
 }
 
 static void
@@ -1039,6 +1055,9 @@ save_client(struct Client *c, int ws)
 {
     c->next = clients[ws];
     clients[ws] = c;
+
+    c->fnext = focus_list[ws];
+    focus_list[ws] = c;
 }
 
 static void
