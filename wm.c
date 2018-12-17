@@ -101,6 +101,7 @@ static void delete_client(struct Client *c);
 static int euclidean_distance(struct Client *a, struct Client *b);
 static void fullscreen(struct Client *c);
 static struct Client* get_client_from_window(Window w);
+static int get_ws_from_client(struct Client *c);
 static void handle_client_message(XEvent *e);
 static void handle_configure_request(XEvent *e);
 static void handle_map_request(XEvent *e);
@@ -135,6 +136,7 @@ static void manage_client_focus(struct Client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static void move_relative(struct Client *c, int x, int y);
 static void move_absolute(struct Client *c, int x, int y);
+static void move_to_front(struct Client *c);
 static void monocle(struct Client *c);
 static void raise_client(struct Client *c);
 static void refresh_client(struct Client *c);
@@ -332,15 +334,7 @@ static void
 delete_client(struct Client *c)
 {
     int ws;
-    ws = -1;
-    /* Maybe a little inefficient, but it cleans up the rest of the code 
-     * for now. Find the workspace of the given window and go delete it */
-    for (int i = 0; i < WORKSPACE_NUMBER; i++)
-        for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
-            if (tmp == c) {
-                ws = i;
-                break;
-            }
+    ws = get_ws_from_client(c);
 
     if (ws == -1)
     {
@@ -365,11 +359,6 @@ delete_client(struct Client *c)
         focused_client = NULL;
 
     update_client_list();
-}
-
-static void
-draw_text(struct Client *c)
-{
 }
 
 /* Calculate the distance between the upper left corners of two windows
@@ -430,6 +419,23 @@ get_client_from_window(Window w)
                 return tmp;
 
     return NULL;
+}
+
+static int
+get_ws_from_client(struct Client *c)
+{
+    int ws;
+    ws = -1;
+    /* Maybe a little inefficient, but it cleans up the rest of the code 
+     * for now. Find the workspace of the given window and go delete it */
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct Client *tmp = clients[i]; tmp != NULL; tmp = tmp->next)
+            if (tmp == c) {
+                ws = i;
+                break;
+            }
+
+    return ws;
 }
 
 /* Redirect an XEvent from berry's client program, berryc */
@@ -905,6 +911,16 @@ move_absolute(struct Client *c, int x, int y)
 
     c->x = x;
     c->y = y;
+}
+
+static void
+move_to_front(struct Client *c)
+{
+    int ws;
+    ws = get_ws_from_client(c);
+
+    if (ws == -1)
+        return;
 }
 
 static void
