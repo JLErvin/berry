@@ -1059,8 +1059,8 @@ save_client(struct client *c, int ws)
 static void
 send_to_ws(struct client *c, int ws)
 {
-    c->ws = ws;
     delete_client(c);
+    c->ws = ws;
     save_client(c, ws);
     hide_client(c);
     focus_next(c_list[curr_ws]);
