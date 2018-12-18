@@ -51,7 +51,8 @@ static struct Command c[] = {
     { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },
     { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL   },
     { "cycle_focus",            IPCCycleFocus,              0, NULL   },
-    { "pointer_move",           IPCPointerMove,             1, fn_int },
+    { "pointer_move",           IPCPointerMove,             2, fn_int },
+    { "top_gap",                IPCTopGap,                  1, fn_int },
 };
 
 static void

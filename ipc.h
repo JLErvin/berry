@@ -29,6 +29,7 @@ enum IPCCommand
     IPCWindowClose,
     IPCWindowCenter,
     IPCPointerMove,
+    IPCTopGap,
     IPCLast
 };
 
