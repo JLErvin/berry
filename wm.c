@@ -130,6 +130,7 @@ static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_move(long *d);
+static void ipc_top_gap(long *d);
 static void load_config(char *conf_path);
 static void manage_client_focus(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -194,6 +195,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerMove]              = ipc_pointer_move,
+    [IPCTopGap]                   = ipc_top_gap,
 };
 
 /* Give focus to the given client in the given direction */
@@ -357,6 +359,7 @@ delete_client(struct client *c)
 
     /* Delete in the focus list */
     /* I'll factor this out later */
+    /* Or actually it might not be so easy... */
     if (f_list[ws] == c)
         f_list[ws] = f_list[ws]->fnext;
     else
@@ -787,6 +790,15 @@ ipc_pointer_move(long *d)
         if (d[1] == 1)
             move_relative(c, dx, dy);
     }
+}
+
+static void
+ipc_top_gap(long *d)
+{
+    int data = d[1];
+    conf.top_gap = data;
+
+    refresh_config();
 }
 
 static void
