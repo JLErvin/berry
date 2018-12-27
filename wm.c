@@ -20,6 +20,7 @@
 #include "ipc.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
+#define MIN(a, b) ((a < b) ? (a) : (b)) 
 
 struct monitor
 {
@@ -277,8 +278,11 @@ cardinal_focus(struct client *c, int dir)
 static void
 center_client(struct client *c)
 {
+    int mon;
     fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client");
-    move_absolute(c, screen_width / 2 - (c->w / 2), screen_height / 2 - (c->h / 2));
+    mon = ws_m_list[c->ws];
+    move_absolute(c, m_list[mon].x + m_list[mon].w / 2 - (c->w / 2),
+            m_list[mon].y + m_list[mon].h / 2 - (c->h / 2));
 }
 
 /* Close connection to the current display */
@@ -954,24 +958,32 @@ move_relative(struct client *c, int x, int y)
         int dx, dy, mon;
         mon = ws_m_list[c->ws];
 
-        /* If the right side of the window is past the right-most*/
-        /* side of the associated monitor*/
+        /* If the right side of the window is past the right-most
+         * side of the associated monitor
+         */
         if (c->x + c->w + x > m_list[mon].w + m_list[mon].x)
             dx = m_list[mon].w + m_list[mon].x - c->w;
         else
             dx = c->x + x;
 
-        /* If the left side of the window is past the left-most*/
-        /* side of the associated monitor*/
+        /* If the bottom side of the window is below the bottom of
+         * the associate monitor 
+         */
         if (c->y + c->h + y > m_list[mon].h + m_list[mon].y)
             dy = m_list[mon].h + m_list[mon].y - c->h;
         else
             dy = c->y + y;
 
+        /* If the left side of the window is past the left-most
+         * side of the associated monitor
+         */
         if (c->x + x < m_list[mon].x)
             dx = m_list[mon].x; 
 
-        if (c->y + y < conf.top_gap)
+        /* If the top side of the window is above the top of
+         * the associated monitor
+         */
+        if (c->y + y < m_list[mon].y + conf.top_gap)
             dy = m_list[mon].y;
 
         move_absolute(c, dx, dy);
@@ -1135,7 +1147,32 @@ resize_absolute(struct client *c, int w, int h)
 static void
 resize_relative(struct client *c, int w, int h) 
 {
-    resize_absolute(c, c->w + w, c->h + h);
+    if (conf.edge_lock)
+    {
+        int dw, dh, mon;
+        mon = ws_m_list[c->ws];
+
+        if (c->x + c->w + w > m_list[mon].x + m_list[mon].w)
+            dw = m_list[mon].x + m_list[mon].w - c->x;
+        else
+            dw = c->w + w;
+
+        if (c->y + c->h + conf.t_height + h > m_list[mon].y + m_list[mon].h)
+        {
+            dh = m_list[mon].h + m_list[mon].y - c->y;
+            /*int max_y = m_list[mon].y + m_list[mon].h;*/
+            /*int cur_h = c->h + conf.t_height; */
+            /*int cur_y = c->y + c->h + conf.t_height;*/
+            /*int diff = max_y - cur_y;*/
+            /*dh = cur_h + diff;*/
+        }
+        else
+            dh = c->h + h;
+
+        resize_absolute(c, dw, dh);
+    }
+    else
+        resize_absolute(c, c->w + w, c->h + h);
 }
 
 static void
