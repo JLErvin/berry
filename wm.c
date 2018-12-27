@@ -155,6 +155,7 @@ static void resize_absolute(struct client *c, int w, int h);
 static void resize_relative(struct client *c, int w, int h);
 static void run(void);
 static void save_client(struct client *c, int ws);
+static bool safe_to_focus(int ws);
 static void send_to_ws(struct client *c, int s);
 static void set_color(struct client *c, unsigned long i_color, unsigned long b_color);
 static void set_input(struct client *c);
@@ -442,7 +443,10 @@ focus_next(struct client *c)
     ws = c->ws;
 
     if (f_list[ws] == c && f_list[ws]->f_next == NULL)
+    {
+        manage_client_focus(f_list[ws]);
         return;
+    }
 
     struct client *tmp;
     tmp = c->f_next == NULL ? f_list[ws] : c->f_next;
@@ -488,6 +492,8 @@ handle_configure_notify(XEvent *e)
     if (ev->window == root)
         return;
 
+    fprintf(stderr, "Handling configure notify event\n");
+
     free_monitors();
     setup_monitors();
 }
@@ -498,6 +504,8 @@ handle_configure_request(XEvent *e)
     struct client *c;
     XConfigureRequestEvent *ev = &e->xconfigurerequest;
     XWindowChanges wc;
+
+    fprintf(stderr, "Handling configure request event\n");
 
     wc.x = ev->x;
     wc.y = ev->y;
@@ -842,6 +850,12 @@ ipc_save_monitor(long *d)
     int ws, mon;
     ws = d[1];
     mon = d[2];
+
+    if (mon >= m_count)
+    {
+        fprintf(stderr, "Cannot save monitor, number is too high\n");
+        return;
+    }
 
     fprintf(stderr, "Saving ws %d to monitor %d\n", ws, mon);
 
@@ -1204,14 +1218,34 @@ save_client(struct client *c, int ws)
     f_list[ws] = c;
 }
 
+/* This method will return true if it is safe to show a client on the given workspace
+ * based on the currently focused workspaces on each monitor.
+ */
+static bool
+safe_to_focus(int ws)
+{
+    int mon = ws_m_list[ws];
+    
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        if (i != ws && ws_m_list[i] == mon && c_list[i] != NULL && c_list[i]->hidden == false)
+            return false;
+
+    return true;
+}
+
 static void
 send_to_ws(struct client *c, int ws)
 {
+    int prev;
     delete_client(c);
+    prev = c->ws;
     c->ws = ws;
     save_client(c, ws);
     hide_client(c);
-    focus_next(c_list[curr_ws]);
+    focus_next(f_list[prev]);
+
+    if (safe_to_focus(ws))
+        show_client(c);
 }
 
 static void
@@ -1305,21 +1339,26 @@ show_client(struct client *c)
         move_absolute(c, c->x_hide, c->y);
         raise_client(c);
         c->hidden = false;
+        refresh_client(c);
     }
 }
 
 static void
 snap_left(struct client *c)
 {
-    move_absolute(c, 0, conf.top_gap); 
-    resize_absolute(c, screen_width / 2, screen_height - conf.top_gap);
+    int mon;
+    mon = ws_m_list[c->ws];
+    move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
+    resize_absolute(c, m_list[mon].w / 2, m_list[mon].h - conf.top_gap);
 }
 
 static void
 snap_right(struct client *c)
 {
-    move_absolute(c, screen_width / 2, conf.top_gap); 
-    resize_absolute(c, screen_width / 2, screen_height - conf.top_gap);
+    int mon;
+    mon = ws_m_list[c->ws];
+    move_absolute(c, m_list[mon].x + m_list[mon].w / 2, m_list[mon].y + conf.top_gap); 
+    resize_absolute(c, m_list[mon].w / 2, m_list[mon].h - conf.top_gap);
 }
 
 static void
@@ -1328,10 +1367,10 @@ switch_ws(int ws)
     unsigned long data[1];
 
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
-        if (i != ws)
+        if (i != ws && ws_m_list[i] == ws_m_list[ws])
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
                 hide_client(tmp);
-        else
+        else if (i == ws)
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
             {
                 show_client(tmp);
@@ -1347,6 +1386,8 @@ switch_ws(int ws)
 
 
     curr_ws = ws;
+    int mon = ws_m_list[ws];
+    fprintf(stderr, "Setting Screen #%d with active workspace %d\n", m_list[mon].s, ws);
     manage_client_focus(c_list[curr_ws]);
 
     data[0] = ws;
