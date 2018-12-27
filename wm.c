@@ -9,10 +9,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/Xlib.h>
 #include <X11/Xproto.h>
+#include <X11/Xutil.h>
+#include <X11/extensions/Xinerama.h>
 
 #include "config.h"
 #include "globals.h"
@@ -20,13 +21,17 @@
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
 
-/* A Client is any window from the system that we have decided to manage */
+struct monitor
+{
+    int x, y, w, h, s;
+};
+
 struct client 
 {
     int x, y, w, h, x_hide, ws;
     bool decorated, hidden, fullscreen;
     Window win, dec;
-    struct client *next, *fnext;
+    struct client *next, *f_next;
 };
 
 struct config
@@ -73,13 +78,14 @@ enum direction
     SOUTH
 };
 
-/* List of ALL clients, currently focused client */
-static struct client *f_client = NULL;
-static struct client *c_list[WORKSPACE_NUMBER];
-static struct client *f_list[WORKSPACE_NUMBER];
-/* Config struct to keep track of internal state*/
-static struct config conf;
+static struct client *f_client = NULL; /* focused client */
+static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
+static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
+static struct monitor *m_list = NULL; /* All saved monitors */
+static struct config conf; /* gloabl config */
+static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
+static int m_count = 0;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast];
 static int point_x = -1, point_y = -1;
@@ -87,7 +93,6 @@ static Window root, check;
 static bool running = true;
 static int screen, screen_width, screen_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
-/* Currently active workspace */
 
 /* All functions */
 static void cardinal_focus(struct client *c, int dir);
@@ -99,9 +104,11 @@ static void decorations_create(struct client *c);
 static void decorations_destroy(struct client *c);
 static void delete_client(struct client *c);
 static int euclidean_distance(struct client *a, struct client *b);
+static void free_monitors(void);
 static void fullscreen(struct client *c);
 static struct client* get_client_from_window(Window w);
 static void handle_client_message(XEvent *e);
+static void handle_configure_notify(XEvent *e);
 static void handle_configure_request(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
@@ -131,6 +138,7 @@ static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_move(long *d);
 static void ipc_top_gap(long *d);
+static void ipc_save_monitor(long *d);
 static void load_config(char *conf_path);
 static void manage_client_focus(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -139,6 +147,7 @@ static void move_relative(struct client *c, int x, int y);
 static void move_to_front(struct client *c);
 static void monocle(struct client *c);
 static void raise_client(struct client *c);
+static void setup_monitors(void);
 static void refresh_client(struct client *c);
 static void refresh_config(void);
 static void resize_absolute(struct client *c, int w, int h); 
@@ -149,6 +158,7 @@ static void send_to_ws(struct client *c, int s);
 static void set_color(struct client *c, unsigned long i_color, unsigned long b_color);
 static void set_input(struct client *c);
 static void setup(void);
+static void setup_monitors(void);
 static void show_client(struct client *c);
 static void snap_left(struct client *c);
 static void snap_right(struct client *c);
@@ -164,6 +174,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
 {
     [MapRequest]       = handle_map_request,
     [UnmapNotify]      = handle_unmap_notify,
+    [ConfigureNotify]  = handle_configure_notify,
     [ConfigureRequest] = handle_configure_request,
     [ClientMessage]    = handle_client_message
 };
@@ -195,6 +206,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerMove]              = ipc_pointer_move,
+    [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCTopGap]                   = ipc_top_gap,
 };
 
@@ -361,14 +373,14 @@ delete_client(struct client *c)
     /* I'll factor this out later */
     /* Or actually it might not be so easy... */
     if (f_list[ws] == c)
-        f_list[ws] = f_list[ws]->fnext;
+        f_list[ws] = f_list[ws]->f_next;
     else
     {
         struct client *tmp = f_list[ws];
-        while (tmp != NULL && tmp->fnext != c)
-            tmp = tmp->fnext;
+        while (tmp != NULL && tmp->f_next != c)
+            tmp = tmp->f_next;
 
-        tmp->fnext = tmp->fnext->fnext;
+        tmp->f_next = tmp->f_next->f_next;
     }
 
     if (c_list[ws] == NULL)
@@ -387,6 +399,13 @@ euclidean_distance(struct client *a, struct client *b)
     int xDiff = a->x - b->x;
     int yDiff = a->y - b->y;
     return pow(xDiff, 2) + pow(yDiff, 2);
+}
+
+static void
+free_monitors(void)
+{
+    free(m_list);
+    m_list = NULL;
 }
 
 /* Set the given Client to be fullscreen. Moves the window to fill the dimensions
@@ -418,11 +437,11 @@ focus_next(struct client *c)
     int ws;
     ws = c->ws;
 
-    if (f_list[ws] == c && f_list[ws]->fnext == NULL)
+    if (f_list[ws] == c && f_list[ws]->f_next == NULL)
         return;
 
     struct client *tmp;
-    tmp = c->fnext == NULL ? f_list[ws] : c->fnext;
+    tmp = c->f_next == NULL ? f_list[ws] : c->f_next;
     manage_client_focus(tmp);
 }
 
@@ -455,6 +474,18 @@ handle_client_message(XEvent *e)
         data = cme->data.l;
         ipc_handler[cmd](data);
     }
+}
+
+static void
+handle_configure_notify(XEvent *e)
+{
+    XConfigureEvent *ev = &e->xconfigure;
+
+    if (ev->window == root)
+        return;
+
+    free_monitors();
+    setup_monitors();
 }
 
 static void
@@ -802,6 +833,19 @@ ipc_top_gap(long *d)
 }
 
 static void
+ipc_save_monitor(long *d)
+{
+    int ws, mon;
+    ws = d[1];
+    mon = d[2];
+
+    fprintf(stderr, "Saving ws %d to monitor %d\n", ws, mon);
+
+    /* Associate the given workspace to the given monitor */
+    ws_m_list[ws] = mon;
+}
+
+static void
 load_config(char *conf_path)
 {
     if (fork() == 0) 
@@ -907,20 +951,33 @@ move_relative(struct client *c, int x, int y)
     /* Constrain the current client to the w/h of display */
     if (conf.edge_lock)
     {
-        if (c->x + c->w + x > screen_width)
-            x = screen_width - c->w - c->x;
+        int dx, dy, mon;
+        mon = ws_m_list[c->ws];
 
-        if (c->y + c->h + y > screen_height)
-            y = screen_height - c->h - c->y;
+        /* If the right side of the window is past the right-most*/
+        /* side of the associated monitor*/
+        if (c->x + c->w + x > m_list[mon].w + m_list[mon].x)
+            dx = m_list[mon].w + m_list[mon].x - c->w;
+        else
+            dx = c->x + x;
 
-        if (c->x + x < 0)
-            x = -c->x;
+        /* If the left side of the window is past the left-most*/
+        /* side of the associated monitor*/
+        if (c->y + c->h + y > m_list[mon].h + m_list[mon].y)
+            dy = m_list[mon].h + m_list[mon].y - c->h;
+        else
+            dy = c->y + y;
+
+        if (c->x + x < m_list[mon].x)
+            dx = m_list[mon].x; 
 
         if (c->y + y < conf.top_gap)
-            y = -c->y + conf.top_gap;
-    }
+            dy = m_list[mon].y;
 
-    move_absolute(c, c->x + x, c->y + y);
+        move_absolute(c, dx, dy);
+    }
+    else
+        move_absolute(c, c->x + x, c->y + y);
 }
 
 static void
@@ -963,6 +1020,46 @@ raise_client(struct client *c)
             XRaiseWindow(display, c->dec);
 
         XRaiseWindow(display, c->win);
+    }
+}
+
+static void setup_monitors(void)
+{
+    XineramaScreenInfo *m_info;
+    int n;
+
+    if(!XineramaIsActive(display))
+    {
+        fprintf(stderr, "Xinerama not active, cannot read monitors\n");
+        return;
+    }
+
+    m_info = XineramaQueryScreens(display, &n);
+    fprintf(stderr, "Found %d screens active\n", n);
+    m_count = n;
+
+    /* First, we need to decide which monitors are unique.
+     * Non-unique monitors can become a problem when displays
+     * are mirrored. They will share the same information (which something
+     * like xrandr will handle for us) but will have the exact same information.
+     * We want to avoid creating duplicate structs for the same monitor if we dont
+     * need to 
+     */
+
+    // TODO: Add support for repeated displays, just annoying for right now.
+
+    m_list = malloc(sizeof(struct monitor) * n);
+
+    for (int i = 0; i < n; i++)
+    {
+        m_list[i].s = m_info[i].screen_number;
+        m_list[i].x = m_info[i].x_org;
+        m_list[i].y = m_info[i].y_org;
+        m_list[i].w = m_info[i].width;
+        m_list[i].h = m_info[i].height;
+        fprintf(stderr, "Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
+                m_list[i].s, m_list[i].x, m_list[i].y, m_list[i].w, m_list[i].h);
+
     }
 }
 
@@ -1064,7 +1161,7 @@ save_client(struct client *c, int ws)
     c->next = c_list[ws];
     c_list[ws] = c;
 
-    c->fnext = f_list[ws];
+    c->f_next = f_list[ws];
     f_list[ws] = c;
 }
 
@@ -1158,6 +1255,7 @@ setup(void)
     /* Set the intial "current desktop" to 0 */
     data2[0] = curr_ws;
     XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
+    setup_monitors();
 }
 
 static void

@@ -53,6 +53,7 @@ static struct Command c[] = {
     { "cycle_focus",            IPCCycleFocus,              0, NULL   },
     { "pointer_move",           IPCPointerMove,             2, fn_int },
     { "top_gap",                IPCTopGap,                  1, fn_int },
+    { "save_monitor",           IPCSaveMonitor,             2, fn_int },
 };
 
 static void
