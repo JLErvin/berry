@@ -1071,7 +1071,6 @@ static void setup_monitors(void)
         m_list[i].h = m_info[i].height;
         fprintf(stderr, "Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
                 m_list[i].s, m_list[i].x, m_list[i].y, m_list[i].w, m_list[i].h);
-
     }
 }
 
@@ -1122,21 +1121,21 @@ refresh_config(void)
 static void
 resize_absolute(struct client *c, int w, int h) 
 {
-    int dest_w = w;
-    int dest_h = h;
+    int dw = w;
+    int dh = h;
     int dec_w = w;
     int dec_h = h;
 
     if (c->decorated) 
     {
-        dest_w = w - (2 * conf.i_width) - (2 * conf.b_width);
-        dest_h = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
+        dw = w - (2 * conf.i_width) - (2 * conf.b_width);
+        dh = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
 
         dec_w = w - (2 * conf.b_width);
         dec_h = h - (2 * conf.b_width);
     }
 
-    XResizeWindow(display, c->win, MAX(dest_w, MINIMUM_DIM), MAX(dest_h, MINIMUM_DIM));
+    XResizeWindow(display, c->win, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated)
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
 
@@ -1152,20 +1151,21 @@ resize_relative(struct client *c, int w, int h)
         int dw, dh, mon;
         mon = ws_m_list[c->ws];
 
+        /* First, check if the resize will exceed the dimensions set by
+         * the right side of the given monitor. If they do, cap the resize
+         * amount to move only to the edge of the monitor.
+         */
         if (c->x + c->w + w > m_list[mon].x + m_list[mon].w)
             dw = m_list[mon].x + m_list[mon].w - c->x;
         else
             dw = c->w + w;
 
+        /* Next, check if the resize will exceed the dimensions set by
+         * the bottom side of the given monitor. If they do, cap the resize
+         * amount to move only to the edge of the monitor.
+         */
         if (c->y + c->h + conf.t_height + h > m_list[mon].y + m_list[mon].h)
-        {
             dh = m_list[mon].h + m_list[mon].y - c->y;
-            /*int max_y = m_list[mon].y + m_list[mon].h;*/
-            /*int cur_h = c->h + conf.t_height; */
-            /*int cur_y = c->y + c->h + conf.t_height;*/
-            /*int diff = max_y - cur_y;*/
-            /*dh = cur_h + diff;*/
-        }
         else
             dh = c->h + h;
 
@@ -1195,9 +1195,11 @@ run(void)
 static void
 save_client(struct client *c, int ws)
 {
+    /* Save the client to the "stack" of managed clients */
     c->next = c_list[ws];
     c_list[ws] = c;
 
+    /* Save the client o the list of focusing order */
     c->f_next = f_list[ws];
     f_list[ws] = c;
 }
@@ -1280,10 +1282,10 @@ setup(void)
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
 
-    XChangeProperty(display, check, net_atom[NetWMCheck], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &check, 1);
-    XChangeProperty(display, check, net_atom[NetWMName], utf8string, 8, PropModeReplace, (unsigned char *) WINDOW_MANAGER_NAME, 5);
-    XChangeProperty(display, root, net_atom[NetWMCheck], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &check, 1);
-    XChangeProperty(display, root, net_atom[NetSupported], XA_ATOM, 32, PropModeReplace, (unsigned char *) net_atom, NetLast);
+    XChangeProperty(display , check , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
+    XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) WINDOW_MANAGER_NAME , 5);
+    XChangeProperty(display , root  , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
+    XChangeProperty(display , root  , net_atom[NetSupported] , XA_ATOM    , 32 , PropModeReplace , (unsigned char *) net_atom            , NetLast);
 
     /* Set the total number of desktops */
     data[0] = WORKSPACE_NUMBER;
@@ -1333,6 +1335,12 @@ switch_ws(int ws)
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
             {
                 show_client(tmp);
+                /* If we don't call XLowerWindow here we will run into an annoying issue
+                 * where we draw the windows in reverse order. The easiest way around
+                 * this is simply to draw all new windows at the "bottom" of the stack, meaning
+                 * that the first element in the stack will end up on top, which is what
+                 * we want :)
+                 */
                 XLowerWindow(display, tmp->win);
                 XLowerWindow(display, tmp->dec);
             }
