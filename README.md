@@ -82,6 +82,16 @@ alt + @button1
     berryc pointer_move 2
 ```
 
+`berry` also supports multi-monitor setups.
+This feature is implemented by associating workspaces to monitors through `berryc`.
+For example, to have workspace 3 always appear on monitor 1, you could add:
+
+``` bash
+berryc save_monitor 3 1
+```
+
+To your `autostart`. 
+
 # Features
 
 * Multiple desktops
