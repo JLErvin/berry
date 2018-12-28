@@ -419,8 +419,10 @@ free_monitors(void)
 static void
 fullscreen(struct client *c)
 {
-    move_absolute(c, 0, 0);
-    resize_absolute(c, screen_width, screen_height);
+    int mon;
+    mon = ws_m_list[c->ws];
+    move_absolute(c, m_list[mon].x, m_list[mon].y);
+    resize_absolute(c, m_list[mon].w, m_list[mon].h);
     if (!c->fullscreen)
         XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
     else
@@ -1022,8 +1024,10 @@ move_to_front(struct client *c)
 static void
 monocle(struct client *c)
 {
-    move_absolute(c, 0, conf.top_gap); 
-    resize_absolute(c, screen_width, screen_height - conf.top_gap);
+    int mon;
+    mon = ws_m_list[c->ws];
+    move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
+    resize_absolute(c, m_list[mon].w, m_list[mon].h - conf.top_gap);
 }
 
 static void
