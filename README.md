@@ -90,7 +90,11 @@ For example, to have workspace 3 always appear on monitor 1, you could add:
 berryc save_monitor 3 1
 ```
 
-To your `autostart`. 
+To your `autostart`.  To determine which monitors are associated to which screen, you can use `xrandr`:
+
+```
+xrandr --listmonitors
+```
 
 # Features
 
