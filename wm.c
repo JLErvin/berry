@@ -20,7 +20,6 @@
 #include "ipc.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b)) 
-#define MIN(a, b) ((a < b) ? (a) : (b)) 
 
 struct monitor
 {
@@ -972,33 +971,23 @@ move_relative(struct client *c, int x, int y)
         int dx, dy, mon;
         mon = ws_m_list[c->ws];
 
-        /* If the right side of the window is past the right-most
-         * side of the associated monitor
-         */
+        /* Lock on the right side of the screen */
         if (c->x + c->w + x > m_list[mon].w + m_list[mon].x)
             dx = m_list[mon].w + m_list[mon].x - c->w;
+        /* Lock on the left side of the screen */
+        else if (c->x + x < m_list[mon].x)
+            dx = m_list[mon].x; 
         else
             dx = c->x + x;
 
-        /* If the bottom side of the window is below the bottom of
-         * the associate monitor 
-         */
+        /* Lock on the bottom of the screen */
         if (c->y + c->h + y > m_list[mon].h + m_list[mon].y)
             dy = m_list[mon].h + m_list[mon].y - c->h;
+        /* Lock on the top of the screen */
+        else if (c->y + y < m_list[mon].y + conf.top_gap)
+            dy = m_list[mon].y;
         else
             dy = c->y + y;
-
-        /* If the left side of the window is past the left-most
-         * side of the associated monitor
-         */
-        if (c->x + x < m_list[mon].x)
-            dx = m_list[mon].x; 
-
-        /* If the top side of the window is above the top of
-         * the associated monitor
-         */
-        if (c->y + y < m_list[mon].y + conf.top_gap)
-            dy = m_list[mon].y;
 
         move_absolute(c, dx, dy);
     }
