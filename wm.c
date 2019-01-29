@@ -67,6 +67,7 @@ enum atoms_wm
 {
     WMDeleteWindow,
     WMProtocols,
+    WMTakeFocus,
     WMLast,
 };
 
@@ -91,7 +92,7 @@ static Atom net_atom[NetLast], wm_atom[WMLast];
 static int point_x = -1, point_y = -1;
 static Window root, check;
 static bool running = true;
-static int screen, screen_width, screen_height;
+static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 
 /* All functions */
@@ -142,6 +143,7 @@ static void ipc_save_monitor(long *d);
 static void load_config(char *conf_path);
 static void manage_client_focus(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
+static int manage_xsend_icccm(struct client *c, Atom atom);
 static void move_absolute(struct client *c, int x, int y);
 static void move_relative(struct client *c, int x, int y);
 static void move_to_front(struct client *c);
@@ -560,7 +562,7 @@ hide_client(struct client *c)
     if (!c->hidden)
     {
         c->x_hide = c->x;
-        move_absolute(c, screen_width + conf.b_width, c->y);
+        move_absolute(c, display_width + conf.b_width, c->y);
         c->hidden = true;
     }
 }
@@ -710,8 +712,6 @@ ipc_b_width(long *d)
     w = d[1];
     conf.b_width = w;
 
-    /*decorations_destroy(f_client);*/
-    /*decorations_create(f_client);*/
     refresh_config();
     raise_client(f_client);
 }
@@ -892,6 +892,7 @@ manage_client_focus(struct client *c)
         /* Tell EWMH about our new window */
         XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->win), 1);
         move_to_front(c);
+        manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
 }
 
@@ -937,11 +938,42 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     decorate_new_client(c);
     XMapWindow(display, c->win);
-    refresh_client(c); // using our current factoring, w/h are set incorrectly
+    refresh_client(c); /* using our current factoring, w/h are set incorrectly */
     save_client(c, curr_ws);
     manage_client_focus(c);
     center_client(c);
     update_c_list();
+}
+
+static int
+manage_xsend_icccm(struct client *c, Atom atom)
+{
+    /* This is from a dwm patch by Brendan MacDonell:
+     * http://lists.suckless.org/dev/1104/7548.html */
+
+    int n;
+    Atom *protocols;
+    int exists = 0;
+    XEvent ev;
+
+    if (XGetWMProtocols(display, c->win, &protocols, &n))
+    {
+        while (!exists && n--)
+            exists = protocols[n] == atom;
+        XFree(protocols);
+    }
+    if (exists)
+    {
+        ev.type = ClientMessage;
+        ev.xclient.window = c->win;
+        ev.xclient.message_type = wm_atom[WMProtocols];
+        ev.xclient.format = 32;
+        ev.xclient.data.l[0] = atom;
+        ev.xclient.data.l[1] = CurrentTime;
+        XSendEvent(display, c->win, False, NoEventMask, &ev);
+    }
+
+    return exists;
 }
 
 static void
@@ -1108,8 +1140,10 @@ refresh_config(void)
                 decorations_destroy(tmp);
                 decorations_create(tmp);
             }
+
             refresh_client(tmp);
             show_client(tmp);
+
             if (f_client != tmp) 
                 set_color(tmp, conf.iu_color, conf.bu_color);
             else
@@ -1280,8 +1314,8 @@ setup(void)
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
-    screen_height = DisplayHeight(display, screen);
-    screen_width = DisplayWidth(display, screen);
+    display_height = DisplayHeight(display, screen); /* Display height/width still needed for hiding clients */ 
+    display_width = DisplayWidth(display, screen);
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
     xerrorxlib = XSetErrorHandler(xerror);
@@ -1307,6 +1341,7 @@ setup(void)
     net_atom[NetWMWindowTypeSplash]  = XInternAtom(display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
     /* Some icccm atoms */
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    wm_atom[WMTakeFocus]             = XInternAtom(display, "WM_TAKE_FOCUS", False);
     wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
 
     XChangeProperty(display , check , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
