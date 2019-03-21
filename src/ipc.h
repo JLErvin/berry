@@ -1,5 +1,5 @@
 #ifndef _IPC_H_
-#define _IPC_H
+#define _IPC_H_
 
 #define BERRY_CLIENT_EVENT "BERRY_CLIENT_EVENT"
 

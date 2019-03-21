@@ -18,66 +18,8 @@
 #include "config.h"
 #include "globals.h"
 #include "ipc.h"
-
-#define MAX(a, b) ((a > b) ? (a) : (b)) 
-
-struct monitor
-{
-    int x, y, w, h, s;
-};
-
-struct client 
-{
-    int x, y, w, h, x_hide, ws;
-    bool decorated, hidden, fullscreen;
-    Window win, dec;
-    struct client *next, *f_next;
-};
-
-struct config
-{
-    int b_width, i_width, t_height, top_gap;
-    unsigned long bf_color, bu_color, if_color, iu_color;
-    int r_step, m_step;
-    bool focus_new, edge_lock;
-};
-
-enum atoms_net
-{
-    NetSupported,
-    NetNumberOfDesktops,
-    NetActiveWindow,
-    NetCurrentDesktop,
-    NetClientList,
-    NetWMStateFullscreen,
-    NetWMCheck,
-    NetWMState,
-    NetWMName,
-    NetWMWindowType,
-    NetWMWindowTypeMenu,
-    NetWMWindowTypeToolbar,
-    NetWMWindowTypeDock,
-    NetWMWindowTypeDialog,
-    NetWMWindowTypeUtility,
-    NetWMWindowTypeSplash,
-    NetLast
-};
-
-enum atoms_wm
-{
-    WMDeleteWindow,
-    WMProtocols,
-    WMTakeFocus,
-    WMLast,
-};
-
-enum direction
-{
-    EAST,
-    NORTH,
-    WEST,
-    SOUTH
-};
+#include "types.h"
+#include "utils.h"
 
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
@@ -104,7 +46,6 @@ static void decorate_new_client(struct client *c);
 static void decorations_create(struct client *c);
 static void decorations_destroy(struct client *c);
 static void delete_client(struct client *c);
-static int euclidean_distance(struct client *a, struct client *b);
 static void free_monitors(void);
 static void fullscreen(struct client *c);
 static struct client* get_client_from_window(Window w);
@@ -179,7 +120,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [UnmapNotify]      = handle_unmap_notify,
     [ConfigureNotify]  = handle_configure_notify,
     [ConfigureRequest] = handle_configure_request,
-    [ClientMessage]    = handle_client_message
+    [ClientMessage]    = handle_client_message,
 };
 
 static void (*ipc_handler[IPCLast])(long *) = 
@@ -205,7 +146,6 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCFullscreen]               = ipc_fullscreen,
     [IPCSnapLeft]                 = ipc_snap_left,
     [IPCSnapRight]                = ipc_snap_right,
-    [IPCSnapRight]                = ipc_snap_right,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerMove]              = ipc_pointer_move,
@@ -228,32 +168,28 @@ cardinal_focus(struct client *c, int dir)
         {
             case EAST:
                 fprintf(stderr, "Focusing EAST\n");
-                if (tmp->x > c->x && dist < min)
-                {
+                if (tmp->geom.x > c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case SOUTH:
                 fprintf(stderr, "Focusing SOUTH\n");
-                if (tmp->y > c->y && dist < min)
-                {
+                if (tmp->geom.y > c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case WEST:
                 fprintf(stderr, "Focusing WEST\n");
-                if (tmp->x < c->x && dist < min)
-                {
+                if (tmp->geom.x < c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case NORTH:
                 fprintf(stderr, "Focusing NORTH\n");
-                if (tmp->y < c->y && dist < min)
-                {
+                if (tmp->geom.y < c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
@@ -262,13 +198,10 @@ cardinal_focus(struct client *c, int dir)
         tmp = tmp->next;
     }
 
-    if (focus_next == NULL)
-    {
+    if (focus_next == NULL) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Cannot cardinal focus, no valid windows found\n");
         return;
-    }
-    else
-    {
+    } else {
         fprintf(stderr, WINDOW_MANAGER_NAME": Valid window found in direction %d, focusing\n", dir);
         manage_client_focus(focus_next);
     }
@@ -280,11 +213,11 @@ cardinal_focus(struct client *c, int dir)
 static void
 center_client(struct client *c)
 {
-    int mon;
+    int8_t mon;
     fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client");
     mon = ws_m_list[c->ws];
-    move_absolute(c, m_list[mon].x + m_list[mon].w / 2 - (c->w / 2),
-            m_list[mon].y + m_list[mon].h / 2 - (c->h / 2));
+    move_absolute(c, m_list[mon].x + m_list[mon].width / 2 - (c->geom.width / 2),
+            m_list[mon].y + m_list[mon].height / 2 - (c->geom.height / 2));
 }
 
 /* Close connection to the current display */
@@ -303,12 +236,12 @@ close_window(struct client *c)
 {
     XEvent ev;
     ev.type = ClientMessage;
-    ev.xclient.window = c->win;
+    ev.xclient.window = c->window;
     ev.xclient.message_type = wm_atom[WMProtocols];
     ev.xclient.format = 32;
     ev.xclient.data.l[0] = wm_atom[WMDeleteWindow];
     ev.xclient.data.l[1] = CurrentTime;
-    XSendEvent(display, c->win, False, NoEventMask, &ev);
+    XSendEvent(display, c->window, False, NoEventMask, &ev);
     fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...");
 }
 
@@ -317,10 +250,10 @@ static void
 decorate_new_client(struct client *c)
 {
     fprintf(stderr, "Decorating new client\n");
-    int w = c->w + 2 * conf.i_width;
-    int h = c->h + 2 * conf.i_width + conf.t_height;
-    int x = c->x - conf.i_width - conf.b_width;
-    int y = c->y - conf.i_width - conf.b_width - conf.t_height; 
+    int w = c->geom.width + 2 * conf.i_width;
+    int h = c->geom.height + 2 * conf.i_width + conf.t_height;
+    int x = c->geom.x - conf.i_width - conf.b_width;
+    int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
 
@@ -355,19 +288,17 @@ delete_client(struct client *c)
     int ws;
     ws = c->ws;
 
-    if (ws == -1)
-    {
+    if (ws == -1) {
         fprintf(stderr, "Cannot delete client, not found\n"); 
         return;
-    }
-    else
+    } else {
         fprintf(stderr, "Deleting client on workspace %d\n", ws); 
+    }
 
     /* Delete in the stack */
-    if (c_list[ws] == c)
+    if (c_list[ws] == c) {
         c_list[ws] = c_list[ws]->next;
-    else
-    {
+    } else {
         struct client *tmp = c_list[ws];
         while (tmp != NULL && tmp->next != c)
             tmp = tmp->next;
@@ -378,10 +309,9 @@ delete_client(struct client *c)
     /* Delete in the focus list */
     /* I'll factor this out later */
     /* Or actually it might not be so easy... */
-    if (f_list[ws] == c)
+    if (f_list[ws] == c) {
         f_list[ws] = f_list[ws]->f_next;
-    else
-    {
+    } else {
         struct client *tmp = f_list[ws];
         while (tmp != NULL && tmp->f_next != c)
             tmp = tmp->f_next;
@@ -393,18 +323,6 @@ delete_client(struct client *c)
         f_client = NULL;
 
     update_c_list();
-}
-
-/* Calculate the distance between the upper left corners of two windows
- * NOTE: This distance can only be used for comparission 
- * (i.e. distance(a, b) > distance(c, b)
- */
-static int
-euclidean_distance(struct client *a, struct client *b)
-{
-    int xDiff = a->x - b->x;
-    int yDiff = a->y - b->y;
-    return pow(xDiff, 2) + pow(yDiff, 2);
 }
 
 static void
@@ -424,11 +342,11 @@ fullscreen(struct client *c)
     int mon;
     mon = ws_m_list[c->ws];
     move_absolute(c, m_list[mon].x, m_list[mon].y);
-    resize_absolute(c, m_list[mon].w, m_list[mon].h);
+    resize_absolute(c, m_list[mon].width, m_list[mon].height);
     if (!c->fullscreen)
-        XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
+        XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
     else
-        XChangeProperty(display, c->win, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
+        XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
 
     c->fullscreen = !c->fullscreen;
 }
@@ -445,8 +363,7 @@ focus_next(struct client *c)
     int ws;
     ws = c->ws;
 
-    if (f_list[ws] == c && f_list[ws]->f_next == NULL)
-    {
+    if (f_list[ws] == c && f_list[ws]->f_next == NULL) {
         manage_client_focus(f_list[ws]);
         return;
     }
@@ -460,10 +377,14 @@ focus_next(struct client *c)
 static struct client*
 get_client_from_window(Window w)
 {
-    for (int i = 0; i < WORKSPACE_NUMBER; i++)
-        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
-            if (tmp->win == w)
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            if (tmp->window == w)
                 return tmp;
+            else if (!tmp->dec && tmp->dec == w)
+                return tmp;
+        }
+    }
 
     return NULL;
 }
@@ -475,8 +396,7 @@ handle_client_message(XEvent *e)
     XClientMessageEvent *cme = &e->xclient;
     long cmd, *data;
 
-    if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False))
-    {
+    if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False)) {
         fprintf(stderr, "Recieved event from berryc\n");
         if (cme->format != 32)
             return;
@@ -529,9 +449,9 @@ handle_map_request(XEvent *e)
 {
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
+
     if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
-
     if (wa.override_redirect)
         return;
 
@@ -545,8 +465,7 @@ handle_unmap_notify(XEvent *e)
     struct client *c;
     c = get_client_from_window(ev->window);
 
-    if (c != NULL)
-    {
+    if (c != NULL) {
         focus_next(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
@@ -559,10 +478,9 @@ handle_unmap_notify(XEvent *e)
 static void
 hide_client(struct client *c)
 {
-    if (!c->hidden)
-    {
-        c->x_hide = c->x;
-        move_absolute(c, display_width + conf.b_width, c->y);
+    if (!c->hidden) {
+        c->x_hide = c->geom.x;
+        move_absolute(c, display_width + conf.b_width, c->geom.y);
         c->hidden = true;
     }
 }
@@ -802,8 +720,7 @@ ipc_pointer_move(long *d)
     Window child, dummy;
     struct client *c;
 
-    if (d[1] == 2)
-    {
+    if (d[1] == 2) {
         point_x = -1;
         point_y = -1;
         return;
@@ -811,8 +728,7 @@ ipc_pointer_move(long *d)
 
     XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
 
-    if (point_x == -1 && point_y == -1)
-    {
+    if (point_x == -1 && point_y == -1) {
         point_x = x;
         point_y = y;
     }
@@ -852,8 +768,7 @@ ipc_save_monitor(long *d)
     ws = d[1];
     mon = d[2];
 
-    if (mon >= m_count)
-    {
+    if (mon >= m_count) {
         fprintf(stderr, "Cannot save monitor, number is too high\n");
         return;
     }
@@ -867,8 +782,7 @@ ipc_save_monitor(long *d)
 static void
 load_config(char *conf_path)
 {
-    if (fork() == 0) 
-    {
+    if (fork() == 0) {
         setsid();
         execl(conf_path, conf_path, NULL);
         fprintf(stderr, "CONFIG PATH: %s\n", conf_path);
@@ -878,11 +792,12 @@ load_config(char *conf_path)
 static void
 manage_client_focus(struct client *c)
 {
-    if (c != NULL && f_client != NULL) 
+    if (c != NULL && f_client != NULL) {
         set_color(f_client, conf.iu_color, conf.bu_color);
+        manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
+    }
 
-    if (c != NULL)
-    {
+    if (c != NULL) {
         set_color(c, conf.if_color, conf.bf_color);
         raise_client(c);
         set_input(c);
@@ -890,7 +805,7 @@ manage_client_focus(struct client *c)
         XDeleteProperty(display, root, net_atom[NetActiveWindow]);
         f_client = c;
         /* Tell EWMH about our new window */
-        XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->win), 1);
+        XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->window), 1);
         move_to_front(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
@@ -906,17 +821,14 @@ manage_new_window(Window w, XWindowAttributes *wa)
     unsigned long dl;
     if (XGetWindowProperty(display, w, net_atom[NetWMWindowType], 0,
                 sizeof (Atom), False, XA_ATOM, &da, &di, &dl, &dl,
-                &prop_ret) == Success) 
-    {
-        if (prop_ret)
-        {
+                &prop_ret) == Success) {
+        if (prop_ret) {
             prop = ((Atom *)prop_ret)[0];
             if (prop == net_atom[NetWMWindowTypeDock] ||
                 prop == net_atom[NetWMWindowTypeToolbar] ||
                 prop == net_atom[NetWMWindowTypeUtility] ||
-                prop == net_atom[NetWMWindowTypeMenu])
-            {
-                fprintf(stderr, "Window is of type dock, toolbar, utility, or menu: not managing\n");
+                prop == net_atom[NetWMWindowTypeMenu]) {
+                fprintf(stderr, "Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 fprintf(stderr, "Mapping new window, not managed\n");
                 XMapWindow(display, w);
                 return;
@@ -927,17 +839,17 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     struct client *c;
     c = malloc(sizeof(struct client));
-    c->win = w;
+    c->window = w;
     c->ws = curr_ws;
-    c->x = wa->x;
-    c->y = wa->y;
-    c->w = wa->width;
-    c->h = wa->height;
+    c->geom.x = wa->x;
+    c->geom.y = wa->y;
+    c->geom.width = wa->width;
+    c->geom.height = wa->height;
     c->hidden = false;
     c->fullscreen = false;
 
     decorate_new_client(c);
-    XMapWindow(display, c->win);
+    XMapWindow(display, c->window);
     refresh_client(c); /* using our current factoring, w/h are set incorrectly */
     save_client(c, curr_ws);
     manage_client_focus(c);
@@ -956,21 +868,20 @@ manage_xsend_icccm(struct client *c, Atom atom)
     int exists = 0;
     XEvent ev;
 
-    if (XGetWMProtocols(display, c->win, &protocols, &n))
-    {
+    if (XGetWMProtocols(display, c->window, &protocols, &n)) {
         while (!exists && n--)
             exists = protocols[n] == atom;
         XFree(protocols);
     }
-    if (exists)
-    {
+
+    if (exists) {
         ev.type = ClientMessage;
-        ev.xclient.window = c->win;
+        ev.xclient.window = c->window;
         ev.xclient.message_type = wm_atom[WMProtocols];
         ev.xclient.format = 32;
         ev.xclient.data.l[0] = atom;
         ev.xclient.data.l[1] = CurrentTime;
-        XSendEvent(display, c->win, False, NoEventMask, &ev);
+        XSendEvent(display, c->window, False, NoEventMask, &ev);
     }
 
     return exists;
@@ -988,45 +899,44 @@ move_absolute(struct client *c, int x, int y)
     }
 
     /* move relative to where decorations should go */
-    XMoveWindow(display, c->win, dest_x, dest_y);
+    XMoveWindow(display, c->window, dest_x, dest_y);
     if (c->decorated)
         XMoveWindow(display, c->dec, x, y);
 
-    c->x = x;
-    c->y = y;
+    c->geom.x = x;
+    c->geom.y = y;
 }
 
 static void
 move_relative(struct client *c, int x, int y) 
 {
     /* Constrain the current client to the w/h of display */
-    if (conf.edge_lock)
-    {
+    if (conf.edge_lock) {
         int dx, dy, mon;
         mon = ws_m_list[c->ws];
 
         /* Lock on the right side of the screen */
-        if (c->x + c->w + x > m_list[mon].w + m_list[mon].x)
-            dx = m_list[mon].w + m_list[mon].x - c->w;
+        if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x)
+            dx = m_list[mon].width + m_list[mon].x - c->geom.width;
         /* Lock on the left side of the screen */
-        else if (c->x + x < m_list[mon].x)
+        else if (c->geom.x + x < m_list[mon].x)
             dx = m_list[mon].x; 
         else
-            dx = c->x + x;
+            dx = c->geom.x + x;
 
         /* Lock on the bottom of the screen */
-        if (c->y + c->h + y > m_list[mon].h + m_list[mon].y)
-            dy = m_list[mon].h + m_list[mon].y - c->h;
+        if (c->geom.y + c->geom.height + y > m_list[mon].height + m_list[mon].y)
+            dy = m_list[mon].height + m_list[mon].y - c->geom.height;
         /* Lock on the top of the screen */
-        else if (c->y + y < m_list[mon].y + conf.top_gap)
+        else if (c->geom.y + y < m_list[mon].y + conf.top_gap)
             dy = m_list[mon].y;
         else
-            dy = c->y + y;
+            dy = c->geom.y + y;
 
         move_absolute(c, dx, dy);
     }
     else
-        move_absolute(c, c->x + x, c->y + y);
+        move_absolute(c, c->geom.x + x, c->geom.y + y);
 }
 
 static void
@@ -1059,18 +969,17 @@ monocle(struct client *c)
     int mon;
     mon = ws_m_list[c->ws];
     move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-    resize_absolute(c, m_list[mon].w, m_list[mon].h - conf.top_gap);
+    resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
 }
 
 static void
 raise_client(struct client *c)
 {
-    if (c != NULL)
-    {
+    if (c != NULL) {
         if (c->decorated)
             XRaiseWindow(display, c->dec);
 
-        XRaiseWindow(display, c->win);
+        XRaiseWindow(display, c->window);
     }
 }
 
@@ -1101,23 +1010,21 @@ static void setup_monitors(void)
 
     m_list = malloc(sizeof(struct monitor) * n);
 
-    for (int i = 0; i < n; i++)
-    {
-        m_list[i].s = m_info[i].screen_number;
+    for (int i = 0; i < n; i++) {
+        m_list[i].screen = m_info[i].screen_number;
+        m_list[i].width = m_info[i].width;
+        m_list[i].height = m_info[i].height;
         m_list[i].x = m_info[i].x_org;
         m_list[i].y = m_info[i].y_org;
-        m_list[i].w = m_info[i].width;
-        m_list[i].h = m_info[i].height;
         fprintf(stderr, "Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
-                m_list[i].s, m_list[i].x, m_list[i].y, m_list[i].w, m_list[i].h);
+                m_list[i].screen, m_list[i].x, m_list[i].y, m_list[i].width, m_list[i].height);
     }
 }
 
 static void
 refresh_client(struct client *c)
 {
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         move_relative(c, 0, 0);
         resize_relative(c, 0, 0);
     }
@@ -1126,9 +1033,8 @@ refresh_client(struct client *c)
 static void
 refresh_config(void)
 {
-    for (int i = 0; i < WORKSPACE_NUMBER; i++)
-        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
-        {
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
             /* We run into this annoying issue when where we have to 
              * re-create these windows since the border_width has changed.
              * We end up destroying and recreating this windows, but this
@@ -1149,14 +1055,14 @@ refresh_config(void)
             else
                 set_color(tmp, conf.if_color, conf.bf_color);
 
-            if (i != curr_ws)
+            if (i != curr_ws) {
                 hide_client(tmp);
-            else
-            {
+            } else {
                 show_client(tmp);
                 raise_client(tmp);
             }
         }
+    }
 }
 
 static void
@@ -1167,8 +1073,7 @@ resize_absolute(struct client *c, int w, int h)
     int dec_w = w;
     int dec_h = h;
 
-    if (c->decorated) 
-    {
+    if (c->decorated) {
         dw = w - (2 * conf.i_width) - (2 * conf.b_width);
         dh = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
 
@@ -1176,19 +1081,18 @@ resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
-    XResizeWindow(display, c->win, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
+    XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated)
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
 
-    c->w = MAX(w, MINIMUM_DIM);
-    c->h = MAX(h, MINIMUM_DIM);
+    c->geom.width = MAX(w, MINIMUM_DIM);
+    c->geom.height = MAX(h, MINIMUM_DIM);
 }
 
 static void
 resize_relative(struct client *c, int w, int h) 
 {
-    if (conf.edge_lock)
-    {
+    if (conf.edge_lock) {
         int dw, dh, mon;
         mon = ws_m_list[c->ws];
 
@@ -1196,24 +1100,24 @@ resize_relative(struct client *c, int w, int h)
          * the right side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->x + c->w + w > m_list[mon].x + m_list[mon].w)
-            dw = m_list[mon].x + m_list[mon].w - c->x;
+        if (c->geom.x + c->geom.width + w > m_list[mon].x + m_list[mon].width)
+            dw = m_list[mon].x + m_list[mon].width - c->geom.x;
         else
-            dw = c->w + w;
+            dw = c->geom.width + w;
 
         /* Next, check if the resize will exceed the dimensions set by
          * the bottom side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->y + c->h + conf.t_height + h > m_list[mon].y + m_list[mon].h)
-            dh = m_list[mon].h + m_list[mon].y - c->y;
+        if (c->geom.y + c->geom.height + conf.t_height + h > m_list[mon].y + m_list[mon].height)
+            dh = m_list[mon].height + m_list[mon].y - c->geom.y;
         else
-            dh = c->h + h;
+            dh = c->geom.height + h;
 
         resize_absolute(c, dw, dh);
+    } else {
+        resize_absolute(c, c->geom.width + w, c->geom.height + h);
     }
-    else
-        resize_absolute(c, c->w + w, c->h + h);
 }
 
 static void
@@ -1225,8 +1129,7 @@ run(void)
     {
         fprintf(stderr, "Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
-        if (event_handler[e.type])
-        {
+        if (event_handler[e.type]) {
             fprintf(stderr, "Handling %d event\n", e.type);
             event_handler[e.type](&e);
         }
@@ -1278,8 +1181,7 @@ send_to_ws(struct client *c, int ws)
 static void
 set_color(struct client *c, unsigned long i_color, unsigned long b_color)
 {
-    if (c->decorated)
-    {
+    if (c->decorated) {
         XSetWindowBackground(display, c->dec, i_color);
         XSetWindowBorder(display, c->dec, b_color);
         XClearWindow(display, c->dec);
@@ -1290,7 +1192,7 @@ set_color(struct client *c, unsigned long i_color, unsigned long b_color)
 static void
 set_input(struct client *c)
 {
-    XSetInputFocus(display, c->win, RevertToParent, CurrentTime);
+    XSetInputFocus(display, c->window, RevertToPointerRoot, CurrentTime);
 }
 
 static void
@@ -1316,6 +1218,7 @@ setup(void)
     screen = DefaultScreen(display);
     display_height = DisplayHeight(display, screen); /* Display height/width still needed for hiding clients */ 
     display_width = DisplayWidth(display, screen);
+
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask);
     xerrorxlib = XSetErrorHandler(xerror);
@@ -1362,9 +1265,8 @@ setup(void)
 static void
 show_client(struct client *c)
 {
-    if (c->hidden)
-    {
-        move_absolute(c, c->x_hide, c->y);
+    if (c->hidden) {
+        move_absolute(c, c->x_hide, c->geom.y);
         raise_client(c);
         c->hidden = false;
         refresh_client(c);
@@ -1377,7 +1279,7 @@ snap_left(struct client *c)
     int mon;
     mon = ws_m_list[c->ws];
     move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-    resize_absolute(c, m_list[mon].w / 2, m_list[mon].h - conf.top_gap);
+    resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
 }
 
 static void
@@ -1385,8 +1287,8 @@ snap_right(struct client *c)
 {
     int mon;
     mon = ws_m_list[c->ws];
-    move_absolute(c, m_list[mon].x + m_list[mon].w / 2, m_list[mon].y + conf.top_gap); 
-    resize_absolute(c, m_list[mon].w / 2, m_list[mon].h - conf.top_gap);
+    move_absolute(c, m_list[mon].x + m_list[mon].width / 2, m_list[mon].y + conf.top_gap); 
+    resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
 }
 
 static void
@@ -1399,8 +1301,7 @@ switch_ws(int ws)
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
                 hide_client(tmp);
         else if (i == ws)
-            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
-            {
+            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 show_client(tmp);
                 /* If we don't call XLowerWindow here we will run into an annoying issue
                  * where we draw the windows in reverse order. The easiest way around
@@ -1408,14 +1309,14 @@ switch_ws(int ws)
                  * that the first element in the stack will end up on top, which is what
                  * we want :)
                  */
-                XLowerWindow(display, tmp->win);
+                XLowerWindow(display, tmp->window);
                 XLowerWindow(display, tmp->dec);
             }
 
 
     curr_ws = ws;
     int mon = ws_m_list[ws];
-    fprintf(stderr, "Setting Screen #%d with active workspace %d\n", m_list[mon].s, ws);
+    fprintf(stderr, "Setting Screen #%d with active workspace %d\n", m_list[mon].screen, ws);
     manage_client_focus(c_list[curr_ws]);
 
     data[0] = ws;
@@ -1444,7 +1345,7 @@ update_c_list(void)
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
             XChangeProperty(display, root, net_atom[NetClientList], XA_WINDOW, 32, PropModeAppend,
-                    (unsigned char *) &(tmp->win), 1);
+                    (unsigned char *) &(tmp->geom.width), 1);
 }
 
 static void
@@ -1491,10 +1392,8 @@ main(int argc, char *argv[])
     bool conf_found = true;
     conf_path[0] = '\0';
 
-    while ((opt = getopt(argc, argv, "hvc:")) != -1)
-    {
-        switch (opt) 
-        {
+    while ((opt = getopt(argc, argv, "hvc:")) != -1) {
+        switch (opt) {
             case 'h':
                 usage();
                 break;
@@ -1507,16 +1406,13 @@ main(int argc, char *argv[])
         }
     }
 
-    if (conf_path[0] == '\0') 
-    {
+    if (conf_path[0] == '\0') {
         char *xdg_home = getenv("XDG_CONFIG_HOME");
-        if (xdg_home != NULL)
+        if (xdg_home != NULL) {
             snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s", xdg_home, BERRY_AUTOSTART);
-        else
-        {
+        } else {
             char *home = getenv("HOME");
-            if (home == NULL) 
-            {
+            if (home == NULL) {
                 fprintf(stderr, "Warning $XDG_CONFIG_HOME and $HOME not found"
                         "autostart will not be loaded.\n");
                 conf_found = false;
