@@ -12,7 +12,8 @@ struct client_geom {
 
 struct client {
     Window window, dec;
-    uint8_t ws, x_hide;
+    uint8_t ws;
+    int16_t x_hide;
     bool decorated, hidden, fullscreen;
     struct client_geom geom;
     struct client *next, *f_next;
