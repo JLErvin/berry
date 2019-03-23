@@ -1,5 +1,5 @@
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef _BERRY_CONFIG_H_
+#define _BERRY_CONFIG_H_
 
 #define WORKSPACE_NUMBER 10
 

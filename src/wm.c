@@ -26,15 +26,15 @@ static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
 static struct monitor *m_list = NULL; /* All saved monitors */
 static struct config conf; /* gloabl config */
-static uint8_t ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
-static uint8_t curr_ws = 0;
-static uint8_t m_count = 0;
+static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
+static int curr_ws = 0;
+static int m_count = 0;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast];
-static int16_t point_x = -1, point_y = -1;
+static int point_x = -1, point_y = -1;
 static Window root, check;
 static bool running = true;
-static uint16_t screen, display_width, display_height;
+static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 
 /* All functions */
@@ -164,9 +164,12 @@ static void (*ipc_handler[IPCLast])(long *) =
 static void
 client_cardinal_focus(struct client *c, int dir)
 {
-    struct client *tmp = c_list[curr_ws];
-    struct client *focus_next = NULL;
-    int min = INT_MAX;
+    struct client *tmp, *focus_next;
+    int min;
+
+    tmp = c_list[curr_ws];
+    focus_next = NULL;
+    min = INT_MAX;
 
     while (tmp != NULL)
     {
@@ -220,7 +223,7 @@ client_cardinal_focus(struct client *c, int dir)
 static void
 client_center(struct client *c)
 {
-    int8_t mon;
+    int mon;
     fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client");
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2 - (c->geom.width / 2),
@@ -263,7 +266,6 @@ client_decorate_new(struct client *c)
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
-
     fprintf(stderr, "Mapping new decorations\n");
     XMapWindow(display, dec);
     c->dec = dec;
@@ -407,7 +409,6 @@ handle_client_message(XEvent *e)
         fprintf(stderr, "Recieved event from berryc\n");
         if (cme->format != 32)
             return;
-
         cmd = cme->data.l[0];
         data = cme->data.l;
         ipc_handler[cmd](data);
@@ -753,7 +754,6 @@ ipc_pointer_move(long *d)
     {
         /* Focus the client for either type of event */
         client_manage_focus(c);
-
         /* Only move if it is of type 1 */
         if (d[1] == 1)
             client_move_relative(c, dx, dy);
