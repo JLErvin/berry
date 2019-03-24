@@ -224,7 +224,7 @@ static void
 client_center(struct client *c)
 {
     int mon;
-    fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client\n");
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2 - (c->geom.width / 2),
             m_list[mon].y + m_list[mon].height / 2 - (c->geom.height / 2));
@@ -235,7 +235,7 @@ client_center(struct client *c)
 static void
 close_wm(void)
 {
-    fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...\n");
     XCloseDisplay(display);
 }
 
@@ -253,7 +253,7 @@ client_close(struct client *c)
     ev.xclient.data.l[0] = wm_atom[WMDeleteWindow];
     ev.xclient.data.l[1] = CurrentTime;
     XSendEvent(display, c->window, False, NoEventMask, &ev);
-    fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...\n");
 }
 
 /* Create new "dummy" windows to be used as decorations for the given client */
@@ -489,7 +489,7 @@ client_hide(struct client *c)
 {
     if (!c->hidden) {
         c->x_hide = c->geom.x;
-        fprintf(stderr, "Hiding client");
+        fprintf(stderr, "Hiding client\n");
         client_move_absolute(c, display_width + conf.b_width, c->geom.y);
         c->hidden = true;
     }
@@ -753,8 +753,12 @@ ipc_pointer_move(long *d)
     fprintf(stderr, "Recieved pointer input, moving window by %d, %d\n", dx, dy);
     if(c != NULL)
     {
-        /* Focus the client for either type of event */
-        client_manage_focus(c);
+        /* Focus the client for either type of event 
+         * However, don't change focus if the client is already focused
+         * otherwise menu's will be hidden behind the parent window
+         */
+        if (c != f_client)
+            client_manage_focus(c);
         /* Only move if it is of type 1 */
         if (d[1] == 1)
             client_move_relative(c, dx, dy);
@@ -836,10 +840,12 @@ manage_new_window(Window w, XWindowAttributes *wa)
             if (prop == net_atom[NetWMWindowTypeDock] ||
                 prop == net_atom[NetWMWindowTypeToolbar] ||
                 prop == net_atom[NetWMWindowTypeUtility] ||
+                prop == net_atom[NetWMWindowTypeDialog] ||
                 prop == net_atom[NetWMWindowTypeMenu]) {
                 fprintf(stderr, "Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 fprintf(stderr, "Mapping new window, not managed\n");
                 XMapWindow(display, w);
+                XRaiseWindow(display, w);
                 return;
             }
         }
@@ -1429,7 +1435,6 @@ main(int argc, char *argv[])
             if (home == NULL) {
                 fprintf(stderr, "Warning $XDG_CONFIG_HOME and $HOME not found"
                         "autostart will not be loaded.\n");
-                conf_found = false;
 
             }
             snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s/%s", home, ".config", BERRY_AUTOSTART);
