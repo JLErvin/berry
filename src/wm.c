@@ -228,6 +228,7 @@ client_center(struct client *c)
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2 - (c->geom.width / 2),
             m_list[mon].y + m_list[mon].height / 2 - (c->geom.height / 2));
+    client_refresh(c); // in case we went over the top gap
 }
 
 /* Close connection to the current display */
@@ -847,6 +848,10 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     struct client *c;
     c = malloc(sizeof(struct client));
+    if (c == NULL) {
+        fprintf(stderr, "Error, malloc could not allocated new window\n");
+        return;
+    }
     c->window = w;
     c->ws = curr_ws;
     c->geom.x = wa->x;
@@ -937,7 +942,7 @@ client_move_relative(struct client *c, int x, int y)
             dy = m_list[mon].height + m_list[mon].y - c->geom.height;
         /* Lock on the top of the screen */
         else if (c->geom.y + y < m_list[mon].y + conf.top_gap)
-            dy = m_list[mon].y;
+            dy = m_list[mon].y + conf.top_gap;
         else
             dy = c->geom.y + y;
 
