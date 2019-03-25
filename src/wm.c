@@ -14,6 +14,7 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xinerama.h>
+#include <X11/Xft/Xft.h>
 
 #include "config.h"
 #include "globals.h"
@@ -73,6 +74,8 @@ static void handle_configure_notify(XEvent *e);
 static void handle_configure_request(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
+static void handle_motion_notify(XEvent *e);
+static void handle_button_press(XEvent *e);
 
 /* IPC client functions */
 static void ipc_move_absolute(long *d);
@@ -103,7 +106,7 @@ static void ipc_top_gap(long *d);
 static void ipc_save_monitor(long *d);
 
 static void monitors_free(void);
-static void setup_monitors(void);
+static void monitors_setup(void);
 
 static void close_wm(void);
 static struct client* get_client_from_window(Window w);
@@ -128,6 +131,8 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [ConfigureNotify]  = handle_configure_notify,
     [ConfigureRequest] = handle_configure_request,
     [ClientMessage]    = handle_client_message,
+    [ButtonPress]      = handle_button_press,
+    [MotionNotify]     = handle_motion_notify
 };
 
 static void (*ipc_handler[IPCLast])(long *) = 
@@ -391,7 +396,7 @@ get_client_from_window(Window w)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
             if (tmp->window == w)
                 return tmp;
-            else if (!tmp->dec && tmp->dec == w)
+            else if (tmp->decorated && tmp->dec == w)
                 return tmp;
         }
     }
@@ -417,6 +422,38 @@ handle_client_message(XEvent *e)
 }
 
 static void
+handle_button_press(XEvent *e)
+{
+    XButtonPressedEvent *ev = &e->xbutton;
+    struct client *c;
+    fprintf(stderr, "Handling a mother FUCKING FUCK ugh BUTTON PRESS1\n");
+
+    c = get_client_from_window(ev->window);
+    client_manage_focus(c);
+}
+
+static void
+handle_motion_notify(XEvent *e)
+{
+    /*[>XGrabButton(display, 1, AnyModifier, root, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);<]*/
+    /*XMotionEvent *ev;*/
+    /*struct client *c;*/
+    /*fprintf(stderr, "Recieved motion notify event\n");*/
+
+    /*ev = &e->xmotion;*/
+    /*if (ev->state == ButtonPressMask) {*/
+        /*fprintf(stderr, "Handling motion notify\n");*/
+        /*c = get_client_from_window(ev->subwindow);*/
+        /*[>c = get_client_from_window(ev->window);<]*/
+        /*XGrabPointer(display, c->window, True, PointerMotionHintMask|ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);*/
+        /*if (c != NULL)*/
+            /*client_manage_focus(c);*/
+        /*XUngrabPointer(display, CurrentTime);*/
+    /*}*/
+    /*XUngrabButton(display, 1, AnyModifier, root);*/
+}
+
+static void
 handle_configure_notify(XEvent *e)
 {
     XConfigureEvent *ev = &e->xconfigure;
@@ -427,7 +464,7 @@ handle_configure_notify(XEvent *e)
     fprintf(stderr, "Handling configure notify event\n");
 
     monitors_free();
-    setup_monitors();
+    monitors_setup();
 }
 
 static void
@@ -874,6 +911,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_manage_focus(c);
     client_center(c);
     update_c_list();
+    XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, 1, Mod4Mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
 }
 
 static int
@@ -1002,7 +1041,7 @@ client_raise(struct client *c)
     }
 }
 
-static void setup_monitors(void)
+static void monitors_setup(void)
 {
     XineramaScreenInfo *m_info;
     int n;
@@ -1239,7 +1278,7 @@ setup(void)
     display_width = DisplayWidth(display, screen);
 
     XSelectInput(display, root,
-            SubstructureRedirectMask|SubstructureNotifyMask);
+            SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
     xerrorxlib = XSetErrorHandler(xerror);
 
     Atom utf8string;
@@ -1278,7 +1317,7 @@ setup(void)
     /* Set the intial "current desktop" to 0 */
     data2[0] = curr_ws;
     XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
-    setup_monitors();
+    monitors_setup();
 }
 
 static void
@@ -1435,7 +1474,6 @@ main(int argc, char *argv[])
             if (home == NULL) {
                 fprintf(stderr, "Warning $XDG_CONFIG_HOME and $HOME not found"
                         "autostart will not be loaded.\n");
-
             }
             snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s/%s", home, ".config", BERRY_AUTOSTART);
         }
