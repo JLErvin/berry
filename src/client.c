@@ -51,7 +51,7 @@ static struct Command c[] = {
     { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },
     { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL   },
     { "cycle_focus",            IPCCycleFocus,              0, NULL   },
-    { "pointer_move",           IPCPointerMove,             2, fn_int },
+    { "pointer_focus",          IPCPointerFocus,            0, NULL   },
     { "top_gap",                IPCTopGap,                  1, fn_int },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int },
 };
@@ -127,17 +127,13 @@ main(int argc, char **argv)
     else if (strcmp(argv[1], "-v") == 0)
         version();
 
-    for (int i = 0; i < sizeof c / sizeof c[0]; i++)
-    {
-        if (strcmp(argv[1], c[i].name) == 0)
-        {
-            if (c[i].argc != c_argc)
-            {
+    for (int i = 0; i < sizeof c / sizeof c[0]; i++) {
+        if (strcmp(argv[1], c[i].name) == 0) {
+            if (c[i].argc != c_argc) {
                 printf("Wrong number of arguments\n");
                 printf("%d expected for command %s\n", c[i].argc, c[i].name);
                 return 1;
             }
-
             send_command(&c[i], c_argc, c_argv);
             return 0;
         }

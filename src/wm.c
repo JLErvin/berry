@@ -101,7 +101,7 @@ static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
-static void ipc_pointer_move(long *d);
+static void ipc_pointer_focus(long *d);
 static void ipc_top_gap(long *d);
 static void ipc_save_monitor(long *d);
 
@@ -161,7 +161,7 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCSnapRight]                = ipc_snap_right,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
-    [IPCPointerMove]              = ipc_pointer_move,
+    [IPCPointerFocus]             = ipc_pointer_focus,
     [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCTopGap]                   = ipc_top_gap,
 };
@@ -785,7 +785,7 @@ ipc_cycle_focus(long *d)
 }
 
 static void
-ipc_pointer_move(long *d)
+ipc_pointer_focus(long *d)
 {
     /* Shoutout to vain for this methodology */
     int x, y, di;
