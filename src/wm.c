@@ -32,9 +32,9 @@ static int curr_ws = 0;
 static int m_count = 0;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast];
-static int point_x = -1, point_y = -1;
 static Window root, check;
 static bool running = true;
+static bool grab = false;
 static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 
@@ -74,8 +74,8 @@ static void handle_configure_notify(XEvent *e);
 static void handle_configure_request(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
-static void handle_motion_notify(XEvent *e);
 static void handle_button_press(XEvent *e);
+static void handle_focus_change(XEvent *e);
 
 /* IPC client functions */
 static void ipc_move_absolute(long *d);
@@ -109,6 +109,7 @@ static void monitors_free(void);
 static void monitors_setup(void);
 
 static void close_wm(void);
+static void draw_text(void);
 static struct client* get_client_from_window(Window w);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -132,7 +133,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [ConfigureRequest] = handle_configure_request,
     [ClientMessage]    = handle_client_message,
     [ButtonPress]      = handle_button_press,
-    [MotionNotify]     = handle_motion_notify
+    [FocusIn]          = handle_focus_change
 };
 
 static void (*ipc_handler[IPCLast])(long *) = 
@@ -242,6 +243,16 @@ close_wm(void)
 {
     fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...\n");
     XCloseDisplay(display);
+}
+
+static void
+draw_text(void)
+{
+    /*XftDraw *xd;*/
+    /*int len;*/
+
+    /*xd = XDrawCreate(display, DefaultVisual(display, screen), DefaultColormap(display, screen));*/
+    /*XftDrawStringUtf8(xd, col, 100, 100, (XftChar8 *)s, len);*/
 }
 
 /* Communicate with the given Client, kindly telling it to close itself
@@ -424,33 +435,48 @@ handle_client_message(XEvent *e)
 static void
 handle_button_press(XEvent *e)
 {
-    XButtonPressedEvent *ev = &e->xbutton;
+    /* Much credit to the authors of dwm for
+     * this function. 
+     */
+    XButtonPressedEvent *bev = &e->xbutton;
+    XEvent ev; 
     struct client *c;
-    fprintf(stderr, "Handling a mother FUCKING FUCK ugh BUTTON PRESS1\n");
+    int x, y, ocx, ocy, nx, ny, di;
+    unsigned int dui;
+    Window child, dummy;
 
-    c = get_client_from_window(ev->window);
-    client_manage_focus(c);
+    XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
+    fprintf(stderr, "Handling button press event\n");
+    c = get_client_from_window(bev->window);
+    if (c == NULL)
+        return;
+    ocx = c->geom.x;
+    ocy = c->geom.y;
+    XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+    do {
+        XMaskEvent(display, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
+        switch (ev.type) {
+            case ConfigureRequest:
+            case Expose:
+            case MapRequest:
+            case MotionNotify:
+                fprintf(stderr, "Handling motion notify event\n");
+                nx = ocx + (ev.xmotion.x - x);
+                ny = ocy + (ev.xmotion.y - y);
+                client_move_absolute(c, nx, ny);
+        }
+    } while (ev.type != ButtonRelease);
+    XUngrabPointer(display, CurrentTime);
 }
 
 static void
-handle_motion_notify(XEvent *e)
+handle_focus_change(XEvent *e)
 {
-    /*[>XGrabButton(display, 1, AnyModifier, root, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);<]*/
-    /*XMotionEvent *ev;*/
-    /*struct client *c;*/
-    /*fprintf(stderr, "Recieved motion notify event\n");*/
-
-    /*ev = &e->xmotion;*/
-    /*if (ev->state == ButtonPressMask) {*/
-        /*fprintf(stderr, "Handling motion notify\n");*/
-        /*c = get_client_from_window(ev->subwindow);*/
-        /*[>c = get_client_from_window(ev->window);<]*/
-        /*XGrabPointer(display, c->window, True, PointerMotionHintMask|ButtonReleaseMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);*/
-        /*if (c != NULL)*/
-            /*client_manage_focus(c);*/
-        /*XUngrabPointer(display, CurrentTime);*/
-    /*}*/
-    /*XUngrabButton(display, 1, AnyModifier, root);*/
+    XFocusChangeEvent *ev = &e->xfocus;
+    struct client *c;
+    c = get_client_from_window(ev->window);
+    if (c != NULL)
+        client_manage_focus(c);
 }
 
 static void
@@ -762,32 +788,14 @@ static void
 ipc_pointer_move(long *d)
 {
     /* Shoutout to vain for this methodology */
-    int x, y, di, dx, dy;
+    int x, y, di;
     unsigned int dui;
     Window child, dummy;
     struct client *c;
 
-    if (d[1] == 2) {
-        point_x = -1;
-        point_y = -1;
-        return;
-    }
-
     XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
-
-    if (point_x == -1 && point_y == -1) {
-        point_x = x;
-        point_y = y;
-    }
-
-    dx = x - point_x;
-    dy = y - point_y;
-
-    point_x = x;
-    point_y = y;
-
     c = get_client_from_window(child);
-    fprintf(stderr, "Recieved pointer input, moving window by %d, %d\n", dx, dy);
+
     if(c != NULL)
     {
         /* Focus the client for either type of event 
@@ -796,9 +804,6 @@ ipc_pointer_move(long *d)
          */
         if (c != f_client)
             client_manage_focus(c);
-        /* Only move if it is of type 1 */
-        if (d[1] == 1)
-            client_move_relative(c, dx, dy);
     }
 }
 
@@ -853,6 +858,7 @@ client_manage_focus(struct client *c)
         client_set_input(c);
         /* Remove focus from the old window */
         XDeleteProperty(display, root, net_atom[NetActiveWindow]);
+
         f_client = c;
         /* Tell EWMH about our new window */
         XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->window), 1);
@@ -911,8 +917,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_manage_focus(c);
     client_center(c);
     update_c_list();
+    XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(display, 1, Mod4Mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
 }
 
 static int

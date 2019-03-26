@@ -39,7 +39,7 @@ NAME_DEFINES = \
 
 # Flags used in rules.
 CPPFLAGS += $(NAME_DEFINES) -DSRVR_$$HOSTNAME $(DEBUG_CPPFLAGS)
-#CFLAGS += -std=c99 -Wall -Wextra -O3 $(DEBUG_CFLAGS)
-CFLAGS += -Wall -Wextra -O3 $(DEBUG_CFLAGS)
+#CFLAGS += -Wall -Wextra -O3 $(DEBUG_CFLAGS)
+CFLAGS += -Wall -O3 $(DEBUG_CFLAGS)
 CFLAGS += -Icore -Iinclude -I/usr/include/freetype2
 LDFLAGS += -lX11 -lXrandr -lXft
