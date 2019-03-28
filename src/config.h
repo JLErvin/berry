@@ -18,6 +18,9 @@
 #define INNER_UNFOCUS_COLOR 0x2c3539
 #define INNER_FOCUS_COLOR 0xac8d6e
 
+#define TEXT_FOCUS_COLOR 0xeeffff
+#define TEXT_UNFOCUS_COLOR 0x546e7a
+
 #define FOCUS_NEW true
 #define EDGE_LOCK true
 

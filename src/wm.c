@@ -83,7 +83,6 @@ static void handle_configure_request(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
 static void handle_button_press(XEvent *e);
-static void handle_focus_change(XEvent *e);
 static void handle_expose(XEvent *e);
 
 /* IPC client functions */
@@ -118,8 +117,7 @@ static void monitors_free(void);
 static void monitors_setup(void);
 
 static void close_wm(void);
-/*static void draw_text(Drawable d, XftFont *xfont, XftColor *col, int x, int y, int w, bool centered, char *s);*/
-static void draw_text(struct client *c);
+static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -144,7 +142,6 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [ClientMessage]    = handle_client_message,
     [ButtonPress]      = handle_button_press,
     [Expose]           = handle_expose,
-    [FocusIn]          = handle_focus_change
 };
 
 static void (*ipc_handler[IPCLast])(long *) = 
@@ -255,21 +252,20 @@ close_wm(void)
 }
 
 static void
-draw_text(struct client *c)
+draw_text(struct client *c, bool focused)
 {
-    /*XftDraw *draw;*/
-    /*char *str;*/
-    /*str = "Suh duh";*/
-    /*XSelectInput(display, c->dec, ExposureMask);*/
-    /*XClearWindow(display, c->dec);*/
-    /*XMapWindow(display, c->dec);*/
-    /*XSetFont(display, gc, font->fid);*/
-    /*XDrawString(display, c->dec, gc, 20, 20, "hello guttenberg", strlen("hello guttenberg"));*/
+    XTextProperty tp;
+    char* title;
+    if (!XGetTextProperty(display, c->window, &tp, net_atom[NetWMName]))
+        return;
+    title = tp.value;
 
-    /*draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));*/
-    /*XftDrawRect(draw, &xft_color, 10, 40, 20, 20);*/
-    /*XftDrawStringUtf8(draw, &xft_color, font, 30, 40, (XftChar8 *)str, strlen(str));*/
-    /*XftDrawDestroy(draw);*/
+    if (focused)
+        XSetForeground(display, gc, conf.tf_color);
+    else
+        XSetForeground(display, gc, conf.tu_color);
+
+    XDrawString(display, c->dec, gc, 20, 20, title, strlen(title));
 }
 
 /* Communicate with the given Client, kindly telling it to close itself
@@ -296,26 +292,19 @@ client_decorate_new(struct client *c)
     fprintf(stderr, "Decorating new client\n");
     int w = c->geom.width + 2 * conf.i_width;
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
-    int x = c->geom.x - conf.i_width - conf.b_width - w;
+    int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
-            BlackPixel(display, screen), WhitePixel(display, screen));
-            /*conf.bu_color, conf.bf_color);*/
-    /*XSelectInput(display, dec, ExposureMask);*/
-    /*Window myWindow = XCreateSimpleWindow(display, root, 0, 0, 640, 320, 5, BlackPixel(display, screen), WhitePixel(display, screen));*/
-    /*XMapWindow(display, dec);*/
+            conf.bu_color, conf.bf_color);
     fprintf(stderr, "Mapping new decorations\n");
-    /*c->dec = myWindow;*/
     c->dec = dec;
-    c->title = dec;
     c->decorated = true;
     XSelectInput(display, dec, ExposureMask);
     XClearWindow(display, dec);
     XMapWindow(display, dec);
     XSetForeground(display, gc, BlackPixel(display, screen));
     XSetBackground(display, gc, WhitePixel(display, screen));
-    XDrawString(display, dec, gc, 20, 20, "hello", 5);
-    /*draw_text(c);*/
+    draw_text(c, true);
 }
 
 static void
@@ -503,6 +492,7 @@ handle_expose(XEvent *e)
 {
     XExposeEvent *ev = &e->xexpose;
     struct client *c;
+    bool focused;
 
     fprintf(stderr, "Handling expose event\n");
     c = get_client_from_window(ev->window);
@@ -510,18 +500,8 @@ handle_expose(XEvent *e)
         fprintf(stderr, "Expose event client not found, exiting\n");
         return;
     }
-    XClearWindow(display, c->dec);
-    XDrawString(display, c->dec, gc, 20, 20, "hello", 5);
-}
-
-static void
-handle_focus_change(XEvent *e)
-{
-    XFocusChangeEvent *ev = &e->xfocus;
-    struct client *c;
-    c = get_client_from_window(ev->window);
-    if (c != NULL)
-        client_manage_focus(c);
+    focused = c == f_client;
+    draw_text(c, focused);
 }
 
 static void
@@ -894,11 +874,13 @@ client_manage_focus(struct client *c)
 {
     if (c != NULL && f_client != NULL) {
         client_set_color(f_client, conf.iu_color, conf.bu_color);
+        draw_text(f_client, false);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
 
     if (c != NULL) {
         client_set_color(c, conf.if_color, conf.bf_color);
+        draw_text(c, true);
         client_raise(c);
         client_set_input(c);
         /* Remove focus from the old window */
@@ -1010,11 +992,8 @@ client_move_absolute(struct client *c, int x, int y)
     /* move relative to where decorations should go */
     XMoveWindow(display, c->window, dest_x, dest_y);
     if (c->decorated){
-        XMoveWindow(display, c->dec, x - c->geom.width, y);
+        XMoveWindow(display, c->dec, x, y);
     }
-
-    /*XMoveResizeWindow(display, myWindow, c->geom.x - 100, c->geom.y - 100, 640, 320);*/
-    XMoveWindow(display, c->title, c->geom.x - 100, c->geom.y - 100);
 
     c->geom.x = x;
     c->geom.y = y;
@@ -1294,11 +1273,13 @@ client_send_to_ws(struct client *c, int ws)
 static void
 client_set_color(struct client *c, unsigned long i_color, unsigned long b_color)
 {
-    /*if (c->decorated) {*/
-        /*XSetWindowBackground(display, c->dec, i_color);*/
-        /*XSetWindowBorder(display, c->dec, b_color);*/
-        /*XClearWindow(display, c->dec);*/
-    /*}*/
+    if (c->decorated) {
+        XSetWindowBackground(display, c->dec, i_color);
+        XSetWindowBorder(display, c->dec, b_color);
+        XClearWindow(display, c->dec);
+        draw_text(c, c == f_client);
+        /* FOUND IT */
+    }
 }
 
 
@@ -1320,6 +1301,8 @@ setup(void)
     conf.bu_color  = BORDER_UNFOCUS_COLOR;
     conf.if_color  = INNER_FOCUS_COLOR;
     conf.iu_color  = INNER_UNFOCUS_COLOR; 
+    conf.tf_color  = TEXT_FOCUS_COLOR;
+    conf.tu_color  = TEXT_UNFOCUS_COLOR;
     conf.m_step    = MOVE_STEP;
     conf.r_step    = RESIZE_STEP;
     conf.focus_new = FOCUS_NEW;
@@ -1377,25 +1360,8 @@ setup(void)
 
     gc = XCreateGC(display, root, 0, 0); 
     font = XLoadQueryFont(display, "lucidasanstypewriter-bold-14");
-    /*myWindow = XCreateSimpleWindow(display, root, 0, 0, 640, 320, 5, BlackPixel(display, screen), WhitePixel(display, screen));*/
-    /*XSelectInput(display, myWindow, ExposureMask);*/
-    /*XClearWindow(display, myWindow);*/
-    /*XMapWindow(display, myWindow);*/
-    /*XSetForeground(display, gc, BlackPixel(display, screen));*/
-    /*XSetBackground(display, gc, WhitePixel(display, screen));*/
+    /*font = XLoadQueryFont(display, "iosevka-12");*/
     XSetFont(display, gc, font->fid);
-    /*XDrawString(display, myWindow, gc, 20, 20, "hello", 5);*/
-    /*sleep(2);*/
-    /*XMoveWindow(display, myWindow, 50, 50);*/
-    /*sleep(2);*/
-    /*XMoveWindow(display, myWindow, 100, 100);*/
-    /*render_color.red = 0;*/
-    /*render_color.green = 0;*/
-    /*render_color.blue = 0;*/
-    /*render_color.alpha = 0xffff;*/
-    /*XftColorAllocValue(display, DefaultVisual(display, screen), DefaultColormap(display, screen),*/
-            /*&render_color, &xft_color);*/
-    /*font = XftFontOpenName(display, screen, "Iosevka 12");*/
 }
 
 static void
