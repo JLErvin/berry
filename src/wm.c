@@ -16,7 +16,7 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/Xinerama.h>
 #include <X11/cursorfont.h>
-/*#include <X11/Xft/Xft.h>*/
+#include <X11/Xft/Xft.h>
 
 #include "config.h"
 #include "globals.h"
@@ -40,10 +40,8 @@ static bool running = true;
 static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 
-/*static XftColor xft_color;*/
-/*static XftFont *font;*/
-/*static XRenderColor render_color;*/
-XFontStruct *font;
+static XftColor xft_focus_color, xft_unfocus_color;
+static XftFont *font;
 GC gc;
 
 /* All functions */
@@ -254,18 +252,20 @@ close_wm(void)
 static void
 draw_text(struct client *c, bool focused)
 {
-    XTextProperty tp;
-    char* title;
-    if (!XGetTextProperty(display, c->window, &tp, net_atom[NetWMName]))
-        return;
-    title = tp.value;
+    XftDraw *draw;
+    XftColor *render_color;
+    char *str;
+    int x, y;
 
-    if (focused)
-        XSetForeground(display, gc, conf.tf_color);
-    else
-        XSetForeground(display, gc, conf.tu_color);
+    str ="suh dude"; 
+    x = 5;
+    y = 17;
 
-    XDrawString(display, c->dec, gc, 20, 20, title, strlen(title));
+    XClearWindow(display, c->dec);
+    draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
+    render_color = focused ? &xft_focus_color : &xft_unfocus_color;
+    XftDrawStringUtf8(draw, render_color, font, x, y, (XftChar8 *) str, strlen(str));
+    XftDrawDestroy(draw);
 }
 
 /* Communicate with the given Client, kindly telling it to close itself
@@ -299,11 +299,8 @@ client_decorate_new(struct client *c)
     fprintf(stderr, "Mapping new decorations\n");
     c->dec = dec;
     c->decorated = true;
-    XSelectInput(display, dec, ExposureMask);
-    XClearWindow(display, dec);
-    XMapWindow(display, dec);
-    XSetForeground(display, gc, BlackPixel(display, screen));
-    XSetBackground(display, gc, WhitePixel(display, screen));
+    XSelectInput (display, c->dec, ExposureMask);
+    XMapWindow (display, c->dec);
     draw_text(c, true);
 }
 
@@ -1278,7 +1275,6 @@ client_set_color(struct client *c, unsigned long i_color, unsigned long b_color)
         XSetWindowBorder(display, c->dec, b_color);
         XClearWindow(display, c->dec);
         draw_text(c, c == f_client);
-        /* FOUND IT */
     }
 }
 
@@ -1357,11 +1353,16 @@ setup(void)
     data2[0] = curr_ws;
     XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
     monitors_setup();
-
+    
     gc = XCreateGC(display, root, 0, 0); 
-    font = XLoadQueryFont(display, "lucidasanstypewriter-bold-14");
-    /*font = XLoadQueryFont(display, "iosevka-12");*/
-    XSetFont(display, gc, font->fid);
+    const char* f_col = "#FFFFFF";
+    const char* u_col = "#AFAFAF";
+    XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
+            f_col, &xft_focus_color);
+    XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
+            u_col, &xft_unfocus_color);
+
+    font = XftFontOpenName(display,screen,"Iosevka 12"); //it takes a Fontconfig pattern string
 }
 
 static void
