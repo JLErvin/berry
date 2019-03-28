@@ -23,7 +23,6 @@
 
 #define FOCUS_NEW true
 #define EDGE_LOCK true
-
-#define MINIMUM_DIM 30
+#define TITLE_CENTER true
 
 #endif

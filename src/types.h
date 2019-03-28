@@ -15,12 +15,13 @@ struct client {
     bool decorated, hidden, fullscreen;
     struct client_geom geom;
     struct client *next, *f_next;
+    char title[512];
 };
 
 struct config {
     int b_width, i_width, t_height, top_gap, r_step, m_step;
     unsigned long bf_color, bu_color, if_color, iu_color, tf_color, tu_color;
-    bool focus_new, edge_lock;
+    bool focus_new, edge_lock, t_center;
 };
 
 struct monitor {
