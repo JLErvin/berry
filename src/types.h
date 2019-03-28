@@ -11,6 +11,7 @@ struct client_geom {
 
 struct client {
     Window window, dec;
+    Window title;
     int ws, x_hide;
     bool decorated, hidden, fullscreen;
     struct client_geom geom;

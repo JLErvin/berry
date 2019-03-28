@@ -109,6 +109,7 @@ send_command(struct Command *c, int argc, char **argv)
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);
+    XCloseDisplay(display);
 }
 
 int
