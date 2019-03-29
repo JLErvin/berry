@@ -14,8 +14,8 @@ A healthy, bite-sized window manager written in C over the XLib library.
     * [Monitors](#Monitors)
     * [Themes](#Themes)
     * [Fonts](#Fonts)
-* [Credits](*Credits)
-* [Screenshots](*Screenshots)
+* [Credits](#Credits)
+* [Screenshots](#Screenshots)
 
 # Description
 `berry` is a floating window manager that responds to X events and manages window decorations.
@@ -123,6 +123,8 @@ The window manager can be controlled using the following commands:
     * change focus to the next client in the stack
 * `pointer_focus`
     * focus the window under the current pointer (used by `sxhkd`)
+    
+All of these commands can also be viewed on your system via `man berryc`
 
 ## Monitors
 
@@ -139,7 +141,7 @@ The following command will list all monitors and their associated numbers:
 xrandr --listmonitors
 ```
 
-## Theme
+## Themes
 
 `berryc` also controls the appearance of `berry`.
 The following commands are available:
@@ -164,6 +166,11 @@ The following commands are available:
     * Set the height of the title bar, does not include border widths
 * `top_gap` **`XXXXXX`**
     * Set the offset at the top of the monitor (usually for system bars)
+   
+Please note that for the previous commands, **`XXXXXX`** represents a hex color
+**without** the leading #.
+
+All of these commands can also be viewed on your system via `man berryc`
 
 ## Fonts
 
@@ -186,7 +193,7 @@ Upon logging out/back into an X session, you should see the changes.
 * Keyboard-drive resizing and movement
 * Command line client to control windows and decorations
 * Double borders
-* Title bars
+* Title bars with text
 * Left/right snapping
 * Fullscreen/monocle mode
 
