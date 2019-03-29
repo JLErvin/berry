@@ -89,39 +89,39 @@ Instead, a program like `sxhkd` is needed to translate keypress events into comm
 `berry` is controlled through its client, `berryc`.
 The window manager can be controlled using the following commands:
 
-* `window_move` **x y**
+* `window_move` **`x y`**
     * move the current window by x and y, relatively
-* window_move_absolute x y
+* `window_move_absolute` **x y**
     * move the current window to x and y
-* window_resize x y
+* `window_resize` x y
     * resize the current window by x and y, relatively
-* window_resize_absolute x y
+* `window_resize_absolute` x y
     * resize the current window to x and y
-* window_raise
+* `window_raise`
     * raise the given window 
-* window_monocle
+* `window_monocle`
     * set the current window to fill the screen, maintains decorations
-* window_close
+* `window_close`
     * close the current window
-* window_center
+* `window_center`
     * center the current window, maintains current size
-* switch_workspace i
+* `switch_workspace` i
     * switch view to the given workspace
-* send_to_workspace i
+* `send_to_workspace` i
     * send the current window the given workspace
-* fullscreen
+* `fullscreen`
     * set the current window to fill the screen, removes decorations
-* snap_left
+* `snap_left`
     * snap the given window to the left side of the screen and fill vertically
-* snap_right
+* `snap_right`
     * snap the given window to the left side of the screen and fill vertically
-* cardinal_focus 1/2/3/4
+* `cardinal_focus` 1/2/3/4
     * change focus to the client in the specified direction
-* toggle_decorations
+* `toggle_decorations`
     * toggle decorations for the current client
-* cycle_focus
+* `cycle_focus`
     * change focus to the next client in the stack
-* pointer_focus
+* `pointer_focus`
     * focus the window under the current pointer (used by `sxhkd`)
 
 ## Monitors
@@ -130,7 +130,7 @@ The window manager can be controlled using the following commands:
 Monitors are associated with workspaces.
 To associate a monitor with a specific workspace, using the following `berryc` command:
 
-* save_monitor i j
+* `save_monitor` i j
     * Associate the ith workspace to the jth monitor
 
 The number associated with each monitor can be determined through an application like `xrandr`.
@@ -144,25 +144,25 @@ xrandr --listmonitors
 `berryc` also controls the appearance of `berry`.
 The following commands are available:
 
-* focus_color XXXXXX
+* `focus_color` XXXXXX
     * Set the color of the outer border for the focused window
-* unfocus_color XXXXXX
+* `unfocus_color` XXXXXX
     * Set the color of the outer border for all unfocused windows
-* inner_focus_color XXXXXX
+* `inner_focus_color` XXXXXX
     * Set the color of the inner border and title bar for the focused window
-* inner_unfocus_color XXXXXX
+* `inner_unfocus_color` XXXXXX
     * Set the color of the inner border and title bar for all unfocused windows
-* text_focus_color XXXXXX
+* `text_focus_color` XXXXXX
     * Set the color of the title bar text for the focused window
-* text_unfocus_color XXXXXX
+* `text_unfocus_color` XXXXXX
     * Set the color of the title bar text for the unfocused window
-* border_width XXXXXX
+* `border_width` XXXXXX
     * Set the border width, in pixels, of the outer border
-* inner_border_width XXXXXX
+* `inner_border_width` XXXXXX
     * Set the border width, in pixels, of the inner border
-* title_height XXXXXX
+* `title_height` XXXXXX
     * Set the height of the title bar, does not include border widths
-* top_gap XXXXXX
+* `top_gap` XXXXXX
     * Set the offset at the top of the monitor (usually for system bars)
 
 ## Fonts
