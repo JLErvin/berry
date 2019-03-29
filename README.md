@@ -89,7 +89,7 @@ Instead, a program like `sxhkd` is needed to translate keypress events into comm
 `berry` is controlled through its client, `berryc`.
 The window manager can be controlled using the following commands:
 
-* window_move x y
+* `window_move` **x y**
     * move the current window by x and y, relatively
 * window_move_absolute x y
     * move the current window to x and y
