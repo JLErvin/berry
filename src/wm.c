@@ -42,9 +42,11 @@ static int (*xerrorxlib)(Display *, XErrorEvent *);
 
 static XftColor xft_focus_color, xft_unfocus_color;
 static XftFont *font;
+static XRenderColor r_color;
 static GC gc;
 
 /* All functions */
+
 
 /* Client management functions */
 static void client_cardinal_focus(struct client *c, int dir);
@@ -111,6 +113,8 @@ static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_top_gap(long *d);
 static void ipc_save_monitor(long *d);
+static void ipc_tf_color(long *d);
+static void ipc_tu_color(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -118,6 +122,7 @@ static void monitors_setup(void);
 static void close_wm(void);
 static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
+static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
@@ -132,8 +137,7 @@ static void version(void);
 static int xerror(Display *display, XErrorEvent *e);
 
 /* Native X11 Event handler */
-static void (*event_handler[LASTEvent])(XEvent *e) = 
-{
+static void (*event_handler[LASTEvent])(XEvent *e) = {
     [MapRequest]       = handle_map_request,
     [UnmapNotify]      = handle_unmap_notify,
     [ConfigureNotify]  = handle_configure_notify,
@@ -144,8 +148,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) =
     [Expose]           = handle_expose
 };
 
-static void (*ipc_handler[IPCLast])(long *) = 
-{
+static void (*ipc_handler[IPCLast])(long *) = {
     [IPCWindowMoveRelative]       = ipc_move_relative,
     [IPCWindowMoveAbsolute]       = ipc_move_absolute,
     [IPCWindowMonocle]            = ipc_monocle,
@@ -171,6 +174,8 @@ static void (*ipc_handler[IPCLast])(long *) =
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerFocus]             = ipc_pointer_focus,
     [IPCSaveMonitor]              = ipc_save_monitor,
+    [IPCTitleFocusColor]          = ipc_tf_color,
+    [IPCTitleUnfocusColor]        = ipc_tu_color,
     [IPCTopGap]                   = ipc_top_gap,
 };
 
@@ -255,7 +260,7 @@ static void
 draw_text(struct client *c, bool focused)
 {
     XftDraw *draw;
-    XftColor *render_color;
+    XftColor *xft_render_color;
     XGlyphInfo extents;
     int x, y;
     
@@ -272,8 +277,8 @@ draw_text(struct client *c, bool focused)
 
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
-    render_color = focused ? &xft_focus_color : &xft_unfocus_color;
-    XftDrawStringUtf8(draw, render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
+    xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
+    XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
     XftDrawDestroy(draw);
 }
 
@@ -879,6 +884,44 @@ ipc_save_monitor(long *d)
 }
 
 static void
+ipc_tf_color(long *d) 
+{
+    unsigned long nc;
+    nc = d[1];
+
+    load_color(&xft_focus_color, nc);
+    refresh_config();
+}
+
+static void
+ipc_tu_color(long *d) 
+{
+    unsigned long nc;
+    nc = d[1];
+
+    load_color(&xft_unfocus_color, nc);
+    refresh_config();
+}
+
+static void
+load_color(XftColor *dest_color, unsigned long raw_color)
+{
+    XColor x_color;
+    x_color.pixel = raw_color;
+    XQueryColor(display, DefaultColormap(display, screen), &x_color);
+    r_color.blue = x_color.blue;
+    r_color.green = x_color.green;
+    r_color.red = x_color.red;
+    r_color.alpha = DEFAULT_ALPHA;
+
+    XftColorFree(display, DefaultVisual(display, screen), DefaultColormap(display, screen), dest_color);
+    XftColorAllocValue(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
+            &r_color, dest_color);
+
+}
+
+
+static void
 load_config(char *conf_path)
 {
     if (fork() == 0) {
@@ -1348,8 +1391,6 @@ setup(void)
     conf.bu_color  = BORDER_UNFOCUS_COLOR;
     conf.if_color  = INNER_FOCUS_COLOR;
     conf.iu_color  = INNER_UNFOCUS_COLOR; 
-    conf.tf_color  = TEXT_FOCUS_COLOR;
-    conf.tu_color  = TEXT_UNFOCUS_COLOR;
     conf.m_step    = MOVE_STEP;
     conf.r_step    = RESIZE_STEP;
     conf.focus_new = FOCUS_NEW;
@@ -1407,12 +1448,11 @@ setup(void)
     monitors_setup();
     
     gc = XCreateGC(display, root, 0, 0); 
-    const char* f_col = "#FFFFFF";
-    const char* u_col = "#AFAFAF";
+
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
-            f_col, &xft_focus_color);
+            TEXT_FOCUS_COLOR, &xft_focus_color);
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
-            u_col, &xft_unfocus_color);
+            TEXT_UNFOCUS_COLOR, &xft_unfocus_color);
 
     font = XftFontOpenName(display,screen,"Iosevka 12"); //it takes a Fontconfig pattern string
 }

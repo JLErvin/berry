@@ -20,7 +20,7 @@ struct client {
 
 struct config {
     int b_width, i_width, t_height, top_gap, r_step, m_step;
-    unsigned long bf_color, bu_color, if_color, iu_color, tf_color, tu_color;
+    unsigned long bf_color, bu_color, if_color, iu_color;
     bool focus_new, edge_lock, t_center;
 };
 

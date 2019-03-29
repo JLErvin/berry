@@ -1,5 +1,8 @@
-#include <X11/Xlib.h>
 #include <math.h>
+#include <stdio.h>
+
+#include <X11/Xlib.h>
+
 
 #include "types.h"
 #include "utils.h"
