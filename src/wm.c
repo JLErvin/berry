@@ -39,14 +39,12 @@ static Window root, check;
 static bool running = true;
 static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
-
 static XftColor xft_focus_color, xft_unfocus_color;
 static XftFont *font;
 static XRenderColor r_color;
 static GC gc;
 
 /* All functions */
-
 
 /* Client management functions */
 static void client_cardinal_focus(struct client *c, int dir);
@@ -1454,7 +1452,7 @@ setup(void)
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
             TEXT_UNFOCUS_COLOR, &xft_unfocus_color);
 
-    font = XftFontOpenName(display,screen,"Iosevka 12"); //it takes a Fontconfig pattern string
+    font = XftFontOpenName(display, screen, DEFAULT_FONT);
 }
 
 static void
