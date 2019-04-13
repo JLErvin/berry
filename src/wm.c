@@ -273,6 +273,11 @@ draw_text(struct client *c, bool focused)
     y = (conf.t_height / 2) + ((extents.y) / 2);
     x = !conf.t_center ? TITLE_X_OFFSET : (c->geom.width - extents.width) / 2;
 
+    if (extents.height > conf.t_height) {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Text is taller than title bar height, not drawing text\n");
+        return;
+    }
+
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
@@ -1085,9 +1090,9 @@ client_move_relative(struct client *c, int x, int y)
             dy = c->geom.y + y;
 
         client_move_absolute(c, dx, dy);
-    }
-    else
+    } else {
         client_move_absolute(c, c->geom.x + x, c->geom.y + y);
+    }
 }
 
 static void
@@ -1139,8 +1144,7 @@ static void monitors_setup(void)
     XineramaScreenInfo *m_info;
     int n;
 
-    if(!XineramaIsActive(display))
-    {
+    if(!XineramaIsActive(display)) {
         fprintf(stderr, WINDOW_MANAGER_NAME":Xinerama not active, cannot read monitors\n");
         return;
     }
@@ -1193,8 +1197,7 @@ refresh_config(void)
              * causes them to be redrawn on the wrong screen, regardless of
              * their current desktop. The easiest way around this is to move
              * them all to the current desktop and then back agian */
-            if (tmp->decorated)
-            {
+            if (tmp->decorated) {
                 client_decorations_destroy(tmp);
                 client_decorations_create(tmp);
             }
@@ -1280,8 +1283,7 @@ run(void)
 {
     XEvent e;
     XSync(display, false);
-    while(running)
-    {
+    while(running) {
         fprintf(stderr, WINDOW_MANAGER_NAME":Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
         if (event_handler[e.type]) {
