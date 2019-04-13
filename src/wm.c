@@ -192,28 +192,28 @@ client_cardinal_focus(struct client *c, int dir)
         int dist = euclidean_distance(c, tmp);
         switch (dir) {
             case EAST:
-                fprintf(stderr, "Focusing EAST\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Focusing EAST\n");
                 if (tmp->geom.x > c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case SOUTH:
-                fprintf(stderr, "Focusing SOUTH\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Focusing SOUTH\n");
                 if (tmp->geom.y > c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case WEST:
-                fprintf(stderr, "Focusing WEST\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Focusing WEST\n");
                 if (tmp->geom.x < c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case NORTH:
-                fprintf(stderr, "Focusing NORTH\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Focusing NORTH\n");
                 if (tmp->geom.y < c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
@@ -267,8 +267,6 @@ draw_text(struct client *c, bool focused)
         return;
     }
 
-    fprintf(stderr, WINDOW_MANAGER_NAME": Drawing text on client\n");
-
     XftTextExtentsUtf8(display, font, (XftChar8 *)c->title, strlen(c->title), &extents);
     y = (conf.t_height / 2) + ((extents.y) / 2);
     x = !conf.t_center ? TITLE_X_OFFSET : (c->geom.width - extents.width) / 2;
@@ -278,6 +276,7 @@ draw_text(struct client *c, bool focused)
         return;
     }
 
+    fprintf(stderr, WINDOW_MANAGER_NAME": Drawing text on client\n");
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
@@ -473,7 +472,7 @@ handle_button_press(XEvent *e)
     Window child, dummy;
 
     XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
-    fprintf(stderr, WINDOW_MANAGER_NAME":Handling button press event\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling button press event\n");
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
@@ -489,7 +488,7 @@ handle_button_press(XEvent *e)
             case Expose:
             case MapRequest:
             case MotionNotify:
-                fprintf(stderr, WINDOW_MANAGER_NAME":Handling motion notify event\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Handling motion notify event\n");
                 nx = ocx + (ev.xmotion.x - x);
                 ny = ocy + (ev.xmotion.y - y);
                 client_move_absolute(c, nx, ny);
@@ -505,10 +504,10 @@ handle_expose(XEvent *e)
     struct client *c;
     bool focused;
 
-    fprintf(stderr, WINDOW_MANAGER_NAME":Handling expose event\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling expose event\n");
     c = get_client_from_window(ev->window);
     if (c == NULL) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Expose event client not found, exiting\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Expose event client not found, exiting\n");
         return;
     }
     focused = c == f_client;
@@ -539,7 +538,7 @@ handle_configure_notify(XEvent *e)
     if (ev->window == root)
         return;
 
-    fprintf(stderr, WINDOW_MANAGER_NAME":Handling configure notify event\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling configure notify event\n");
 
     monitors_free();
     monitors_setup();
@@ -552,7 +551,7 @@ handle_configure_request(XEvent *e)
     XConfigureRequestEvent *ev = &e->xconfigurerequest;
     XWindowChanges wc;
 
-    fprintf(stderr, WINDOW_MANAGER_NAME":Handling configure request event\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling configure request event\n");
 
     wc.x = ev->x;
     wc.y = ev->y;
@@ -604,7 +603,7 @@ client_hide(struct client *c)
 {
     if (!c->hidden) {
         c->x_hide = c->geom.x;
-        fprintf(stderr, WINDOW_MANAGER_NAME":Hiding client\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Hiding client\n");
         client_move_absolute(c, display_width + conf.b_width, c->geom.y);
         c->hidden = true;
     }
@@ -876,11 +875,11 @@ ipc_save_monitor(long *d)
     mon = d[2];
 
     if (mon >= m_count) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Cannot save monitor, number is too high\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Cannot save monitor, number is too high\n");
         return;
     }
 
-    fprintf(stderr, WINDOW_MANAGER_NAME":Saving ws %d to monitor %d\n", ws, mon);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Saving ws %d to monitor %d\n", ws, mon);
 
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
@@ -930,7 +929,7 @@ load_config(char *conf_path)
     if (fork() == 0) {
         setsid();
         execl(conf_path, conf_path, NULL);
-        fprintf(stderr, WINDOW_MANAGER_NAME":CONFIG PATH: %s\n", conf_path);
+        fprintf(stderr, WINDOW_MANAGER_NAME": CONFIG PATH: %s\n", conf_path);
     }
 }
 
@@ -977,8 +976,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
                 prop == net_atom[NetWMWindowTypeUtility] ||
                 prop == net_atom[NetWMWindowTypeDialog] ||
                 prop == net_atom[NetWMWindowTypeMenu]) {
-                fprintf(stderr, WINDOW_MANAGER_NAME":Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
-                fprintf(stderr, WINDOW_MANAGER_NAME":Mapping new window, not managed\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
+                fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
                 XMapWindow(display, w);
                 XRaiseWindow(display, w);
                 return;
@@ -990,7 +989,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     struct client *c;
     c = malloc(sizeof(struct client));
     if (c == NULL) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Error, malloc could not allocated new window\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Error, malloc could not allocated new window\n");
         return;
     }
     c->window = w;
@@ -1145,12 +1144,12 @@ static void monitors_setup(void)
     int n;
 
     if(!XineramaIsActive(display)) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Xinerama not active, cannot read monitors\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Xinerama not active, cannot read monitors\n");
         return;
     }
 
     m_info = XineramaQueryScreens(display, &n);
-    fprintf(stderr, WINDOW_MANAGER_NAME":Found %d screens active\n", n);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Found %d screens active\n", n);
     m_count = n;
 
     /* First, we need to decide which monitors are unique.
@@ -1171,7 +1170,7 @@ static void monitors_setup(void)
         m_list[i].height = m_info[i].height;
         m_list[i].x = m_info[i].x_org;
         m_list[i].y = m_info[i].y_org;
-        fprintf(stderr, WINDOW_MANAGER_NAME":Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
+        fprintf(stderr, WINDOW_MANAGER_NAME": Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
                 m_list[i].screen, m_list[i].x, m_list[i].y, m_list[i].width, m_list[i].height);
     }
 }
@@ -1284,10 +1283,10 @@ run(void)
     XEvent e;
     XSync(display, false);
     while(running) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Receieved new %d event\n", e.type);
+        fprintf(stderr, WINDOW_MANAGER_NAME": Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
         if (event_handler[e.type]) {
-            fprintf(stderr, WINDOW_MANAGER_NAME":Handling %d event\n", e.type);
+            fprintf(stderr, WINDOW_MANAGER_NAME": Handling %d event\n", e.type);
             event_handler[e.type](&e);
         }
     }
@@ -1362,7 +1361,7 @@ client_set_title(struct client *c)
 
     c->title[0] = 0;
     if (!XGetTextProperty(display, c->window, &tp, net_atom[NetWMName])) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Could not read client title, not updating\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Could not read client title, not updating\n");
         return;
     }
 
@@ -1461,7 +1460,7 @@ static void
 client_show(struct client *c)
 {
     if (c->hidden) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Showing client");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Showing client");
         client_move_absolute(c, c->x_hide, c->geom.y);
         client_raise(c);
         c->hidden = false;
@@ -1512,7 +1511,7 @@ switch_ws(int ws)
 
     curr_ws = ws;
     int mon = ws_m_list[ws];
-    fprintf(stderr, WINDOW_MANAGER_NAME":Setting Screen #%d with active workspace %d\n", m_list[mon].screen, ws);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Setting Screen #%d with active workspace %d\n", m_list[mon].screen, ws);
     client_manage_focus(c_list[curr_ws]);
 
     data[0] = ws;
@@ -1609,7 +1608,7 @@ main(int argc, char *argv[])
         } else {
             char *home = getenv("HOME");
             if (home == NULL) {
-                fprintf(stderr, WINDOW_MANAGER_NAME":Warning $XDG_CONFIG_HOME and $HOME not found"
+                fprintf(stderr, WINDOW_MANAGER_NAME": Warning $XDG_CONFIG_HOME and $HOME not found"
                         "autostart will not be loaded.\n");
             }
             snprintf(conf_path, MAXLEN * sizeof(char), "%s/%s/%s", home, ".config", BERRY_AUTOSTART);
@@ -1620,7 +1619,7 @@ main(int argc, char *argv[])
     if (!display)
         exit(EXIT_FAILURE);
 
-    fprintf(stderr, WINDOW_MANAGER_NAME":Successfully opened display\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Successfully opened display\n");
 
     setup();
     if (conf_found)
