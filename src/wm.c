@@ -305,14 +305,14 @@ client_close(struct client *c)
 static void
 client_decorations_create(struct client *c)
 {
-    fprintf(stderr, WINDOW_MANAGER_NAME":Decorating new client\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Decorating new client\n");
     int w = c->geom.width + 2 * conf.i_width;
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
-    fprintf(stderr, WINDOW_MANAGER_NAME":Mapping new decorations\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new decorations\n");
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
@@ -325,7 +325,7 @@ client_decorations_create(struct client *c)
 static void 
 client_decorations_destroy(struct client *c)
 {
-    fprintf(stderr, WINDOW_MANAGER_NAME":Removing decorations\n");
+    fprintf(stderr, WINDOW_MANAGER_NAME": Removing decorations\n");
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
@@ -341,10 +341,10 @@ client_delete(struct client *c)
     ws = c->ws;
 
     if (ws == -1) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Cannot delete client, not found\n"); 
+        fprintf(stderr, WINDOW_MANAGER_NAME": Cannot delete client, not found\n"); 
         return;
     } else {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Deleting client on workspace %d\n", ws); 
+        fprintf(stderr, WINDOW_MANAGER_NAME": Deleting client on workspace %d\n", ws); 
     }
 
     /* Delete in the stack */
@@ -449,7 +449,7 @@ handle_client_message(XEvent *e)
     long cmd, *data;
 
     if (cme->message_type == XInternAtom(display, BERRY_CLIENT_EVENT, False)) {
-        fprintf(stderr, WINDOW_MANAGER_NAME":Recieved event from berryc\n");
+        fprintf(stderr, WINDOW_MANAGER_NAME": Recieved event from berryc\n");
         if (cme->format != 32)
             return;
         cmd = cme->data.l[0];
