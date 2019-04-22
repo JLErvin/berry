@@ -277,8 +277,10 @@ draw_text(struct client *c, bool focused)
     }
 
     fprintf(stderr, WINDOW_MANAGER_NAME": Drawing text on client\n");
-    XClearWindow(display, c->dec);
-    draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
+    /*XClearWindow(display, c->dec);*/
+    /*draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));*/
+    XClearWindow(display, c->decs[DecTitle]);
+    draw = XftDrawCreate(display, c->decs[DecTitle], DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
     XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
     XftDrawDestroy(draw);
@@ -310,14 +312,77 @@ client_decorations_create(struct client *c)
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
+    /*Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,*/
+            /*conf.bu_color, conf.bf_color);*/
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
+    Window dec_title = XCreateSimpleWindow(display, root, 
+            c->geom.x, 
+            c->geom.y - conf.t_height, 
+            c->geom.width - 2 * conf.i_width, 
+            conf.t_height, 
+            0, 
+            conf.if_color, 
+            conf.if_color);
+    Window dec_top = XCreateSimpleWindow(display, root, 
+            c->geom.x - conf.b_width, 
+            c->geom.y - conf.t_height,
+            w - 2 * conf.b_width,
+            conf.b_width,
+            0,
+            conf.bf_color,
+            conf.bf_color);
+    c->decs[DecTop] = dec_top;
+
+    Window dec_left = XCreateSimpleWindow(display, root,
+            c->geom.x - conf.b_width,
+            c->geom.y - conf.t_height - 2 * conf.b_width,
+            conf.b_width,
+            c->geom.height - conf.b_width,
+            0,
+            conf.bf_color,
+            conf.bf_color);
+    c->decs[DecLeft] = dec_left;
+
+    Window dec_bot = XCreateSimpleWindow(display, root,
+            c->geom.x + conf.b_width,
+            c->geom.y + c->geom.height,
+            w - 2 * conf.b_width,
+            conf.b_width,
+            0,
+            conf.bf_color,
+            conf.bf_color);
+    c->decs[DecBottom] = dec_bot;
+
+    Window dec_right = XCreateSimpleWindow(display, root,
+            c->geom.x + c->geom.width,
+            c->geom.y - conf.t_height - conf.b_width,
+            conf.b_width,
+            c->geom.height - conf.b_width,
+            0,
+            conf.bf_color,
+            conf.bf_color);
+    c->decs[DecRight] = dec_right;
+
+    c->decs[DecTitle] = dec_title;
     fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new decorations\n");
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
-    XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XMapWindow (display, c->dec);
+    /*XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);*/
+    XGrabButton(display, 1, AnyModifier, c->decs[DecTitle], True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    /*XMapWindow(display, c->dec);*/
+
+    for (int i = 0; i < DecLAST; i++) {
+        XMapWindow(display, c->decs[i]);
+    }
+
+    /*XMapWindow(display, c->decs[DecTitle]);*/
+    /*XMapWindow(display, c->decs[DecTop]);*/
+    /*XMapWindow(display, c->decs[DecLeft]);*/
+    /*XMapWindow(display, c->decs[DecBottom]);*/
+    /*XMapWindow(display, c->decs[DecRight]);*/
+
     draw_text(c, true);
 }
 
@@ -329,6 +394,15 @@ client_decorations_destroy(struct client *c)
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
+
+    for (int i = 0; i < DecLAST; i++) {
+        XUnmapWindow(display, c->decs[i]);
+    }
+
+    XUnmapWindow(display, c->decs[DecTop]);
+    XUnmapWindow(display, c->decs[DecTitle]);
+    XDestroyWindow(display, c->decs[DecTop]);
+    XDestroyWindow(display, c->decs[DecTitle]);
 }
 
 /* Remove the given Client from the list of currently managed clients 
@@ -433,7 +507,8 @@ get_client_from_window(Window w)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
             if (tmp->window == w)
                 return tmp;
-            else if (tmp->decorated && tmp->dec == w)
+            /*else if (tmp->decorated && tmp->dec == w)*/
+            else if (tmp->decorated && tmp->decs[DecTitle] == w)
                 return tmp;
         }
     }
@@ -590,8 +665,12 @@ handle_unmap_notify(XEvent *e)
 
     if (c != NULL) {
         focus_next(c);
-        if (c->decorated)
-            XDestroyWindow(display, c->dec);
+        if (c->decorated) {
+            for (int i = 0; i < DecLAST; i++) {
+                XDestroyWindow(display, c->decs[i]);
+            }
+            /*XDestroyWindow(display, c->dec);*/
+        }
         client_delete(c);
         free(c);
     }
@@ -640,6 +719,7 @@ ipc_move_relative(long *d)
 static void
 ipc_monocle(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -649,6 +729,7 @@ ipc_monocle(long *d)
 static void
 ipc_raise(long *d) 
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -686,6 +767,7 @@ ipc_resize_relative(long *d)
 static void 
 ipc_toggle_decorations(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return ;
 
@@ -695,6 +777,7 @@ ipc_toggle_decorations(long *d)
 static void
 ipc_window_close(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -704,6 +787,7 @@ ipc_window_close(long *d)
 static void
 ipc_window_center(long *d)
 {
+    UNUSED(d);
     client_center(f_client);
 }
 
@@ -798,6 +882,7 @@ ipc_send_to_ws(long *d)
 static void
 ipc_fullscreen(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -807,6 +892,7 @@ ipc_fullscreen(long *d)
 static void
 ipc_snap_left(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -816,6 +902,7 @@ ipc_snap_left(long *d)
 static void
 ipc_snap_right(long *d)
 {
+    UNUSED(d);
     if (f_client == NULL)
         return;
 
@@ -832,12 +919,14 @@ ipc_cardinal_focus(long *d)
 static void
 ipc_cycle_focus(long *d)
 {
+    UNUSED(d);
     focus_next(f_client);
 }
 
 static void
 ipc_pointer_focus(long *d)
 {
+    UNUSED(d);
     /* Shoutout to vain for this methodology */
     int x, y, di;
     unsigned int dui;
@@ -1001,6 +1090,10 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
 
+    // TODO
+    XSetWindowBorder(display, c->window, 0xffffff);
+    XSetWindowBorderWidth(display, c->window, 3);
+
     client_decorations_create(c);
     XMapWindow(display, c->window);
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
@@ -1054,8 +1147,17 @@ client_move_absolute(struct client *c, int x, int y)
 
     /* move relative to where decorations should go */
     XMoveWindow(display, c->window, dest_x, dest_y);
+
+    // TODO:
+    /*XMoveWindow(display, c->decs[DecTitle], dest_x, dest_y - conf.t_height - conf.b_width);*/
+    XMoveWindow(display, c->decs[DecTitle], dest_x, dest_y - conf.t_height);
+    XMoveWindow(display, c->decs[DecTop], dest_x - conf.b_width, dest_y - conf.t_height - conf.b_width);
+    XMoveWindow(display, c->decs[DecLeft], dest_x - conf.b_width, dest_y - conf.t_height);
+    XMoveWindow(display, c->decs[DecBottom], dest_x - conf.b_width, c->geom.y + c->geom.height);
+    XMoveWindow(display, c->decs[DecRight], dest_x + c->geom.width - 2 * conf.b_width, dest_y - conf.t_height);
     if (c->decorated){
-        XMoveWindow(display, c->dec, x, y);
+        /*XMoveWindow(display, c->dec, x, y);*/
+        XMoveWindow(display, c->dec, x - 100, y - 100);
     }
 
     c->geom.x = x;
@@ -1131,8 +1233,11 @@ static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
-        if (c->decorated)
-            XRaiseWindow(display, c->dec);
+        if (c->decorated) {
+            for (int i = 0; i < DecLAST; i++) {
+                XRaiseWindow(display, c->decs[i]);
+            }
+        }
 
         XRaiseWindow(display, c->window);
     }
@@ -1224,22 +1329,28 @@ client_resize_absolute(struct client *c, int w, int h)
 {
     int dw = w;
     int dh = h;
-    int dec_w = w;
-    int dec_h = h;
+    /*int dec_w = w;*/
+    /*int dec_h = h;*/
 
     if (c->decorated) {
         dw = w - (2 * conf.i_width) - (2 * conf.b_width);
         dh = h - (2 * conf.i_width) - (2 * conf.b_width) - conf.t_height;
 
-        dec_w = w - (2 * conf.b_width);
-        dec_h = h - (2 * conf.b_width);
+        /*dec_w = w - (2 * conf.b_width);*/
+        /*dec_h = h - (2 * conf.b_width);*/
     }
 
     fprintf(stderr, WINDOW_MANAGER_NAME": Resizing client main window\n");
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Resizing client decoration\n");
-        XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
+        /*XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));*/
+        XResizeWindow(display, c->decs[DecTitle], w - 2 * conf.i_width, conf.t_height);
+        XResizeWindow(display, c->decs[DecTop], w, conf.b_width);
+        XResizeWindow(display, c->decs[DecBottom], w, conf.b_width);
+        XResizeWindow(display, c->decs[DecLeft], conf.b_width, h);
+        XResizeWindow(display, c->decs[DecRight], conf.b_width, h);
+        XMoveWindow(display, c->decs[DecRight], c->geom.x + w, c->geom.y); 
     }
 
     c->geom.width = MAX(w, MINIMUM_DIM);
@@ -1338,9 +1449,17 @@ static void
 client_set_color(struct client *c, unsigned long i_color, unsigned long b_color)
 {
     if (c->decorated) {
-        XSetWindowBackground(display, c->dec, i_color);
-        XSetWindowBorder(display, c->dec, b_color);
-        XClearWindow(display, c->dec);
+        XSetWindowBackground(display, c->decs[DecTitle], i_color);
+        XSetWindowBorder(display, c->window, i_color);
+        for (int i = DecTop; i < DecLAST; i++) {
+            XSetWindowBackground(display, c->decs[i], b_color);
+        }
+        for (int i = 0; i < DecLAST; i++) {
+            XClearWindow(display, c->decs[i]);
+        }
+        /*XSetWindowBackground(display, c->dec, i_color);*/
+        /*XSetWindowBorder(display, c->dec, b_color);*/
+        /*XClearWindow(display, c->dec);*/
         draw_text(c, c == f_client);
     }
 }

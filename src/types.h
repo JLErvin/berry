@@ -9,8 +9,18 @@ struct client_geom {
     int x, y, width, height;
 };
 
+enum decoration {
+    DecTitle,
+    DecTop,
+    DecLeft,
+    DecRight,
+    DecBottom,
+    DecLAST,
+};
+
 struct client {
     Window window, dec;
+    Window decs[DecLAST];
     int ws, x_hide;
     bool decorated, hidden, fullscreen;
     struct client_geom geom;

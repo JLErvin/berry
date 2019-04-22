@@ -6,6 +6,7 @@
 #include "types.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b))
+#define UNUSED(x) (void)(x)
 
 int euclidean_distance(struct client *a, struct client *b);
 
