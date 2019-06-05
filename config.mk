@@ -10,8 +10,8 @@ prefix = /usr/local
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 datarootdir = $(prefix)/share
-mandir = $(datarootdir)/man
-man1dir = $(mandir)/man1
+MANPREFIX = $(prefix)/man
+MANDIR    = $(MANPREFIX)/man1
 
 __NAME__ = berry
 __NAME_WM__ = $(__NAME__)
@@ -37,9 +37,7 @@ NAME_DEFINES = \
 		-D__NAME_C_UPPERCASE__=\"$(__NAME_C_UPPERCASE__)\" \
 		-D__NAME_C_CAPITALIZED__=\"$(__NAME_C_CAPITALIZED__)\" \
 
-# Flags used in rules.
 CPPFLAGS += $(NAME_DEFINES) -DSRVR_$$HOSTNAME $(DEBUG_CPPFLAGS)
-#CFLAGS += -Wall -Wextra -O3 $(DEBUG_CFLAGS)
 CFLAGS += -Wall -O3 $(DEBUG_CFLAGS)
 CFLAGS += -Icore -Iinclude -I/usr/include/freetype2
 LDFLAGS += -lX11 -lXrandr -lXft

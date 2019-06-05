@@ -25,4 +25,3 @@ uninstall:
 	@for page in $(MAN); do \
 		rm -f $(DESTDIR)$(MANDIR)/$$page; \
 	done
-
