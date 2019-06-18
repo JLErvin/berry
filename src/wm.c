@@ -61,6 +61,7 @@ static void client_move_absolute(struct client *c, int x, int y);
 static void client_move_relative(struct client *c, int x, int y);
 static void client_move_to_front(struct client *c);
 static void client_monocle(struct client *c);
+static void client_place(struct client *c);
 static void client_raise(struct client *c);
 static void client_refresh(struct client *c);
 static void client_resize_absolute(struct client *c, int w, int h);
@@ -1026,7 +1027,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
     client_manage_focus(c);
-    client_center(c);
+    /*client_center(c);*/
+    client_place(c);
     update_c_list();
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 }
@@ -1145,6 +1147,74 @@ client_monocle(struct client *c)
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
     client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+}
+
+static void
+client_place(struct client *c) {
+    int width, height, step_size, max, max_x, max_y;
+
+    step_size = 10;
+    width = display_width / step_size;
+    height = display_height / step_size;
+
+    bool screen_map[height][width];
+    int opt[height][width];
+
+    // Initialize array to all 1's
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            screen_map[i][j] = 1;
+        }
+    }
+
+    fprintf(stderr, "WIDTH: %d\n", width);
+    fprintf(stderr, "HEIGHT: %d\n", height);
+
+    // DEBUG
+    /*for (int i = 0; i < height; i++) {*/
+        /*for (int j = 0; j < width; j++) {*/
+            /*fprintf(stderr, "%d", screen_map[i][j]);*/
+        /*}*/
+        /*fprintf(stderr, "\n");*/
+    /*}*/
+    /*fprintf(stderr, "\n");*/
+
+    for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
+        struct client_geom *geom = &tmp->geom;
+        for (int i = 0; i < geom->height / 10; i++) {
+            for (int j = 0; j < geom->width / 10; j++) {
+                screen_map[i + geom->y / 10][j + geom->x / 10] = 0;
+            }
+        }
+    }
+
+    for (int i = 0; i < width; i++) {
+        opt[0][i] = screen_map[0][i];
+    }
+
+    for (int i = 0; i < height; i++) {
+        opt[i][0] = screen_map[i][0];
+    }
+
+    max = INT_MIN;
+    max_x = -1;
+    max_y = -1;
+    for (int i = 1; i < height; i++) {
+        for (int j = 1; j < width; j++) {
+            if (screen_map[i][j] == 0) {
+                opt[i][j] = 0;
+            } else {
+                opt[i][j] = MIN(MIN(opt[i][j-1], opt[i-1][j]), opt[i-1][j-1]) + 1;
+                if (opt[i][j] > max) {
+                    max = opt[i][j];
+                    max_x = j - max;
+                    max_y = i - max;
+                }
+            }
+        }
+    }
+
+    client_move_absolute(c, abs(max_x) * 10 , abs(max_y) * 10);
 }
 
 static void
