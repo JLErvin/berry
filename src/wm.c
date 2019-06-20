@@ -1151,14 +1151,18 @@ client_monocle(struct client *c)
 
 static void
 client_place(struct client *c) {
-    int width, height, step_size, max, max_x, max_y;
+    int width, height;
 
-    step_size = 10;
-    width = display_width / step_size;
-    height = display_height / step_size;
+    width = display_width / 10;
+    height = display_height / 10;
 
     bool screen_map[height][width];
-    int opt[height][width];
+    uint8_t opt[height][width];
+
+    if (f_list[curr_ws]->next == NULL) {
+        client_center(c);
+        return;
+    }
 
     // Initialize array to all 1's
     for (int i = 0; i < height; i++) {
@@ -1167,54 +1171,53 @@ client_place(struct client *c) {
         }
     }
 
-    fprintf(stderr, "WIDTH: %d\n", width);
-    fprintf(stderr, "HEIGHT: %d\n", height);
-
-    // DEBUG
-    /*for (int i = 0; i < height; i++) {*/
-        /*for (int j = 0; j < width; j++) {*/
-            /*fprintf(stderr, "%d", screen_map[i][j]);*/
-        /*}*/
-        /*fprintf(stderr, "\n");*/
-    /*}*/
-    /*fprintf(stderr, "\n");*/
-
     for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
-        struct client_geom *geom = &tmp->geom;
-        for (int i = 0; i < geom->height / 10; i++) {
-            for (int j = 0; j < geom->width / 10; j++) {
-                screen_map[i + geom->y / 10][j + geom->x / 10] = 0;
-            }
-        }
-    }
-
-    for (int i = 0; i < width; i++) {
-        opt[0][i] = screen_map[0][i];
-    }
-
-    for (int i = 0; i < height; i++) {
-        opt[i][0] = screen_map[i][0];
-    }
-
-    max = INT_MIN;
-    max_x = -1;
-    max_y = -1;
-    for (int i = 1; i < height; i++) {
-        for (int j = 1; j < width; j++) {
-            if (screen_map[i][j] == 0) {
-                opt[i][j] = 0;
-            } else {
-                opt[i][j] = MIN(MIN(opt[i][j-1], opt[i-1][j]), opt[i-1][j-1]) + 1;
-                if (opt[i][j] > max) {
-                    max = opt[i][j];
-                    max_x = j - max;
-                    max_y = i - max;
+        if (tmp != c) {
+            struct client_geom *geom = &tmp->geom;
+            for (int i = geom->y / 10; i < (geom->y / 10) + (geom->height / 10); i++) {
+                for (int j = geom->x / 10; j < (geom->x / 10) + (geom->width / 10); j++) {
+                    screen_map[i][j] = 0;
                 }
             }
         }
     }
 
-    client_move_absolute(c, abs(max_x) * 10 , abs(max_y) * 10);
+    // init first row
+    for (int i = 0; i < width; i++) {
+        opt[0][i] = screen_map[0][i];
+    }
+
+    // fill in the OPT matrix
+    for (int i = 1; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            if (screen_map[i][j] == 0) {
+                opt[i][j] = 0;
+            } else {
+                opt[i][j] = opt[i-1][j] + 1;
+            }
+        }
+    }
+
+    int count = 0;
+    int max_height = INT_MAX;
+    for (int i = height - 1; i >= 0; i--) {
+        for (int j = 0; j < width; j++) {
+            /*while (j < width && opt[i][j] >= c->geom.height / 10) {*/
+            while (j < width && opt[i][j] >= c->geom.height / 10) {
+                max_height = MIN(max_height, opt[i][j]);
+                count++;
+                j++;
+            }
+            // the window WILL fit here
+            if (count >= c->geom.width / 10) {
+                client_move_absolute(c, 
+                                    (j - count) * 10 + (count * 10 - c->geom.width) / 2,
+                                    (i - max_height) * 10 + (max_height * 10 - c->geom.height) / 2);
+                return;
+            }
+            count = 0;
+        }
+    }
 }
 
 static void
