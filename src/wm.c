@@ -50,6 +50,7 @@ static GC gc;
 /* Client management functions */
 static void client_cardinal_focus(struct client *c, int dir);
 static void client_center(struct client *c);
+static void client_center_in_rect(struct client *c, int x, int y, int w, int h);
 static void client_close(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
@@ -243,8 +244,15 @@ client_center(struct client *c)
     int mon;
     fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client\n");
     mon = ws_m_list[c->ws];
-    client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2 - (c->geom.width / 2),
-            m_list[mon].y + m_list[mon].height / 2 - (c->geom.height / 2));
+    client_center_in_rect(c, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
+}
+
+static void
+client_center_in_rect(struct client *c, int x, int y, int w, int h) 
+{
+    client_move_absolute(c,
+                         round_k(x + w / 2 - c->geom.width / 2),
+                         round_k(y + (h + conf.top_gap) / 2 - c->geom.height / 2));
     client_refresh(c); // in case we went over the top gap
 }
 
@@ -1151,13 +1159,13 @@ client_monocle(struct client *c)
 
 static void
 client_place(struct client *c) {
-    int width, height;
+    int width, height, mon;
 
-    width = display_width / 10;
-    height = display_height / 10;
+    mon = ws_m_list[c->ws];
+    width = m_list[mon].width / PLACE_RES;
+    height = m_list[mon].height / PLACE_RES;
 
-    bool screen_map[height][width];
-    uint8_t opt[height][width];
+    uint16_t opt[height][width];
 
     if (f_list[curr_ws]->next == NULL) {
         client_center(c);
@@ -1167,30 +1175,32 @@ client_place(struct client *c) {
     // Initialize array to all 1's
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            screen_map[i][j] = 1;
+            opt[i][j] = 1;
+        }
+    }
+
+    // Fill in the top gap
+    for (int i = 0; i < conf.top_gap / PLACE_RES + 1; i++) {
+        for (int j = 0; j < width / PLACE_RES; j++) {
+            opt[i][j] = 0;
         }
     }
 
     for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
         if (tmp != c) {
             struct client_geom *geom = &tmp->geom;
-            for (int i = geom->y / 10; i < (geom->y / 10) + (geom->height / 10); i++) {
-                for (int j = geom->x / 10; j < (geom->x / 10) + (geom->width / 10); j++) {
-                    screen_map[i][j] = 0;
+            for (int i = geom->y / PLACE_RES; i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES); i++) {
+                for (int j = geom->x / PLACE_RES; j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES); j++) {
+                    opt[i][j] = 0;
                 }
             }
         }
     }
 
-    // init first row
-    for (int i = 0; i < width; i++) {
-        opt[0][i] = screen_map[0][i];
-    }
-
     // fill in the OPT matrix
     for (int i = 1; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            if (screen_map[i][j] == 0) {
+            if (opt[i][j] == 0) {
                 opt[i][j] = 0;
             } else {
                 opt[i][j] = opt[i-1][j] + 1;
@@ -1202,17 +1212,16 @@ client_place(struct client *c) {
     int max_height = INT_MAX;
     for (int i = height - 1; i >= 0; i--) {
         for (int j = 0; j < width; j++) {
-            /*while (j < width && opt[i][j] >= c->geom.height / 10) {*/
-            while (j < width && opt[i][j] >= c->geom.height / 10) {
+            while (j < width && opt[i][j] >= c->geom.height / PLACE_RES) {
                 max_height = MIN(max_height, opt[i][j]);
                 count++;
                 j++;
             }
             // the window WILL fit here
-            if (count >= c->geom.width / 10) {
+            if (count >= c->geom.width / PLACE_RES) {
                 client_move_absolute(c, 
-                                    (j - count) * 10 + (count * 10 - c->geom.width) / 2,
-                                    (i - max_height) * 10 + (max_height * 10 - c->geom.height) / 2);
+                                    (j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2,
+                                    (i - max_height) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2);
                 return;
             }
             count = 0;

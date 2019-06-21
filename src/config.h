@@ -13,6 +13,7 @@
 
 #define MOVE_STEP 40
 #define RESIZE_STEP 40
+#define PLACE_RES 10 
 
 #define TOP_GAP 30
 

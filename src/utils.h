@@ -10,5 +10,6 @@
 #define UNUSED(x) (void)(x)
 
 int euclidean_distance(struct client *a, struct client *b);
+int round_k(int n);
 
 #endif

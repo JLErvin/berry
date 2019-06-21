@@ -15,3 +15,9 @@ euclidean_distance(struct client *a, struct client *b)
     y_diff = a->geom.y - b->geom.y;
     return pow(x_diff, 2) + pow(y_diff, 2);
 }
+
+int
+round_k(int n)
+{
+    return ceil(n / 10) * 10;
+}
