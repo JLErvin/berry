@@ -1200,11 +1200,7 @@ client_place(struct client *c) {
     // fill in the OPT matrix
     for (int i = 1; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            if (opt[i][j] == 0) {
-                opt[i][j] = 0;
-            } else {
-                opt[i][j] = opt[i-1][j] + 1;
-            }
+            opt[i][j] = opt[i][j] == 0 ? 0 : opt[i-1][j] + 1;
         }
     }
 
