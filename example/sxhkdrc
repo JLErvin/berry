@@ -57,11 +57,5 @@ super + q
 super + c
     berryc window_center
 
-alt + !button1
-    berryc pointer_move 1
-
-alt + @button1
-    berryc pointer_move 2
-
 ~button1
-    berryc pointer_move 0 0
+    berryc pointer_focus

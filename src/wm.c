@@ -291,7 +291,7 @@ draw_text(struct client *c, bool focused)
 
     fprintf(stderr, WINDOW_MANAGER_NAME": Text height is %u\n", extents.height);
 
-    if (extents.height > conf.t_height) {
+    if (extents.y > conf.t_height) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Text is taller than title bar height, not drawing text\n");
         return;
     }
