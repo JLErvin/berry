@@ -1158,7 +1158,8 @@ client_monocle(struct client *c)
 }
 
 static void
-client_place(struct client *c) {
+client_place(struct client *c) 
+{
     int width, height, mon;
 
     mon = ws_m_list[c->ws];
