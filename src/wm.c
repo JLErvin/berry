@@ -113,6 +113,7 @@ static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_top_gap(long *d);
+static void ipc_smart_place(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_tf_color(long *d);
 static void ipc_tu_color(long *d);
@@ -178,6 +179,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCTitleFocusColor]          = ipc_tf_color,
     [IPCTitleUnfocusColor]        = ipc_tu_color,
     [IPCTopGap]                   = ipc_top_gap,
+    [IPCSmartPlace]               = ipc_smart_place,
 };
 
 /* Give focus to the given client in the given direction */
@@ -897,6 +899,14 @@ ipc_top_gap(long *d)
 }
 
 static void
+ipc_smart_place(long *d) {
+    int data = d[1];
+    conf.smart_place = data;
+
+    refresh_config();
+}
+
+static void
 ipc_save_monitor(long *d)
 {
     int ws, mon;
@@ -1035,7 +1045,6 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
     client_manage_focus(c);
-    /*client_center(c);*/
     client_place(c);
     update_c_list();
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
@@ -1160,18 +1169,20 @@ client_monocle(struct client *c)
 static void
 client_place(struct client *c) 
 {
-    int width, height, mon;
+    int width, height, mon, count, max_height;
 
     mon = ws_m_list[c->ws];
     width = m_list[mon].width / PLACE_RES;
     height = m_list[mon].height / PLACE_RES;
 
-    uint16_t opt[height][width];
-
-    if (f_list[curr_ws]->next == NULL) {
+    // If this is the first window in the workspace, we can simply center
+    // it. Also center it if the user wants to disable smart placeement.
+    if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
         client_center(c);
         return;
     }
+
+    uint16_t opt[height][width];
 
     // Initialize array to all 1's
     for (int i = 0; i < height; i++) {
@@ -1209,8 +1220,8 @@ client_place(struct client *c)
         }
     }
 
-    int count = 0;
-    int max_height = INT_MAX;
+    count = 0;
+    max_height = INT_MAX;
     for (int i = height - 1; i >= 0; i--) {
         for (int j = 0; j < width; j++) {
             while (j < width && opt[i][j] >= c->geom.height / PLACE_RES) {
@@ -1486,19 +1497,20 @@ setup(void)
 {
     unsigned long data[1], data2[1];
     // Setup our conf initially
-    conf.b_width   = BORDER_WIDTH;
-    conf.t_height  = TITLE_HEIGHT;
-    conf.i_width   = INTERNAL_BORDER_WIDTH;
-    conf.bf_color  = BORDER_FOCUS_COLOR;
-    conf.bu_color  = BORDER_UNFOCUS_COLOR;
-    conf.if_color  = INNER_FOCUS_COLOR;
-    conf.iu_color  = INNER_UNFOCUS_COLOR; 
-    conf.m_step    = MOVE_STEP;
-    conf.r_step    = RESIZE_STEP;
-    conf.focus_new = FOCUS_NEW;
-    conf.edge_lock = EDGE_LOCK;
-    conf.t_center  = TITLE_CENTER;
-    conf.top_gap   = TOP_GAP;
+    conf.b_width     = BORDER_WIDTH;
+    conf.t_height    = TITLE_HEIGHT;
+    conf.i_width     = INTERNAL_BORDER_WIDTH;
+    conf.bf_color    = BORDER_FOCUS_COLOR;
+    conf.bu_color    = BORDER_UNFOCUS_COLOR;
+    conf.if_color    = INNER_FOCUS_COLOR;
+    conf.iu_color    = INNER_UNFOCUS_COLOR; 
+    conf.m_step      = MOVE_STEP;
+    conf.r_step      = RESIZE_STEP;
+    conf.focus_new   = FOCUS_NEW;
+    conf.edge_lock   = EDGE_LOCK;
+    conf.t_center    = TITLE_CENTER;
+    conf.top_gap     = TOP_GAP;
+    conf.smart_place = SMART_PLACE;
 
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);

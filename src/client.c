@@ -40,8 +40,8 @@ static struct Command c[] = {
     { "unfocus_color",          IPCUnfocusColor,            1, fn_hex }, 
     { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex },
     { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex }, 
-    { "text_focus_color",      IPCTitleFocusColor,         1, fn_hex }, 
-    { "text_unfocus_color",    IPCTitleUnfocusColor,       1, fn_hex }, 
+    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex }, 
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex }, 
     { "border_width",           IPCBorderWidth,             1, fn_int },
     { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int },
     { "title_height",           IPCTitleHeight,             1, fn_int },
@@ -56,6 +56,7 @@ static struct Command c[] = {
     { "pointer_focus",          IPCPointerFocus,            0, NULL   },
     { "top_gap",                IPCTopGap,                  1, fn_int },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int },
+    { "smart_place",            IPCSmartPlace,              1, fn_int },
 };
 
 static void

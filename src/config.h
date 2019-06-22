@@ -29,5 +29,6 @@
 #define FOCUS_NEW true
 #define EDGE_LOCK true
 #define TITLE_CENTER true
+#define SMART_PLACE true
 
 #endif

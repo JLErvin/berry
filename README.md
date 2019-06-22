@@ -125,6 +125,9 @@ The window manager can be controlled using the following commands:
     * change focus to the next client in the stack
 * `pointer_focus`
     * focus the window under the current pointer (used by `sxhkd`)
+* `smart_place` **`0/1`**
+    * place newly created windows in unoccupied regions of the screen. Otherwise center the client.
+
     
 All of these commands can also be viewed on your system via `man berryc`
 

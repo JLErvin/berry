@@ -34,6 +34,7 @@ enum IPCCommand
     IPCWindowCenter,
     IPCPointerFocus,
     IPCTopGap,
+    IPCSmartPlace,
     IPCLast
 };
 

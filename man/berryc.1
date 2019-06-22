@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BERRYC" "1" "August 2018" "" ""
+.TH "BERRYC" "1" "March 2019" "" ""
 .
 .SH "NAME"
 \fBberryc\fR \- client for berry window manager
@@ -27,7 +27,7 @@ Move the current window to the absolute x/y coordinates
 Shrink or grow the current window by the given w/h arguments
 .
 .TP
-\fBwindow_resize_absolute\fR \fBx, y\fR
+\fBwindow_resize_absolute\fR \fBw, h\fR
 Resize the current window the absolute w/h arguments
 .
 .TP
@@ -41,34 +41,6 @@ Monocles the curent window, respecting values of TOP_GAP
 .TP
 \fBwindow_close\fR
 Closes the current window, in turn terminating the associated process
-.
-.TP
-\fBfocus_color\fR \fBXXXXXX\fR
-Set the color of the outer border for the currently focused window
-.
-.TP
-\fBunfocus_color\fR \fBXXXXXX\fR
-Set the color of the outer border for all windows not currently focused
-.
-.TP
-\fBinner_focus_color\fR \fBXXXXXX\fR
-Set the color of the inner border for the currently focused window
-.
-.TP
-\fBinner_unfocus_color\fR \fBXXXXXX\fR
-Set the color of the inner border for all windows not currently focused
-.
-.TP
-\fBborder_width\fR \fBw\fR
-Set the width of the outer border in pixels
-.
-.TP
-\fBinner_border_width\fR \fBw\fR
-Set the width of the inner border in pixels
-.
-.TP
-\fBtitle_height\fR \fBh\fR
-Set the height of the title bar in pixels
 .
 .TP
 \fBswitch_workspace\fR \fBi\fR
@@ -98,11 +70,54 @@ Switch focus to the nearest window in the specified direction\.
 \fBcycle_focus\fR
 Switch focus to the next window in the list\.
 .
+
 .TP
-\fBpointer_move\fR \fB0, 1, 2\fR
-Use the pointer to focus (0), move (1), and record the pointer position(2)\. Can only be used with sxhkd versions 0\.5\.5 or earlier\.
+\fBpointer_focus\fR
+Focus the window underneath the pointer\.
+.
 .TP
-\fBsave_monitor\fR \fBi i\fR
-save the given workspace (arg 1) to the given monitor (arg 2)
+\fBfocus_color\fR \fBXXXXXX\fR
+Set the color of the outer border for the currently focused window
+.
+.TP
+\fBunfocus_color\fR \fBXXXXXX\fR
+Set the color of the outer border for all windows not currently focused
+.
+.TP
+\fBinner_focus_color\fR \fBXXXXXX\fR
+Set the color of the inner border for the currently focused window
+.
+.TP
+\fBtext_focus_color\fR \fBXXXXXX\fR
+Set the color of title bar text for the focused window
+.
+.TP
+\fBtext_unfocus_color\fR \fBXXXXXX\fR
+Set the color of title bar text for all unfocused windows
+.
+.TP
+\fBinner_unfocus_color\fR \fBXXXXXX\fR
+Set the color of the inner border for all windows not currently focused
+.
+.TP
+\fBborder_width\fR \fBw\fR
+Set the width of the outer border in pixels
+.
+.TP
+\fBinner_border_width\fR \fBw\fR
+Set the width of the inner border in pixels
+.
+.TP
+\fBtitle_height\fR \fBh\fR
+Set the height of the title bar in pixels
+.
+.TP
+\fBmonitor_save\fR \fBi, j\fR
+Associate the ith workspace to the jth monitor
 .
 
+.TP
+\fBsmart_place\fR \fB0/1\fR
+Place newly created windows in unoccupied regions of the screen(1).
+Otherwise center new clients(0).
+.
