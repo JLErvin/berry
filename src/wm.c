@@ -1190,8 +1190,12 @@ client_place(struct client *c)
     for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
         if (tmp != c) {
             struct client_geom *geom = &tmp->geom;
-            for (int i = geom->y / PLACE_RES; i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES); i++) {
-                for (int j = geom->x / PLACE_RES; j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES); j++) {
+            for (int i = geom->y / PLACE_RES; 
+                 i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES) && i < width;
+                 i++) {
+                for (int j = geom->x / PLACE_RES; 
+                     j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES) && j < width;
+                     j++) {
                     opt[i][j] = 0;
                 }
             }
