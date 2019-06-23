@@ -489,9 +489,10 @@ handle_button_press(XEvent *e)
     struct client *c;
     int x, y, ocx, ocy, nx, ny, di;
     unsigned int dui;
-    Window child, dummy;
+    /*Window child, dummy;*/
+    Window dummy;
 
-    XQueryPointer(display, root, &dummy, &child, &x, &y, &di, &di, &dui);
+    XQueryPointer(display, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
     fprintf(stderr, WINDOW_MANAGER_NAME": Handling button press event\n");
     c = get_client_from_window(bev->window);
     if (c == NULL)
@@ -507,6 +508,8 @@ handle_button_press(XEvent *e)
             case ConfigureRequest:
             case Expose:
             case MapRequest:
+                draw_text(c, true);
+                break;
             case MotionNotify:
                 fprintf(stderr, WINDOW_MANAGER_NAME": Handling motion notify event\n");
                 nx = ocx + (ev.xmotion.x - x);
