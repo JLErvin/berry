@@ -69,11 +69,10 @@ Exec=berry
 Type=XSession
 ```
 
-Arch Linux users can download via the AUR: [berry](https://aur.archlinux.org/packages/berry-git/)
+## From a package manager
 
-```bash
-yay -S berry-git
-```
+- [Arch Linux (AUR)](https://aur.archlinux.org/packages/berry-git/) (`yay -S berry-git`)
+- [Void Linux](https://github.com/void-linux/void-packages/tree/master/srcpkgs/berry) (`xbps-install -S berry`)
 
 # Usage
 
