@@ -14,8 +14,8 @@ all:
 
 install:
 	mkdir -p "$(DESTDIR)$(PREFIX)/bin"
-	install $(__NAME__) "/usr/local/bin/$(__NAME__)"
-	install $(__NAME_C__) "/usr/local/bin/$(__NAME_C__)"
+	install $(__NAME__) "$(DESTDIR)/usr/local/bin/$(__NAME__)"
+	install $(__NAME_C__) "$(DESTDIR)/usr/local/bin/$(__NAME_C__)"
 	cd ./man; $(MAKE) install
 
 clean:
