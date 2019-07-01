@@ -332,6 +332,7 @@ client_decorations_create(struct client *c)
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
+
     fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new decorations\n");
     c->dec = dec;
     c->decorated = true;
@@ -1021,7 +1022,6 @@ manage_new_window(Window w, XWindowAttributes *wa)
                 fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
                 XMapWindow(display, w);
-                XRaiseWindow(display, w);
                 return;
             }
         }
@@ -1248,10 +1248,14 @@ static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
-        if (c->decorated)
-            XRaiseWindow(display, c->dec);
-
-        XRaiseWindow(display, c->window);
+        if (!c->decorated) {
+            XRaiseWindow(display, c->window);
+        } else {
+            Window wins[2];
+            wins[0] = c->window;
+            wins[1] = c->dec;
+            XRestackWindows(display, wins, 2);
+        }
     }
 }
 
