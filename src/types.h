@@ -12,8 +12,9 @@ struct client_geom {
 struct client {
     Window window, dec;
     int ws, x_hide;
-    bool decorated, hidden, fullscreen;
+    bool decorated, hidden, fullscreen, mono;
     struct client_geom geom;
+    struct client_geom prev;
     struct client *next, *f_next;
     char title[512];
 };
@@ -60,6 +61,15 @@ enum direction {
     NORTH,
     WEST,
     SOUTH
+};
+
+enum dec {
+    TOP,
+    LEFT,
+    RIGHT,
+    BOT,
+    TITLE,
+    DECLast
 };
 
 #endif
