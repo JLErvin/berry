@@ -48,6 +48,7 @@ static struct Command c[] = {
     { "switch_workspace",       IPCSwitchWorkspace,         1, fn_int },
     { "send_to_workspace",      IPCSendWorkspace,           1, fn_int },
     { "fullscreen",             IPCFullscreen,              0, NULL   },
+    { "fullscreen_state",       IPCFullscreenState,         0, NULL   },
     { "snap_left",              IPCSnapLeft,                0, NULL   },
     { "snap_right",             IPCSnapRight,               0, NULL   },
     { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },

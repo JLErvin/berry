@@ -55,7 +55,7 @@ static void client_close(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
-static void client_fullscreen(struct client *c);
+static void client_fullscreen(struct client *c, bool max);
 static void client_hide(struct client *c);
 static void client_manage_focus(struct client *c);
 static void client_move_absolute(struct client *c, int x, int y);
@@ -81,6 +81,7 @@ static void client_toggle_decorations(struct client *c);
 static void handle_client_message(XEvent *e);
 static void handle_configure_notify(XEvent *e);
 static void handle_configure_request(XEvent *e);
+static void handle_focus(XEvent *e);
 static void handle_map_request(XEvent *e);
 static void handle_unmap_notify(XEvent *e);
 static void handle_button_press(XEvent *e);
@@ -107,6 +108,7 @@ static void ipc_t_height(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
 static void ipc_fullscreen(long *d);
+static void ipc_fullscreen_state(long *d);
 static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
@@ -147,7 +149,8 @@ static void (*event_handler[LASTEvent])(XEvent *e) = {
     [ClientMessage]    = handle_client_message,
     [ButtonPress]      = handle_button_press,
     [PropertyNotify]   = handle_property_notify,
-    [Expose]           = handle_expose
+    [Expose]           = handle_expose,
+    [FocusIn]          = handle_focus
 };
 
 static void (*ipc_handler[IPCLast])(long *) = {
@@ -170,6 +173,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
     [IPCFullscreen]               = ipc_fullscreen,
+    [IPCFullscreenState]          = ipc_fullscreen_state,
     [IPCSnapLeft]                 = ipc_snap_left,
     [IPCSnapRight]                = ipc_snap_right,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
@@ -332,6 +336,7 @@ client_decorations_create(struct client *c)
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
+
     fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new decorations\n");
     c->dec = dec;
     c->decorated = true;
@@ -409,16 +414,31 @@ monitors_free(void)
  * Updates the value of _NET_WM_STATE_FULLSCREEN to reflect fullscreen changes
  */
 static void
-client_fullscreen(struct client *c)
+client_fullscreen(struct client *c, bool max)
 {
     int mon;
     mon = ws_m_list[c->ws];
-    client_move_absolute(c, m_list[mon].x, m_list[mon].y);
-    client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
-    if (!c->fullscreen)
+    // save the old geometry values so that we can toggle between fulscreen mode
+
+    if (!c->fullscreen) {
+        // if the client is not currently fullscreen, maximize it to fill the current screen
         XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
-    else
+        if (max) {
+            c->prev.x = c->geom.x;
+            c->prev.y = c->geom.y;
+            c->prev.width = c->geom.width;
+            c->prev.height = c->geom.height;
+            client_move_absolute(c, m_list[mon].x, m_list[mon].y);
+            client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
+        }
+    } else {
+        // if the client is currently fulscreen, revert it's state to its original size
         XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
+        if (max) {
+            client_move_absolute(c, c->prev.x, c->prev.y);
+            client_resize_absolute(c, c->prev.width, c->prev.height);
+        }
+    }
 
     c->fullscreen = !c->fullscreen;
 }
@@ -539,16 +559,28 @@ handle_expose(XEvent *e)
 }
 
 static void
+handle_focus(XEvent *e)
+{
+    XFocusChangeEvent *ev = &e->xfocus;
+    return;
+    if (ev->window != f_client->window)
+        client_manage_focus(f_client);
+}
+
+static void
 handle_property_notify(XEvent *e)
 {
     XPropertyEvent *ev = &e->xproperty;
     struct client *c;
 
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling property notify event\n");
     c = get_client_from_window(ev->window);
     if (c == NULL)
         return;
 
+
     if (ev->atom == net_atom[NetWMName]) {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Updating client title\n");
         client_set_title(c);
         draw_text(c, c == f_client);
     }
@@ -831,7 +863,18 @@ ipc_fullscreen(long *d)
     if (f_client == NULL)
         return;
 
-    client_fullscreen(f_client);
+    client_fullscreen(f_client, true);
+}
+
+static void
+ipc_fullscreen_state(long *d)
+{
+    UNUSED(d);
+
+    if (f_client == NULL)
+        return;
+
+    client_fullscreen(f_client, false);
 }
 
 static void
@@ -985,6 +1028,7 @@ client_manage_focus(struct client *c)
     }
 
     if (c != NULL) {
+        client_move_to_front(c);
         client_set_color(c, conf.if_color, conf.bf_color);
         draw_text(c, true);
         client_raise(c);
@@ -995,7 +1039,7 @@ client_manage_focus(struct client *c)
         f_client = c;
         /* Tell EWMH about our new window */
         XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->window), 1);
-        client_move_to_front(c);
+        /*client_move_to_front(c);*/
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
 }
@@ -1021,12 +1065,20 @@ manage_new_window(Window w, XWindowAttributes *wa)
                 fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
                 XMapWindow(display, w);
-                XRaiseWindow(display, w);
                 return;
             }
         }
     }
 
+    // Make sure we aren't trying to map the same window twice
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        for (struct client *tmp = c_list[i]; tmp; tmp = tmp->next) {
+            if (tmp->window == w) {
+                fprintf(stderr, WINDOW_MANAGER_NAME": Error, window already mapped. Not mapping.\n");
+                return;
+            }
+        }
+    }
 
     struct client *c;
     c = malloc(sizeof(struct client));
@@ -1042,6 +1094,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->geom.height = wa->height;
     c->hidden = false;
     c->fullscreen = false;
+    c->mono = false;
 
     client_decorations_create(c);
     XMapWindow(display, c->window);
@@ -1165,8 +1218,19 @@ client_monocle(struct client *c)
 {
     int mon;
     mon = ws_m_list[c->ws];
-    client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-    client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+    if (c->mono) {
+        client_move_absolute(c, c->prev.x, c->prev.y);
+        client_resize_absolute(c, c->prev.width, c->prev.height);
+    } else {
+        c->prev.x = c->geom.x;
+        c->prev.y = c->geom.y;
+        c->prev.width = c->geom.width;
+        c->prev.height = c->geom.height;
+        client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
+        client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+    }
+
+    c->mono = !c->mono;
 }
 
 static void
@@ -1248,10 +1312,29 @@ static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
-        if (c->decorated)
-            XRaiseWindow(display, c->dec);
+        if (!c->decorated) {
+            XRaiseWindow(display, c->window);
+        } else {
+            // how may active clients are there on our workspace
+            int count, i;
+            count = 0;
+            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
+                count++;
+            }
 
-        XRaiseWindow(display, c->window);
+            if (count == 0)
+                return;
+
+            Window wins[count*2];
+
+            i = 0;
+            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
+                wins[i] = tmp->window;
+                wins[i+1] = tmp->dec;
+                i += 2;
+            }
+            XRestackWindows(display, wins, count*2);
+        }
     }
 }
 
