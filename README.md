@@ -112,7 +112,7 @@ The window manager can be controlled using the following commands:
     * send the current window the given workspace
 * `fullscreen`
     * toggle fullscreen status of the focused window, fills the active screen
-* 'fullscreen_state`
+* `fullscreen_state`
     * toggle fullscreen status of the focused window, don't change the size of the window
 * `snap_left`
     * snap the given window to the left side of the screen and fill vertically
