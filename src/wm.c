@@ -521,7 +521,7 @@ handle_button_press(XEvent *e)
         client_manage_focus(c);
     ocx = c->geom.x;
     ocy = c->geom.y;
-    XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, move_cursor, None, CurrentTime);
+    XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime);
     do {
         XMaskEvent(display, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
         switch (ev.type) {
