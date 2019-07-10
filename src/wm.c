@@ -509,7 +509,6 @@ handle_button_press(XEvent *e)
     struct client *c;
     int x, y, ocx, ocy, nx, ny, di;
     unsigned int dui;
-    /*Window child, dummy;*/
     Window dummy;
 
     XQueryPointer(display, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
@@ -521,7 +520,8 @@ handle_button_press(XEvent *e)
         client_manage_focus(c);
     ocx = c->geom.x;
     ocy = c->geom.y;
-    XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime);
+    if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
+        return;
     do {
         XMaskEvent(display, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
         switch (ev.type) {
@@ -1079,6 +1079,12 @@ manage_new_window(Window w, XWindowAttributes *wa)
             }
         }
     }
+
+    // Get class information for the current window
+    XClassHint ch;
+    XGetClassHint(display, w, &ch);
+    fprintf(stderr, WINDOW_MANAGER_NAME": client has class %s\n", ch.res_class);
+    fprintf(stderr, WINDOW_MANAGER_NAME": client has name %s\n", ch.res_name);
 
     struct client *c;
     c = malloc(sizeof(struct client));
