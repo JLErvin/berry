@@ -16,6 +16,7 @@
 
 static void fn_hex(long *, int, char **);
 static void fn_int(long *, int, char **);
+static void fn_str(long *, int, char **);
 static void usage(void);
 static void version(void);
 
@@ -58,6 +59,7 @@ static struct Command c[] = {
     { "top_gap",                IPCTopGap,                  1, fn_int },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int },
     { "smart_place",            IPCSmartPlace,              1, fn_int },
+    { "draw_text",              IPCDrawText,                1, fn_str },
 };
 
 static void
@@ -70,6 +72,12 @@ static void
 fn_int(long *data, int i, char **argv)
 {
     data[i] = strtol(argv[i - 1], NULL, 10);
+}
+
+static void
+fn_str(long *data, int i, char **argv)
+{
+    data[i] = strcmp(argv[i-1], "true") == 0 ? 1 : 0;
 }
 
 static void
