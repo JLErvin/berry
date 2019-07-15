@@ -30,5 +30,6 @@
 #define EDGE_LOCK true
 #define TITLE_CENTER true
 #define SMART_PLACE true
+#define DRAW_TEXT true
 
 #endif

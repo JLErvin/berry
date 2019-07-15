@@ -119,6 +119,7 @@ static void ipc_smart_place(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_tf_color(long *d);
 static void ipc_tu_color(long *d);
+static void ipc_draw_text(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -184,6 +185,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCTitleUnfocusColor]        = ipc_tu_color,
     [IPCTopGap]                   = ipc_top_gap,
     [IPCSmartPlace]               = ipc_smart_place,
+    [IPCDrawText]                 = ipc_draw_text,
 };
 
 /* Give focus to the given client in the given direction */
@@ -277,8 +279,13 @@ draw_text(struct client *c, bool focused)
     XftColor *xft_render_color;
     XGlyphInfo extents;
     int x, y, len;
+
+    if (!conf.draw_text) {
+        fprintf(stderr, WINDOW_MANAGER_NAME": drawing text disabled\n");
+        return;
+    }
     
-    if (c->decorated == false) {
+    if (!c->decorated) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Client not decorated, not drawing text\n");
         return;
     }
@@ -628,6 +635,8 @@ handle_map_request(XEvent *e)
 {
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
+
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling map request event\n");
 
     if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
@@ -991,6 +1000,20 @@ ipc_tu_color(long *d)
 }
 
 static void
+ipc_draw_text(long *d)
+{
+    unsigned long draw;
+    draw = d[1];
+
+    if (draw == 0)
+        conf.draw_text = false;
+    else
+        conf.draw_text = true;
+
+    refresh_config();
+}
+
+static void
 load_color(XftColor *dest_color, unsigned long raw_color)
 {
     XColor x_color;
@@ -1004,7 +1027,6 @@ load_color(XftColor *dest_color, unsigned long raw_color)
     XftColorFree(display, DefaultVisual(display, screen), DefaultColormap(display, screen), dest_color);
     XftColorAllocValue(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
             &r_color, dest_color);
-
 }
 
 
@@ -1488,7 +1510,7 @@ run(void)
 {
     XEvent e;
     XSync(display, false);
-    while(running) {
+    while (running) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
         if (event_handler[e.type]) {
@@ -1603,6 +1625,7 @@ setup(void)
     conf.t_center    = TITLE_CENTER;
     conf.top_gap     = TOP_GAP;
     conf.smart_place = SMART_PLACE;
+    conf.draw_text   = DRAW_TEXT;
 
     display = XOpenDisplay(NULL);
     root = DefaultRootWindow(display);
