@@ -128,6 +128,8 @@ The window manager can be controlled using the following commands:
     * focus the window under the current pointer (used by `sxhkd`)
 * `smart_place` **`0/1`**
     * place newly created windows in unoccupied regions of the screen. Otherwise center the client.
+* `draw_text` **`true/false`**
+    * set whether or not text is draw in window title bars
 
     
 All of these commands can also be viewed on your system via `man berryc`
