@@ -13,6 +13,7 @@
 
 #include "globals.h"
 #include "ipc.h"
+#include "utils.h"
 
 static void fn_hex(long *, int, char **);
 static void fn_int(long *, int, char **);
@@ -60,6 +61,7 @@ static struct Command c[] = {
     { "save_monitor",           IPCSaveMonitor,             2, fn_int },
     { "smart_place",            IPCSmartPlace,              1, fn_int },
     { "draw_text",              IPCDrawText,                1, fn_str },
+    { "edge_lock",              IPCEdgeLock,                1, fn_str },
 };
 
 static void
@@ -100,6 +102,7 @@ send_command(struct Command *c, int argc, char **argv)
     Display *display;
     Window root;
     XEvent ev;
+    UNUSED(argc);
 
     display = XOpenDisplay(NULL);
 
@@ -140,7 +143,7 @@ main(int argc, char **argv)
     else if (strcmp(argv[1], "-v") == 0)
         version();
 
-    for (int i = 0; i < sizeof c / sizeof c[0]; i++) {
+    for (int i = 0; i < (int)(sizeof c / sizeof c[0]); i++) {
         if (strcmp(argv[1], c[i].name) == 0) {
             if (c[i].argc != c_argc) {
                 printf("Wrong number of arguments\n");

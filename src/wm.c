@@ -120,6 +120,7 @@ static void ipc_save_monitor(long *d);
 static void ipc_tf_color(long *d);
 static void ipc_tu_color(long *d);
 static void ipc_draw_text(long *d);
+static void ipc_edge_lock(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -186,6 +187,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCTopGap]                   = ipc_top_gap,
     [IPCSmartPlace]               = ipc_smart_place,
     [IPCDrawText]                 = ipc_draw_text,
+    [IPCEdgeLock]                 = ipc_edge_lock,
 };
 
 /* Give focus to the given client in the given direction */
@@ -387,7 +389,8 @@ client_delete(struct client *c)
         while (tmp != NULL && tmp->next != c)
             tmp = tmp->next;
 
-        tmp->next = tmp->next->next;
+        if (tmp)
+            tmp->next = tmp->next->next;
     }
 
     /* Delete in the focus list */
@@ -400,7 +403,8 @@ client_delete(struct client *c)
         while (tmp != NULL && tmp->f_next != c)
             tmp = tmp->f_next;
 
-        tmp->f_next = tmp->f_next->f_next;
+        if (tmp)
+            tmp->f_next = tmp->f_next->f_next;
     }
 
     if (c_list[ws] == NULL)
@@ -541,7 +545,10 @@ handle_button_press(XEvent *e)
                 fprintf(stderr, WINDOW_MANAGER_NAME": Handling motion notify event\n");
                 nx = ocx + (ev.xmotion.x - x);
                 ny = ocy + (ev.xmotion.y - y);
-                client_move_absolute(c, nx, ny);
+                if (conf.edge_lock)
+                    client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
+                else
+                    client_move_absolute(c, nx, ny);
                 break;
         }
     } while (ev.type != ButtonRelease);
@@ -569,6 +576,7 @@ static void
 handle_focus(XEvent *e)
 {
     XFocusChangeEvent *ev = &e->xfocus;
+    UNUSED(ev);
     return;
     if (ev->window != f_client->window)
         client_manage_focus(f_client);
@@ -1014,6 +1022,20 @@ ipc_draw_text(long *d)
 }
 
 static void
+ipc_edge_lock(long *d)
+{
+    unsigned long draw;
+    draw = d[1];
+
+    if (draw == 0)
+        conf.edge_lock = false;
+    else
+        conf.edge_lock = true;
+
+    refresh_config();
+}
+
+static void
 load_color(XftColor *dest_color, unsigned long raw_color)
 {
     XColor x_color;
@@ -1236,7 +1258,8 @@ client_move_to_front(struct client *c)
         if (tmp->next == c)
             break;
 
-    tmp->next = tmp->next->next; /* remove the Client from the list */
+    if (tmp && tmp->next)
+        tmp->next = tmp->next->next; /* remove the Client from the list */
     c->next = c_list[ws]; /* add the client to the front of the list */
     c_list[ws] = c;
 }
@@ -1511,8 +1534,8 @@ run(void)
     XEvent e;
     XSync(display, false);
     while (running) {
-        fprintf(stderr, WINDOW_MANAGER_NAME": Receieved new %d event\n", e.type);
         XNextEvent(display, &e);
+        fprintf(stderr, WINDOW_MANAGER_NAME": Receieved new %d event\n", e.type);
         if (event_handler[e.type]) {
             fprintf(stderr, WINDOW_MANAGER_NAME": Handling %d event\n", e.type);
             event_handler[e.type](&e);
@@ -1683,7 +1706,6 @@ setup(void)
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
             TEXT_UNFOCUS_COLOR, &xft_unfocus_color);
 
-    /*font = XftFontOpenName(display, screen, DEFAULT_FONT);*/
     font = XftFontOpenName(display, screen, global_font);
 }
 
@@ -1871,4 +1893,6 @@ main(int argc, char *argv[])
         load_config(conf_path);
     run();
     close_wm();
+    free(font_name);
+    free(conf_path);
 }

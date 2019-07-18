@@ -37,6 +37,7 @@ enum IPCCommand
     IPCTopGap,
     IPCSmartPlace,
     IPCDrawText,
+    IPCEdgeLock,
     IPCLast
 };
 
