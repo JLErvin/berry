@@ -355,6 +355,7 @@ client_decorations_create(struct client *c)
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     XMapWindow (display, c->dec);
     draw_text(c, true);
+    client_set_frame_extents(c);
 }
 
 /* Destroy any "dummy" windows associated with the given Client as decorations */
@@ -365,6 +366,7 @@ client_decorations_destroy(struct client *c)
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
+    client_set_frame_extents(c);
 }
 
 /* Remove the given Client from the list of currently managed clients 
@@ -1208,7 +1210,6 @@ client_move_absolute(struct client *c, int x, int y)
 
     c->geom.x = x;
     c->geom.y = y;
-    client_set_frame_extents(c);
 }
 
 static void
@@ -1499,7 +1500,6 @@ client_resize_absolute(struct client *c, int w, int h)
 
     c->geom.width = MAX(w, MINIMUM_DIM);
     c->geom.height = MAX(h, MINIMUM_DIM);
-    client_set_frame_extents(c);
 }
 
 static void
@@ -1823,6 +1823,7 @@ client_toggle_decorations(struct client *c)
     client_refresh(c);
     client_raise(c);
     client_manage_focus(c);
+    client_set_frame_extents(c);
 }
 
 static void
