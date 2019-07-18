@@ -1649,10 +1649,19 @@ client_set_frame_extents(struct client *c)
 {
     fprintf(stderr, WINDOW_MANAGER_NAME": Setting client frame extents\n");
     unsigned long data[4];
-    data[0] = c->geom.x;
-    data[1] = c->geom.x + c->geom.width;
-    data[2] = c->geom.y;
-    data[3] = c->geom.y + c->geom.height;
+    int left, right, top, bottom;
+
+    if (c->decorated) {
+        left = right = bottom = conf.b_width + conf.i_width;
+        top = conf.b_width + conf.i_width + conf.t_height;
+    } else {
+        left = right = top = bottom = 0;
+    }
+
+    data[0] = left;
+    data[1] = right;
+    data[2] = top;
+    data[3] = bottom;
     XChangeProperty(display, c->window, net_atom[NetWMFrameExtents],
             XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 4);
 }
