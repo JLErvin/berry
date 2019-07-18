@@ -72,6 +72,8 @@ static void client_send_to_ws(struct client *c, int ws);
 static void client_set_color(struct client *c, unsigned long i_color, unsigned long b_color);
 static void client_set_input(struct client *c);
 static void client_set_title(struct client *c);
+static void client_set_desktop(struct client *c, int ws);
+static void client_set_frame_extents(struct client *c);
 static void client_show(struct client *c);
 static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
@@ -353,6 +355,7 @@ client_decorations_create(struct client *c)
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     XMapWindow (display, c->dec);
     draw_text(c, true);
+    client_set_frame_extents(c);
 }
 
 /* Destroy any "dummy" windows associated with the given Client as decorations */
@@ -363,6 +366,7 @@ client_decorations_destroy(struct client *c)
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
+    client_set_frame_extents(c);
 }
 
 /* Remove the given Client from the list of currently managed clients 
@@ -1152,6 +1156,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_save(c, curr_ws);
     client_manage_focus(c);
     client_place(c);
+    client_set_desktop(c, c->ws);
     update_c_list();
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 }
@@ -1583,6 +1588,7 @@ client_send_to_ws(struct client *c, int ws)
 
     if (safe_to_focus(ws))
         client_show(c);
+    client_set_desktop(c, ws);
 }
 
 static void
@@ -1627,6 +1633,37 @@ client_set_title(struct client *c)
 
     c->title[sizeof c->title - 1] = 0;
     XFree(tp.value);
+}
+
+static void
+client_set_desktop(struct client *c, int ws)
+{
+    unsigned long data[1];
+    data[0] = ws;
+    XChangeProperty(display, c->window, net_atom[NetWMDesktop], 
+            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
+}
+
+static void
+client_set_frame_extents(struct client *c)
+{
+    fprintf(stderr, WINDOW_MANAGER_NAME": Setting client frame extents\n");
+    unsigned long data[4];
+    int left, right, top, bottom;
+
+    if (c->decorated) {
+        left = right = bottom = conf.b_width + conf.i_width;
+        top = conf.b_width + conf.i_width + conf.t_height;
+    } else {
+        left = right = top = bottom = 0;
+    }
+
+    data[0] = left;
+    data[1] = right;
+    data[2] = top;
+    data[3] = bottom;
+    XChangeProperty(display, c->window, net_atom[NetWMFrameExtents],
+            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 4);
 }
 
 static void
@@ -1680,6 +1717,9 @@ setup(void)
     net_atom[NetWMWindowTypeToolbar] = XInternAtom(display, "_NET_WM_WINDOW_TYPE_TOOLBAR", False);
     net_atom[NetWMWindowTypeMenu]    = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
     net_atom[NetWMWindowTypeSplash]  = XInternAtom(display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
+    net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
+    net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
+    net_atom[NetWMFrameExtents]      = XInternAtom(display, "_NET_FRAME_EXTENTS", False);
     /* Some icccm atoms */
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMTakeFocus]             = XInternAtom(display, "WM_TAKE_FOCUS", False);
@@ -1783,6 +1823,7 @@ client_toggle_decorations(struct client *c)
     client_refresh(c);
     client_raise(c);
     client_manage_focus(c);
+    client_set_frame_extents(c);
 }
 
 static void

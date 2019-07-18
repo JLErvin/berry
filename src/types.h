@@ -46,6 +46,8 @@ enum atoms_net {
     NetWMWindowTypeDialog,
     NetWMWindowTypeUtility,
     NetWMWindowTypeSplash,
+    NetWMDesktop,
+    NetWMFrameExtents,
     NetLast
 };
 
