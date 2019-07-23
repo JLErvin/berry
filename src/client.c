@@ -18,6 +18,7 @@
 static void fn_hex(long *, int, char **);
 static void fn_int(long *, int, char **);
 static void fn_str(long *, int, char **);
+static void fn_font(long *, int, char **);
 static void usage(void);
 static void version(void);
 
@@ -29,39 +30,43 @@ struct Command
     void (*handler)(long *, int, char **);
 };
 
+Display *display;
+Window root;
+
 static struct Command c[] = {
-    { "window_move",            IPCWindowMoveRelative,      2, fn_int },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int }, 
-    { "window_resize",          IPCWindowResizeRelative,    2, fn_int },
-    { "window_resize_absolute", IPCWindowResizeAbsolute,    2, fn_int },
-    { "window_raise",           IPCWindowRaise,             0, NULL   },
-    { "window_monocle",         IPCWindowMonocle,           0, NULL   },
-    { "window_close",           IPCWindowClose,             0, NULL   },
-    { "window_center",          IPCWindowCenter,            0, NULL   },
-    { "focus_color",            IPCFocusColor,              1, fn_hex },
-    { "unfocus_color",          IPCUnfocusColor,            1, fn_hex }, 
-    { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex },
-    { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex }, 
-    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex }, 
-    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex }, 
-    { "border_width",           IPCBorderWidth,             1, fn_int },
-    { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int },
-    { "title_height",           IPCTitleHeight,             1, fn_int },
-    { "switch_workspace",       IPCSwitchWorkspace,         1, fn_int },
-    { "send_to_workspace",      IPCSendWorkspace,           1, fn_int },
-    { "fullscreen",             IPCFullscreen,              0, NULL   },
-    { "fullscreen_state",       IPCFullscreenState,         0, NULL   },
-    { "snap_left",              IPCSnapLeft,                0, NULL   },
-    { "snap_right",             IPCSnapRight,               0, NULL   },
-    { "cardinal_focus",         IPCCardinalFocus,           1, fn_int },
-    { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL   },
-    { "cycle_focus",            IPCCycleFocus,              0, NULL   },
-    { "pointer_focus",          IPCPointerFocus,            0, NULL   },
-    { "top_gap",                IPCTopGap,                  1, fn_int },
-    { "save_monitor",           IPCSaveMonitor,             2, fn_int },
-    { "smart_place",            IPCSmartPlace,              1, fn_int },
-    { "draw_text",              IPCDrawText,                1, fn_str },
-    { "edge_lock",              IPCEdgeLock,                1, fn_str },
+    { "window_move",            IPCWindowMoveRelative,      2, fn_int  },
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int  }, 
+    { "window_resize",          IPCWindowResizeRelative,    2, fn_int  },
+    { "window_resize_absolute", IPCWindowResizeAbsolute,    2, fn_int  },
+    { "window_raise",           IPCWindowRaise,             0, NULL    },
+    { "window_monocle",         IPCWindowMonocle,           0, NULL    },
+    { "window_close",           IPCWindowClose,             0, NULL    },
+    { "window_center",          IPCWindowCenter,            0, NULL    },
+    { "focus_color",            IPCFocusColor,              1, fn_hex  },
+    { "unfocus_color",          IPCUnfocusColor,            1, fn_hex  }, 
+    { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex  },
+    { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex  }, 
+    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex  }, 
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex  }, 
+    { "border_width",           IPCBorderWidth,             1, fn_int  },
+    { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int  },
+    { "title_height",           IPCTitleHeight,             1, fn_int  },
+    { "switch_workspace",       IPCSwitchWorkspace,         1, fn_int  },
+    { "send_to_workspace",      IPCSendWorkspace,           1, fn_int  },
+    { "fullscreen",             IPCFullscreen,              0, NULL    },
+    { "fullscreen_state",       IPCFullscreenState,         0, NULL    },
+    { "snap_left",              IPCSnapLeft,                0, NULL    },
+    { "snap_right",             IPCSnapRight,               0, NULL    },
+    { "cardinal_focus",         IPCCardinalFocus,           1, fn_int  },
+    { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL    },
+    { "cycle_focus",            IPCCycleFocus,              0, NULL    },
+    { "pointer_focus",          IPCPointerFocus,            0, NULL    },
+    { "top_gap",                IPCTopGap,                  1, fn_int  },
+    { "save_monitor",           IPCSaveMonitor,             2, fn_int  },
+    { "smart_place",            IPCSmartPlace,              1, fn_int  },
+    { "draw_text",              IPCDrawText,                1, fn_str  },
+    { "edge_lock",              IPCEdgeLock,                1, fn_str  },
+    { "set_font",               IPCSetFont,                 1, fn_font },
 };
 
 static void
@@ -82,6 +87,29 @@ fn_str(long *data, int i, char **argv)
     data[i] = strcmp(argv[i-1], "true") == 0 ? 1 : 0;
 }
 
+/* This function works by setting a new atom globally on the root
+ * window called BERRY_FONT_PROPERTY which tells berry what font
+ * to use for window decoration.
+ * We set the font here in the client and then send a message to 
+ * berry, notifying the main program to read this value
+ */
+static void
+fn_font(long *data, int i, char** argv)
+{
+    UNUSED(i);
+    UNUSED(data);
+    char** font_list;
+    XTextProperty font_prop;
+    
+    font_list = malloc(sizeof(char*));
+    font_list[0] = argv[0];
+    Xutf8TextListToTextProperty(display, font_list, 1,
+                                XUTF8StringStyle, &font_prop);
+    XSetTextProperty(display, root, &font_prop, XInternAtom(display, BERRY_FONT_PROPERTY, False));
+    XFree(font_prop.value);
+    free(font_list);
+}
+
 static void
 usage(void)
 {
@@ -99,8 +127,6 @@ version(void)
 static void
 send_command(struct Command *c, int argc, char **argv)
 {
-    Display *display;
-    Window root;
     XEvent ev;
     UNUSED(argc);
 

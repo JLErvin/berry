@@ -123,6 +123,7 @@ static void ipc_tf_color(long *d);
 static void ipc_tu_color(long *d);
 static void ipc_draw_text(long *d);
 static void ipc_edge_lock(long *d);
+static void ipc_set_font(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -190,6 +191,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCSmartPlace]               = ipc_smart_place,
     [IPCDrawText]                 = ipc_draw_text,
     [IPCEdgeLock]                 = ipc_edge_lock,
+    [IPCSetFont]                  = ipc_set_font,
 };
 
 /* Give focus to the given client in the given direction */
@@ -1040,6 +1042,25 @@ ipc_edge_lock(long *d)
 }
 
 static void
+ipc_set_font(long *d)
+{
+    UNUSED(d);
+    XTextProperty font_prop;
+    char** font_list;
+    int err, n;
+
+    font_list = NULL;
+    XGetTextProperty(display, root, &font_prop, XInternAtom(display, BERRY_FONT_PROPERTY, False));
+    err = XmbTextPropertyToTextList(display, &font_prop, &font_list, &n);
+    strncpy(global_font, *font_list, sizeof(*font_list) - 1);
+    font = XftFontOpenName(display, screen, global_font);
+    refresh_config();
+    if (err >= Success && n > 0 && *font_list)
+        XFreeStringList(font_list);
+    XFree(font_prop.value);
+}
+
+static void
 load_color(XftColor *dest_color, unsigned long raw_color)
 {
     XColor x_color;
@@ -1720,6 +1741,8 @@ setup(void)
     net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
     net_atom[NetWMDesktop]           = XInternAtom(display, "_NET_WM_DESKTOP", False);
     net_atom[NetWMFrameExtents]      = XInternAtom(display, "_NET_FRAME_EXTENTS", False);
+    net_atom[NetWMFrameExtents]      = XInternAtom(display, "_NET_FRAME_EXTENTS", False);
+    net_atom[NetDesktopNames]        = XInternAtom(display, "_NET_DESKTOP_NAMES", False);
     /* Some icccm atoms */
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMTakeFocus]             = XInternAtom(display, "WM_TAKE_FOCUS", False);

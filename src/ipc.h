@@ -2,6 +2,7 @@
 #define _BERRY_IPC_H_
 
 #define BERRY_CLIENT_EVENT "BERRY_CLIENT_EVENT"
+#define BERRY_FONT_PROPERTY "BERRY_FONT_PROPERTY"
 
 enum IPCCommand
 {
@@ -38,6 +39,7 @@ enum IPCCommand
     IPCSmartPlace,
     IPCDrawText,
     IPCEdgeLock,
+    IPCSetFont,
     IPCLast
 };
 
