@@ -42,9 +42,6 @@ super +  p
 super + o 
     berryc snap_left
 
-super + o 
-    berryc snap_left
-
 super + n
     berryc toggle_decorations
 
