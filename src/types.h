@@ -22,7 +22,7 @@ struct client {
 struct config {
     int b_width, i_width, t_height, top_gap, r_step, m_step;
     unsigned long bf_color, bu_color, if_color, iu_color;
-    bool focus_new, edge_lock, t_center, smart_place, draw_text;
+    bool focus_new, edge_lock, t_center, smart_place, draw_text, json_status;
 };
 
 struct monitor {
@@ -49,6 +49,7 @@ enum atoms_net {
     NetWMDesktop,
     NetWMFrameExtents,
     NetDesktopNames,
+    NetDesktopViewport,
     NetLast
 };
 
@@ -57,6 +58,13 @@ enum atoms_wm {
     WMProtocols,
     WMTakeFocus,
     WMLast,
+};
+
+enum berry_net {
+    BerryWindowStatus,
+    BerryClientEvent,
+    BerryFontProperty,
+    BerryLast
 };
 
 enum direction {

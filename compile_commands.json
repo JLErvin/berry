@@ -1,0 +1,53 @@
+[
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-Wall",
+            "-O3",
+            "-Icore",
+            "-Iinclude",
+            "-I/usr/include/freetype2",
+            "-I/usr/X11R6/include",
+            "-o",
+            "berryc",
+            "src/client.c"
+        ],
+        "directory": "/home/jle/berry",
+        "file": "src/client.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-Wall",
+            "-O3",
+            "-Icore",
+            "-Iinclude",
+            "-I/usr/include/freetype2",
+            "-I/usr/X11R6/include",
+            "-o",
+            "berry",
+            "src/utils.c"
+        ],
+        "directory": "/home/jle/berry",
+        "file": "src/utils.c"
+    },
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-Wall",
+            "-O3",
+            "-Icore",
+            "-Iinclude",
+            "-I/usr/include/freetype2",
+            "-I/usr/X11R6/include",
+            "-o",
+            "berry",
+            "src/wm.c"
+        ],
+        "directory": "/home/jle/berry",
+        "file": "src/wm.c"
+    }
+]
