@@ -73,8 +73,6 @@ static void client_send_to_ws(struct client *c, int ws);
 static void client_set_color(struct client *c, unsigned long i_color, unsigned long b_color);
 static void client_set_input(struct client *c);
 static void client_set_title(struct client *c);
-static void client_set_desktop(struct client *c, int ws);
-static void client_set_frame_extents(struct client *c);
 static void client_show(struct client *c);
 static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
@@ -83,12 +81,13 @@ static void client_set_status(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
-static void ewmh_set_viewport(struct client *c);
+static void ewmh_set_viewport(void);
 static void ewmh_set_focus(struct client *c);
 static void ewmh_set_desktop(struct client *c, int ws);
 static void ewmh_set_frame_extents(struct client *c);
-static void ewmh_set_client_list(struct client *c);
-static void ewmh_set_desktop_names(struct client *c);
+static void ewmh_set_client_list(void);
+static void ewmh_set_desktop_names(void);
+static void ewmh_set_active_desktop(int ws);
 
 /* Event handlers */
 static void handle_client_message(XEvent *e);
@@ -143,8 +142,6 @@ static void monitors_setup(void);
 static void close_wm(void);
 static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
-static void init_desktop_names(void);
-static void set_desktop_viewport(void);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -154,7 +151,6 @@ static void run(void);
 static bool safe_to_focus(int ws);
 static void setup(void);
 static void switch_ws(int ws);
-static void update_c_list(void);
 static void usage(void);
 static void version(void);
 static int xerror(Display *display, XErrorEvent *e);
@@ -372,7 +368,7 @@ client_decorations_create(struct client *c)
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     XMapWindow (display, c->dec);
     draw_text(c, true);
-    client_set_frame_extents(c);
+    ewmh_set_frame_extents(c);
     client_set_status(c);
 }
 
@@ -384,7 +380,7 @@ client_decorations_destroy(struct client *c)
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
-    client_set_frame_extents(c);
+    ewmh_set_frame_extents(c);
     client_set_status(c);
 }
 
@@ -433,7 +429,7 @@ client_delete(struct client *c)
     if (c_list[ws] == NULL)
         f_client = NULL;
 
-    update_c_list();
+    ewmh_set_client_list();
 }
 
 static void
@@ -456,7 +452,7 @@ client_fullscreen(struct client *c, bool max)
 
     if (!c->fullscreen) {
         // if the client is not currently fullscreen, maximize it to fill the current screen
-        XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], 1);
+        ewmh_set_fullscreen(c, true);
         if (max) {
             c->prev.x = c->geom.x;
             c->prev.y = c->geom.y;
@@ -467,7 +463,7 @@ client_fullscreen(struct client *c, bool max)
         }
     } else {
         // if the client is currently fulscreen, revert it's state to its original size
-        XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, PropModeReplace, (unsigned char *) 0, 0);
+        ewmh_set_fullscreen(c, false);
         if (max) {
             client_move_absolute(c, c->prev.x, c->prev.y);
             client_resize_absolute(c, c->prev.width, c->prev.height);
@@ -513,36 +509,6 @@ get_client_from_window(Window w)
     }
 
     return NULL;
-}
-
-/*
-* Create and populate the values for _NET_DESKTOP_NAMES,
-* used by applications such as polybar for named workspaces.
-* By default, set the name of each workspaces to simply be the
-* index of that workspace.
-*/
-static void
-init_desktop_names(void)
-{
-    char **list;
-    XTextProperty text_prop;
-    list = malloc(sizeof(char*) * WORKSPACE_NUMBER);
-    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        char *tmp = malloc(sizeof(char) * 2);
-        sprintf(tmp, "%d", i);
-        list[i] = tmp;
-    }
-    Xutf8TextListToTextProperty(display, list, WORKSPACE_NUMBER, XUTF8StringStyle, &text_prop);
-    XSetTextProperty(display, root, &text_prop, XInternAtom(display, "_NET_DESKTOP_NAMES", False));
-    XFree(text_prop.value);
-    free(list);
-}
-
-static void
-set_desktop_viewport(void)
-{
-    unsigned long data[2] = { 0, 0 };
-    XChangeProperty(display, root, net_atom[NetDesktopViewport], XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&data, 2);
 }
 
 /* Redirect an XEvent from berry's client program, berryc */
@@ -1038,7 +1004,7 @@ ipc_save_monitor(long *d)
 
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
-    set_desktop_viewport();
+    ewmh_set_viewport();
 }
 
 static void
@@ -1165,12 +1131,8 @@ client_manage_focus(struct client *c)
         client_raise(c);
         client_set_input(c);
         /* Remove focus from the old window */
-        XDeleteProperty(display, root, net_atom[NetActiveWindow]);
 
-        f_client = c;
-        /* Tell EWMH about our new window */
-        XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->window), 1);
-        /*client_move_to_front(c);*/
+        ewmh_set_focus(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
 }
@@ -1239,8 +1201,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_save(c, curr_ws);
     client_manage_focus(c);
     client_place(c);
-    client_set_desktop(c, c->ws);
-    update_c_list();
+    ewmh_set_desktop(c, c->ws);
+    ewmh_set_client_list();
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
 }
 
@@ -1520,7 +1482,7 @@ static void monitors_setup(void)
                 m_list[i].screen, m_list[i].x, m_list[i].y, m_list[i].width, m_list[i].height);
     }
 
-    set_desktop_viewport();
+    ewmh_set_viewport();
 }
 
 static void
@@ -1681,7 +1643,7 @@ client_send_to_ws(struct client *c, int ws)
 
     if (safe_to_focus(ws))
         client_show(c);
-    client_set_desktop(c, ws);
+    ewmh_set_desktop(c, ws);
 }
 
 static void
@@ -1728,36 +1690,6 @@ client_set_title(struct client *c)
     XFree(tp.value);
 }
 
-static void
-client_set_desktop(struct client *c, int ws)
-{
-    unsigned long data[1];
-    data[0] = ws;
-    XChangeProperty(display, c->window, net_atom[NetWMDesktop], 
-            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
-}
-
-static void
-client_set_frame_extents(struct client *c)
-{
-    fprintf(stderr, WINDOW_MANAGER_NAME": Setting client frame extents\n");
-    unsigned long data[4];
-    int left, right, top, bottom;
-
-    if (c->decorated) {
-        left = right = bottom = conf.b_width + conf.i_width;
-        top = conf.b_width + conf.i_width + conf.t_height;
-    } else {
-        left = right = top = bottom = 0;
-    }
-
-    data[0] = left;
-    data[1] = right;
-    data[2] = top;
-    data[3] = bottom;
-    XChangeProperty(display, c->window, net_atom[NetWMFrameExtents],
-            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 4);
-}
 
 static void
 setup(void)
@@ -1781,7 +1713,6 @@ setup(void)
     conf.draw_text   = DRAW_TEXT;
     conf.json_status = JSON_STATUS;
 
-    /*display = XOpenDisplay(NULL);*/
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
     display_height = DisplayHeight(display, screen); /* Display height/width still needed for hiding clients */ 
@@ -1792,8 +1723,6 @@ setup(void)
             SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
     xerrorxlib = XSetErrorHandler(xerror);
 
-    /*Atom utf8string;*/
-    /*Atom utf8string;*/
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
 
     /* ewmh supported atoms */
@@ -1840,7 +1769,7 @@ setup(void)
 
     /* Set the total number of desktops */
     data[0] = WORKSPACE_NUMBER;
-    XChangeProperty(display, root, net_atom[NetNumberOfDesktops], XA_CARDINAL, 33, PropModeReplace, (unsigned char *) data, 1);
+    XChangeProperty(display, root, net_atom[NetNumberOfDesktops], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
 
     /* Set the intial "current desktop" to 0 */
     data2[0] = curr_ws;
@@ -1858,7 +1787,7 @@ setup(void)
             TEXT_UNFOCUS_COLOR, &xft_unfocus_color);
 
     font = XftFontOpenName(display, screen, global_font);
-    init_desktop_names();
+    ewmh_set_desktop_names();
 }
 
 static void
@@ -1894,8 +1823,6 @@ client_snap_right(struct client *c)
 static void
 switch_ws(int ws)
 {
-    unsigned long data[1];
-
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         if (i != ws && ws_m_list[i] == ws_m_list[ws])
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
@@ -1918,10 +1845,7 @@ switch_ws(int ws)
     int mon = ws_m_list[ws];
     fprintf(stderr, WINDOW_MANAGER_NAME": Setting Screen #%d with active workspace %d\n", m_list[mon].screen, ws);
     client_manage_focus(c_list[curr_ws]);
-
-    data[0] = ws;
-    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32,
-            PropModeReplace, (unsigned char *) data, 1);
+    ewmh_set_active_desktop(ws);
 }
 
 static void
@@ -1935,7 +1859,7 @@ client_toggle_decorations(struct client *c)
     client_refresh(c);
     client_raise(c);
     client_manage_focus(c);
-    client_set_frame_extents(c);
+    ewmh_set_frame_extents(c);
 }
 
 /*
@@ -1970,17 +1894,17 @@ client_set_status(struct client *c)
 
     if (conf.json_status) {
         size = asprintf(&str,
-                "{"
-                "\"window\":\"0x%08x\","
-                "\"geom\":{"
-                    "\"x\":%d"
-                    "\"y\":%d"
-                    "\"width\":%d"
-                    "\"height\":%d"
-                "},"
-                "\"state\":\"%s\""
-                "\"decorated\":\"%s\""
-                "}", (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated);
+        "{"
+            "\"window\":\"0x%08x\","
+            "\"geom\":{"
+                "\"x\":%d,"
+                "\"y\":%d,"
+                "\"width\":%d,"
+                "\"height\":%d,"
+            "},"
+            "\"state\":%s,"
+            "\"decorated\":%s"
+        "}", (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated);
     } else {
         size = asprintf(&str,
                 "0x%08x, " // window id
@@ -2004,7 +1928,59 @@ client_set_status(struct client *c)
 }
 
 static void
-update_c_list(void)
+ewmh_set_fullscreen(struct client *c, bool fullscreen)
+{
+    XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, 
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 0 : 1 );
+}
+
+static void
+ewmh_set_viewport(void)
+{
+    unsigned long data[2] = { 0, 0 };
+    XChangeProperty(display, root, net_atom[NetDesktopViewport], XA_CARDINAL, 32, PropModeReplace, (unsigned char*)&data, 2);
+}
+
+static void
+ewmh_set_focus(struct client *c)
+{
+        XDeleteProperty(display, root, net_atom[NetActiveWindow]);
+        f_client = c;
+        /* Tell EWMH about our new window */
+        XChangeProperty(display, root, net_atom[NetActiveWindow], XA_WINDOW, 32, PropModeReplace, (unsigned char *) &(c->window), 1);
+}
+
+static void
+ewmh_set_desktop(struct client *c, int ws)
+{
+    unsigned long data[1];
+    data[0] = ws;
+    XChangeProperty(display, c->window, net_atom[NetWMDesktop], 
+            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
+}
+
+static void ewmh_set_frame_extents(struct client *c)
+{
+    fprintf(stderr, WINDOW_MANAGER_NAME": Setting client frame extents\n");
+    unsigned long data[4];
+    int left, right, top, bottom;
+
+    if (c->decorated) {
+        left = right = bottom = conf.b_width + conf.i_width;
+        top = conf.b_width + conf.i_width + conf.t_height;
+    } else {
+        left = right = top = bottom = 0;
+    }
+
+    data[0] = left;
+    data[1] = right;
+    data[2] = top;
+    data[3] = bottom;
+    XChangeProperty(display, c->window, net_atom[NetWMFrameExtents],
+            XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 4);
+}
+
+static void ewmh_set_client_list(void)
 {
     /* Remove all current clients */
     XDeleteProperty(display, root, net_atom[NetClientList]);
@@ -2012,6 +1988,37 @@ update_c_list(void)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
             XChangeProperty(display, root, net_atom[NetClientList], XA_WINDOW, 32, PropModeAppend,
                     (unsigned char *) &(tmp->window), 1);
+}
+
+/*
+* Create and populate the values for _NET_DESKTOP_NAMES,
+* used by applications such as polybar for named workspaces.
+* By default, set the name of each workspaces to simply be the
+* index of that workspace.
+*/
+static void ewmh_set_desktop_names(void)
+{
+    char **list;
+    XTextProperty text_prop;
+    list = malloc(sizeof(char*) * WORKSPACE_NUMBER);
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        char *tmp = malloc(sizeof(char) * 2);
+        sprintf(tmp, "%d", i);
+        list[i] = tmp;
+    }
+    Xutf8TextListToTextProperty(display, list, WORKSPACE_NUMBER, XUTF8StringStyle, &text_prop);
+    XSetTextProperty(display, root, &text_prop, XInternAtom(display, "_NET_DESKTOP_NAMES", False));
+    XFree(text_prop.value);
+    free(list);
+}
+
+static void
+ewmh_set_active_desktop(int ws)
+{
+    unsigned long data[1];
+    data[0] = ws;
+    XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32,
+            PropModeReplace, (unsigned char *) data, 1);
 }
 
 static void
