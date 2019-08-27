@@ -1823,23 +1823,35 @@ client_snap_right(struct client *c)
 static void
 switch_ws(int ws)
 {
-    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         if (i != ws && ws_m_list[i] == ws_m_list[ws])
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
                 client_hide(tmp);
-        else if (i == ws)
+        else if (i == ws) {
+            int count, j;
+            count = 0;
+
+            // how many active clients are on the current workspace
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                count++;
                 client_show(tmp);
-                /* If we don't call XLowerWindow here we will run into an annoying issue
-                 * where we draw the windows in reverse order. The easiest way around
-                 * this is simply to draw all new windows at the "bottom" of the stack, meaning
-                 * that the first element in the stack will end up on top, which is what
-                 * we want :)
-                 */
-                XLowerWindow(display, tmp->window);
-                XLowerWindow(display, tmp->dec);
             }
 
+            if (count == 0)
+                break;
+
+            Window wins[count*2];
+            j = 0;
+
+            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                wins[j] = tmp->window;
+                wins[j+1] = tmp->dec;
+                j += 2;
+            }
+
+            XRestackWindows(display, wins, count * 2);
+        }
+    }
 
     curr_ws = ws;
     int mon = ws_m_list[ws];
@@ -1900,10 +1912,10 @@ client_set_status(struct client *c)
                 "\"x\":%d,"
                 "\"y\":%d,"
                 "\"width\":%d,"
-                "\"height\":%d,"
+                "\"height\":%d"
             "},"
-            "\"state\":%s,"
-            "\"decorated\":%s"
+            "\"state\":\"%s\","
+            "\"decorated\":\"%s\""
         "}", (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated);
     } else {
         size = asprintf(&str,
