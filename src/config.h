@@ -31,5 +31,6 @@
 #define TITLE_CENTER true
 #define SMART_PLACE true
 #define DRAW_TEXT true
+#define JSON_STATUS true
 
 #endif
