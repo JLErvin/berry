@@ -13,7 +13,7 @@ berryc unfocus_color       292D3E
 berryc inner_focus_color   FFCB6B
 berryc inner_unfocus_color 565679
 berryc text_focus_color    ffffff
-berryc test_unfocus_color  eeeeee
+berryc text_unfocus_color  eeeeee
 
 # Other options
 berryc smart_place "true"

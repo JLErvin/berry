@@ -41,7 +41,7 @@ static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static XftColor xft_focus_color, xft_unfocus_color;
 static XftFont *font;
-static char* global_font;
+static char global_font[MAXLEN] = DEFAULT_FONT;
 static XRenderColor r_color;
 static GC gc;
 static Atom utf8string;
@@ -520,8 +520,10 @@ handle_client_message(XEvent *e)
 
     if (cme->message_type == net_berry[BerryClientEvent]) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Recieved event from berryc\n");
-        if (cme->format != 32)
-            return;
+        if (cme->format != 32) {
+				fprintf(stderr, WINDOW_MANAGER_NAME": Wrong format, ignoring event\n");
+			return;
+		}
         cmd = cme->data.l[0];
         data = cme->data.l;
         ipc_handler[cmd](data);
@@ -1062,12 +1064,20 @@ ipc_set_font(long *d)
     XTextProperty font_prop;
     char** font_list;
     int err, n;
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling new set_font request\n");
 
     font_list = NULL;
+    fprintf(stderr, WINDOW_MANAGER_NAME": Getting text property\n");
     XGetTextProperty(display, root, &font_prop, net_berry[BerryFontProperty]);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Converting to text list\n");
     err = XmbTextPropertyToTextList(display, &font_prop, &font_list, &n);
-    strncpy(global_font, *font_list, sizeof(*font_list) - 1);
+    strcpy(global_font, font_list[0]);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Opening font by name\n");
     font = XftFontOpenName(display, screen, global_font);
+    if (font == NULL) {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Error, could not open font name\n");
+        return;
+    }
     refresh_config();
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
@@ -1451,7 +1461,6 @@ static void monitors_setup(void)
         return;
     }
 
-    fprintf(stderr, "fuck me\n");
     m_info = XineramaQueryScreens(display, &n);
     if (m_info == NULL) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Xinerama could not query screens\n");
@@ -2014,7 +2023,7 @@ static void ewmh_set_desktop_names(void)
     XTextProperty text_prop;
     list = malloc(sizeof(char*) * WORKSPACE_NUMBER);
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        char *tmp = malloc(sizeof(char) * 2);
+        char *tmp = malloc(sizeof(char) * 2 + 1);
         sprintf(tmp, "%d", i);
         list[i] = tmp;
     }
@@ -2113,10 +2122,11 @@ main(int argc, char *argv[])
     
     if (font_name[0] == '\0') { // font not loaded
         fprintf(stderr, WINDOW_MANAGER_NAME": font not specified, loading default font\n");
-        global_font = DEFAULT_FONT;
+        /*global_font = DEFAULT_FONT;*/
     } else {
         fprintf(stderr, WINDOW_MANAGER_NAME": font specified, loading... %s\n", font_name);
-        global_font = font_name;
+        strcpy(global_font, font_name);
+        /*global_font = font_name;*/
     }
 
     display = XOpenDisplay(NULL);
