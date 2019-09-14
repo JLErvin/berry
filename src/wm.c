@@ -1477,7 +1477,7 @@ static void monitors_setup(void)
      * need to 
      */
 
-    // TODO: Add support for repeated displays, just annoying for right now.
+    // TODO: Add support for repeated displays
 
     m_list = malloc(sizeof(struct monitor) * n);
 
@@ -2122,11 +2122,9 @@ main(int argc, char *argv[])
     
     if (font_name[0] == '\0') { // font not loaded
         fprintf(stderr, WINDOW_MANAGER_NAME": font not specified, loading default font\n");
-        /*global_font = DEFAULT_FONT;*/
     } else {
         fprintf(stderr, WINDOW_MANAGER_NAME": font specified, loading... %s\n", font_name);
         strcpy(global_font, font_name);
-        /*global_font = font_name;*/
     }
 
     display = XOpenDisplay(NULL);
