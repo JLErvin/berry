@@ -521,7 +521,7 @@ handle_client_message(XEvent *e)
     if (cme->message_type == net_berry[BerryClientEvent]) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Recieved event from berryc\n");
         if (cme->format != 32) {
-				fprintf(stderr, WINDOW_MANAGER_NAME": Wrong format, ignoring event\n");
+			fprintf(stderr, WINDOW_MANAGER_NAME": Wrong format, ignoring event\n");
 			return;
 		}
         cmd = cme->data.l[0];
