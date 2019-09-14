@@ -32,7 +32,7 @@ static struct config conf; /* gloabl config */
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
-static Cursor move_cursor;
+static Cursor move_cursor, normal_cursor;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
 static Window root, check;
@@ -41,7 +41,7 @@ static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static XftColor xft_focus_color, xft_unfocus_color;
 static XftFont *font;
-static char* global_font;
+static char global_font[MAXLEN] = DEFAULT_FONT;
 static XRenderColor r_color;
 static GC gc;
 static Atom utf8string;
@@ -520,8 +520,10 @@ handle_client_message(XEvent *e)
 
     if (cme->message_type == net_berry[BerryClientEvent]) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Recieved event from berryc\n");
-        if (cme->format != 32)
-            return;
+        if (cme->format != 32) {
+			fprintf(stderr, WINDOW_MANAGER_NAME": Wrong format, ignoring event\n");
+			return;
+		}
         cmd = cme->data.l[0];
         data = cme->data.l;
         ipc_handler[cmd](data);
@@ -1062,12 +1064,20 @@ ipc_set_font(long *d)
     XTextProperty font_prop;
     char** font_list;
     int err, n;
+    fprintf(stderr, WINDOW_MANAGER_NAME": Handling new set_font request\n");
 
     font_list = NULL;
+    fprintf(stderr, WINDOW_MANAGER_NAME": Getting text property\n");
     XGetTextProperty(display, root, &font_prop, net_berry[BerryFontProperty]);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Converting to text list\n");
     err = XmbTextPropertyToTextList(display, &font_prop, &font_list, &n);
-    strncpy(global_font, *font_list, sizeof(*font_list) - 1);
+    strcpy(global_font, font_list[0]);
+    fprintf(stderr, WINDOW_MANAGER_NAME": Opening font by name\n");
     font = XftFontOpenName(display, screen, global_font);
+    if (font == NULL) {
+        fprintf(stderr, WINDOW_MANAGER_NAME": Error, could not open font name\n");
+        return;
+    }
     refresh_config();
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
@@ -1451,7 +1461,6 @@ static void monitors_setup(void)
         return;
     }
 
-    fprintf(stderr, "fuck me\n");
     m_info = XineramaQueryScreens(display, &n);
     if (m_info == NULL) {
         fprintf(stderr, WINDOW_MANAGER_NAME": Xinerama could not query screens\n");
@@ -1468,7 +1477,7 @@ static void monitors_setup(void)
      * need to 
      */
 
-    // TODO: Add support for repeated displays, just annoying for right now.
+    // TODO: Add support for repeated displays
 
     m_list = malloc(sizeof(struct monitor) * n);
 
@@ -1695,6 +1704,7 @@ static void
 setup(void)
 {
     unsigned long data[1], data2[1];
+    int mon;
     // Setup our conf initially
     conf.b_width     = BORDER_WIDTH;
     conf.t_height    = TITLE_HEIGHT;
@@ -1718,6 +1728,8 @@ setup(void)
     display_height = DisplayHeight(display, screen); /* Display height/width still needed for hiding clients */ 
     display_width = DisplayWidth(display, screen);
     move_cursor = XCreateFontCursor(display, XC_crosshair); 
+    normal_cursor = XCreateFontCursor(display, XC_left_ptr);
+    XDefineCursor(display, root, normal_cursor);
 
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
@@ -1777,6 +1789,10 @@ setup(void)
     fprintf(stderr, WINDOW_MANAGER_NAME": Setting up monitors\n");
     monitors_setup();
     fprintf(stderr, WINDOW_MANAGER_NAME": Successfully setup monitors\n");
+    mon = ws_m_list[curr_ws];
+    XWarpPointer(display, None, root, 0, 0, 0, 0,
+        m_list[mon].x + m_list[mon].width / 2,
+        m_list[mon].y + m_list[mon].height / 2);
     
     gc = XCreateGC(display, root, 0, 0); 
 
@@ -2014,7 +2030,7 @@ static void ewmh_set_desktop_names(void)
     XTextProperty text_prop;
     list = malloc(sizeof(char*) * WORKSPACE_NUMBER);
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        char *tmp = malloc(sizeof(char) * 2);
+        char *tmp = malloc(sizeof(char) * 2 + 1);
         sprintf(tmp, "%d", i);
         list[i] = tmp;
     }
@@ -2113,10 +2129,9 @@ main(int argc, char *argv[])
     
     if (font_name[0] == '\0') { // font not loaded
         fprintf(stderr, WINDOW_MANAGER_NAME": font not specified, loading default font\n");
-        global_font = DEFAULT_FONT;
     } else {
         fprintf(stderr, WINDOW_MANAGER_NAME": font specified, loading... %s\n", font_name);
-        global_font = font_name;
+        strcpy(global_font, font_name);
     }
 
     display = XOpenDisplay(NULL);

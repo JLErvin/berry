@@ -33,6 +33,7 @@ First, install the XLib and Xft C headers on your distribution. On Ubuntu/Debian
 ```
 libx11-dev
 libxft-dev
+libxinerama-dev
 ```
 
 Clone the repository and make it
@@ -166,6 +167,8 @@ The following commands are available:
     * Set the color of the title bar text for the focused window
 * `text_unfocus_color` **`XXXXXX`**
     * Set the color of the title bar text for the unfocused window
+* `set_font` **`font_name`**
+    * Set the name of the font to use (e.g. `set_font dina-9`)
 * `border_width` **`XXXXXX`**
     * Set the border width, in pixels, of the outer border
 * `inner_border_width` **`XXXXXX`**
@@ -189,11 +192,6 @@ To check what font this is, you can simply run:
 ```bash
 fc-match monospace
 ```
-
-Due to limitations on the X server, the font cannot be changed from `berryc`.
-If you wish to use a font other than the default monospace one, simply change
-the `DEFAULT_FONT` value located inside of `src/config.h` and recompile `berry`.
-Upon logging out/back into an X session, you should see the changes. 
 
 # Features
 
