@@ -32,7 +32,7 @@ static struct config conf; /* gloabl config */
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
-static Cursor move_cursor;
+static Cursor move_cursor, normal_cursor;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
 static Window root, check;
@@ -1704,6 +1704,7 @@ static void
 setup(void)
 {
     unsigned long data[1], data2[1];
+    int mon;
     // Setup our conf initially
     conf.b_width     = BORDER_WIDTH;
     conf.t_height    = TITLE_HEIGHT;
@@ -1727,6 +1728,8 @@ setup(void)
     display_height = DisplayHeight(display, screen); /* Display height/width still needed for hiding clients */ 
     display_width = DisplayWidth(display, screen);
     move_cursor = XCreateFontCursor(display, XC_crosshair); 
+    normal_cursor = XCreateFontCursor(display, XC_left_ptr);
+    XDefineCursor(display, root, normal_cursor);
 
     XSelectInput(display, root,
             SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
@@ -1786,6 +1789,10 @@ setup(void)
     fprintf(stderr, WINDOW_MANAGER_NAME": Setting up monitors\n");
     monitors_setup();
     fprintf(stderr, WINDOW_MANAGER_NAME": Successfully setup monitors\n");
+    mon = ws_m_list[curr_ws];
+    XWarpPointer(display, None, root, 0, 0, 0, 0,
+        m_list[mon].x + m_list[mon].width / 2,
+        m_list[mon].y + m_list[mon].height / 2);
     
     gc = XCreateGC(display, root, 0, 0); 
 
