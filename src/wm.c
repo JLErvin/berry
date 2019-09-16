@@ -135,6 +135,7 @@ static void ipc_draw_text(long *d);
 static void ipc_edge_lock(long *d);
 static void ipc_set_font(long *d);
 static void ipc_json_status(long *d);
+static void ipc_quit(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -203,6 +204,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCEdgeLock]                 = ipc_edge_lock,
     [IPCSetFont]                  = ipc_set_font,
     [IPCJSONStatus]               = ipc_json_status,
+    [IPCQuit]                     = ipc_quit
 };
 
 /* Give focus to the given client in the given direction */
@@ -1099,6 +1101,14 @@ ipc_json_status(long *d)
 }
 
 static void
+ipc_quit(long *d)
+{
+    UNUSED(d);
+    XCloseDisplay(display);
+    running = false;
+}
+
+static void
 load_color(XftColor *dest_color, unsigned long raw_color)
 {
     XColor x_color;
@@ -1144,6 +1154,8 @@ client_manage_focus(struct client *c)
 
         ewmh_set_focus(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
+    } else {
+        f_client = NULL;
     }
 }
 
@@ -1631,6 +1643,10 @@ static bool
 safe_to_focus(int ws)
 {
     int mon = ws_m_list[ws];
+
+    if (m_count == 1) {
+        return false;
+    }
     
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         if (i != ws && ws_m_list[i] == mon && c_list[i] != NULL && c_list[i]->hidden == false)
@@ -1644,6 +1660,15 @@ client_send_to_ws(struct client *c, int ws)
 {
     int prev;
     client_delete(c);
+
+    // DEBUG
+    int count = 0;
+    for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
+        count++;
+    }
+    fprintf(stderr, WINDOW_MANAGER_NAME": Found %d clients on previous workspace\n", count);
+    // END DEBUG
+
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
@@ -1652,6 +1677,7 @@ client_send_to_ws(struct client *c, int ws)
 
     if (safe_to_focus(ws))
         client_show(c);
+
     ewmh_set_desktop(c, ws);
 }
 
@@ -1814,7 +1840,6 @@ client_show(struct client *c)
         client_move_absolute(c, c->x_hide, c->geom.y);
         client_raise(c);
         c->hidden = false;
-        client_refresh(c);
     }
 }
 
@@ -1840,10 +1865,12 @@ static void
 switch_ws(int ws)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        if (i != ws && ws_m_list[i] == ws_m_list[ws])
-            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next)
+        /*if (i != ws && ws_m_list[i] == ws_m_list[ws]) {*/
+        if (i != ws) {
+            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
-        else if (i == ws) {
+            }
+        } else if (i == ws) {
             int count, j;
             count = 0;
 
@@ -1852,9 +1879,6 @@ switch_ws(int ws)
                 count++;
                 client_show(tmp);
             }
-
-            if (count == 0)
-                break;
 
             Window wins[count*2];
             j = 0;
