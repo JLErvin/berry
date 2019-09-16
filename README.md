@@ -73,6 +73,7 @@ Type=XSession
 ## From a package manager
 
 - [Arch Linux (AUR)](https://aur.archlinux.org/packages/berry-git/) (`yay -S berry-git`)
+- [KISS Linux](https://github.com/kisslinux/community/tree/master/community/berry) (`kiss b berry && kiss i berry`)
 - [Void Linux](https://github.com/void-linux/void-packages/tree/master/srcpkgs/berry) (`xbps-install -S berry`)
 
 # Usage
