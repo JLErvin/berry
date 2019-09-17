@@ -63,6 +63,7 @@ static struct command c[] = {
     { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL       },
     { "cycle_focus",            IPCCycleFocus,              0, NULL       },
     { "pointer_focus",          IPCPointerFocus,            0, NULL       },
+    { "quit",                   IPCQuit,                    0, NULL       },
     { "top_gap",                IPCTopGap,                  1, fn_int     },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int     },
     { "smart_place",            IPCSmartPlace,              1, fn_str     },

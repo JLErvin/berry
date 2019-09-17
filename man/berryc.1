@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BERRYC" "1" "March 2019" "" ""
+.TH "BERRYC" "1" "September 2019" "" ""
 .
 .SH "NAME"
 \fBberryc\fR \- client for berry window manager
@@ -121,9 +121,9 @@ Associate the ith workspace to the jth monitor
 .
 
 .TP
-\fBsmart_place\fR \fB0/1\fR
-Place newly created windows in unoccupied regions of the screen(1).
-Otherwise center new clients(0).
+\fBsmart_place\fR \fBtrue/false\fR
+Place newly created windows in unoccupied regions of the screen.
+Otherwise place new clients in the top left corner of the active workspace.
 .
 .TP
 \fBdraw_text\fR \fBtrue/false\fR
@@ -132,4 +132,13 @@ determine whether or not to draw text in window title bars
 .TP
 \fBset_font\fR \fBfont_name\fR
 Set the name of the font to use (e.g. set_font dina-9)
+.
+.TP
+\fBjson_status\fR \fBtrue/false\fR
+determine whether or not BERRY_WINDOW_STATUS reports state in JSON format
+or plain text.
+.
+.TP
+\fBname_desktop\fR \fBi\fR \fBd_name\fR
+name the ith desktop d_name (Used with _NET_DESKTOP_NAMES)
 .

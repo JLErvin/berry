@@ -43,6 +43,7 @@ enum IPCCommand
     IPCSetFont,
     IPCJSONStatus,
     IPCNameDesktop,
+    IPCQuit,
     IPCLast
 };
 
