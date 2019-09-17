@@ -1,13 +1,13 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BERRY" "1" "August 2018" "" ""
+.TH "BERRY" "1" "September 2019" "" ""
 .
 .SH "NAME"
 \fBberry\fR \- floating window manager
 .
 .SH "SYNOPSIS"
-\fBberry\fR [\-hv] [\-c autostart_path]
+\fBberry\fR [\-hvd] [\-c autostart_path] [\-f font_name]
 .
 .SH "DESCRIPTION"
 A healthy, bite\-sized window manager for XOrg
@@ -15,6 +15,9 @@ A healthy, bite\-sized window manager for XOrg
 .SH "COMMANDS"
 .
 .nf
+
+* berry \-d
+    enable debugging
 
 * berry \-h
     print a help message
@@ -24,6 +27,9 @@ A healthy, bite\-sized window manager for XOrg
 
 * berry \-c /PATH/TO/autostart
     use a custom autostart script (defaults to $XDG_CONFIG_HOME/berry/autostart and then $HOME/\.config/berry/autostart)
+
+* berry \-f font_name
+    specify a font at startup for use with window decorations
 .
 .fi
 
