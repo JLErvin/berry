@@ -1282,6 +1282,9 @@ client_move_absolute(struct client *c, int x, int y)
     c->geom.x = x;
     c->geom.y = y;
 
+    if (c->mono)
+        c->mono = false;
+
     client_set_status(c);
 }
 
@@ -1579,6 +1582,8 @@ client_resize_absolute(struct client *c, int w, int h)
 
     c->geom.width = MAX(w, MINIMUM_DIM);
     c->geom.height = MAX(h, MINIMUM_DIM);
+    if (c->mono)
+        c->mono = false;
     client_set_status(c);
 }
 
