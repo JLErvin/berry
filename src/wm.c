@@ -614,9 +614,12 @@ handle_property_notify(XEvent *e)
 
     D fprintf(stderr, WINDOW_MANAGER_NAME": Handling property notify event\n");
     c = get_client_from_window(ev->window);
+
     if (c == NULL)
         return;
 
+    if (ev->state == PropertyDelete)
+        return;
 
     if (ev->atom == net_atom[NetWMName]) {
         D fprintf(stderr, WINDOW_MANAGER_NAME": Updating client title\n");
@@ -1201,6 +1204,10 @@ manage_new_window(Window w, XWindowAttributes *wa)
     if (XGetClassHint(display, w, &ch) > Success) {
         D fprintf(stderr, WINDOW_MANAGER_NAME": client has class %s\n", ch.res_class);
         D fprintf(stderr, WINDOW_MANAGER_NAME": client has name %s\n", ch.res_name);
+        if (ch.res_class)
+            XFree(ch.res_class);
+        if (ch.res_name)
+            XFree(ch.res_name);
     } else {
         D fprintf(stderr, WINDOW_MANAGER_NAME": could not retrieve client class name\n");
     }
@@ -1222,6 +1229,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->mono = false;
 
     client_decorations_create(c);
+    client_set_title(c);
     XMapWindow(display, c->window);
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
