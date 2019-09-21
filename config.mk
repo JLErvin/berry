@@ -1,43 +1,42 @@
-# To enable debug output:
+# berry version
+VERSION = 0.1.3
+
+# Customize below to fit your system
+
+# paths
+PREFIX = /usr/local
+MANPREFIX = ${PREFIX}/share/man
+
+X11INC = /usr/X11R6/include
+X11LIB = /usr/X11R6/lib
+
+# Xinerama, comment if you don't want it
+XINERAMALIBS  = -lXinerama
+XINERAMAFLAGS = -DXINERAMA
+
+# freetype
+FREETYPELIBS = -lfontconfig -lXft
+FREETYPEINC = /usr/include/freetype2
+# OpenBSD (uncomment)
+#FREETYPEINC = ${X11INC}/freetype2
+
+# includes and libs
+INCS = -I${X11INC} -I${FREETYPEINC}
+LIBS = -L${X11LIB} -lX11 ${XINERAMALIBS} ${FREETYPELIBS}
+
+# debug
 #DEBUG_CPPFLAGS = -DDEBUG
-#DEBUG_CFLAGS = -g
+#DEBUG_CFLAGS   = -g
 
-INSTALL = install
-INSTALL_PROGRAM = $(INSTALL)
-INSTALL_DATA = $(INSTALL) -m 644
+# flags
+CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=2 -DVERSION=\"${VERSION}\" ${XINERAMAFLAGS} ${DEBUG_CPPFLAGS}
+#CFLAGS   = -g -std=c99 -pedantic -Wall -O0 ${INCS} ${CPPFLAGS} ${DEBUG_CFLAGS}
+CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS} ${CPPFLAGS} ${DEBUG_CFLAGS}
+LDFLAGS  = ${LIBS}
 
-prefix = /usr/local
-exec_prefix = $(prefix)
-bindir = $(exec_prefix)/bin
-datarootdir = $(prefix)/share
-MANPREFIX = $(prefix)/man
-MANDIR    = $(MANPREFIX)/man1
+# Solaris
+#CFLAGS  = -fast ${INCS} -DVERSION=\"${VERSION}\"
+#LDFLAGS = ${LIBS}
 
-__NAME__ = berry
-__NAME_WM__ = $(__NAME__)
-__NAME_C__ = $(__NAME__)c
-
-__NAME_UPPERCASE__ = `echo $(__NAME__) | sed 's/.*/\U&/'`
-__NAME_CAPITALIZED__ = `echo $(__NAME__) | sed 's/^./\U&\E/'`
-
-__NAME_WM_UPPERCASE__ = `echo $(__NAME_WM__) | sed 's/.*/\U&/'`
-__NAME_WM_CAPITALIZED__ = `echo $(__NAME_WM__) | sed 's/^./\U&\E/'`
-
-__NAME_C_UPPERCASE__ = `echo $(__NAME_C__) | sed 's/.*/\U&/'`
-__NAME_C_CAPITALIZED__ = `echo $(__NAME_C__) | sed 's/^./\U&\E/'`
-
-NAME_DEFINES = \
-		-D__NAME__=\"$(__NAME__)\" \
-		-D__NAME_UPPERCASE__=\"$(__NAME_UPPERCASE__)\" \
-		-D__NAME_CAPITALIZED__=\"$(__NAME_CAPITALIZED__)\" \
-		-D__NAME_WM__=\"$(__NAME_WM__)\" \
-		-D__NAME_WM_UPPERCASE__=\"$(__NAME_WM_UPPERCASE__)\" \
-		-D__NAME_WM_CAPITALIZED__=\"$(__NAME_WM_CAPITALIZED__)\" \
-		-D__NAME_C__=\"$(__NAME_C__)\" \
-		-D__NAME_C_UPPERCASE__=\"$(__NAME_C_UPPERCASE__)\" \
-		-D__NAME_C_CAPITALIZED__=\"$(__NAME_C_CAPITALIZED__)\" \
-
-CPPFLAGS += $(NAME_DEFINES) -DSRVR_$$HOSTNAME $(DEBUG_CPPFLAGS)
-CFLAGS += -Wall -O3 $(DEBUG_CFLAGS)
-CFLAGS += -Icore -Iinclude -I/usr/include/freetype2
-LDFLAGS += -lX11 -lXrandr -lXft
+# compiler and linker
+CC = cc
