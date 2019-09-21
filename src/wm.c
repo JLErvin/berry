@@ -1172,13 +1172,9 @@ client_manage_focus(struct client *c)
         draw_text(c, true);
         client_raise(c);
         client_set_input(c);
-        /* Remove focus from the old window */
-
         ewmh_set_focus(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
-    } else {
-        f_client = NULL;
-    }
+    } 
 }
 
 static void
@@ -1386,9 +1382,10 @@ client_monocle(struct client *c)
         c->prev.height = c->geom.height;
         client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
         client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+        c->mono = true;
     }
 
-    c->mono = !c->mono;
+    //c->mono = !c->mono;
 }
 
 static void
