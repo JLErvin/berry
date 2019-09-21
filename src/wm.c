@@ -288,6 +288,18 @@ client_center_in_rect(struct client *c, int x, int y, int w, int h)
 static void
 close_wm(void)
 {
+    D fprintf(stderr, WINDOW_MANAGER_NAME": Shutting down window manager\n");
+
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        while (c_list[i] != NULL)
+            client_delete(c_list[i]);
+    }
+
+
+    XDeleteProperty(display, root, net_berry[BerryWindowStatus]);
+    XDeleteProperty(display, root, net_berry[BerryFontProperty]);
+    XDeleteProperty(display, root, net_atom[NetSupported]);
+
     D fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...\n");
     XCloseDisplay(display);
 }
@@ -307,6 +319,11 @@ draw_text(struct client *c, bool focused)
     
     if (!c->decorated) {
         D fprintf(stderr, WINDOW_MANAGER_NAME": Client not decorated, not drawing text\n");
+        return;
+    }
+
+    if (!c->title) {
+        D fprintf(stderr, WINDOW_MANAGER_NAME": Client title not set, not drawing text\n");
         return;
     }
 
@@ -809,6 +826,8 @@ static void
 ipc_window_center(long *d)
 {
     UNUSED(d);
+    if (f_client == NULL)
+        return;
     client_center(f_client);
 }
 
@@ -1108,7 +1127,6 @@ static void
 ipc_quit(long *d)
 {
     UNUSED(d);
-    XCloseDisplay(display);
     running = false;
 }
 
@@ -1392,11 +1410,7 @@ client_place(struct client *c)
     uint16_t opt[height][width];
 
     // Initialize array to all 1's
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < width; j++) {
-            opt[i][j] = 1;
-        }
-    }
+    memset(opt, 1, sizeof(opt[0][0]) * width * height);
 
     // Fill in the top gap
     for (int i = 0; i < conf.top_gap / PLACE_RES + 1; i++) {
