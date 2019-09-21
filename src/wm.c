@@ -1410,7 +1410,13 @@ client_place(struct client *c)
     uint16_t opt[height][width];
 
     // Initialize array to all 1's
-    memset(opt, 1, sizeof(opt[0][0]) * width * height);
+    //memset(opt, 1, sizeof(opt[0][0]) * width * height);
+    //memset(opt, 1, sizeof(uint16_t) * width * height);
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            opt[i][j] = 1;
+        }
+    }
 
     // Fill in the top gap
     for (int i = 0; i < conf.top_gap / PLACE_RES + 1; i++) {
