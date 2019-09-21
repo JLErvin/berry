@@ -9,6 +9,7 @@
 #define MAX(a, b) ((a > b) ? (a) : (b))
 #define MIN(a, b) ((a < b) ? (a) : (b))
 #define UNUSED(x) (void)(x)
+#define D if (debug)
 
 int asprintf(char **buf, const char *fmt, ...);
 int vasprintf(char **buf, const char *fmt, va_list args);
