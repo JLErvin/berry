@@ -35,7 +35,7 @@ static int m_count = 0;
 static Cursor move_cursor, normal_cursor;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
-static Window root, check;
+static Window root, check, nofocus;
 static bool running = true;
 static bool debug = false;
 static int screen, display_width, display_height;
@@ -1174,7 +1174,12 @@ client_manage_focus(struct client *c)
         client_set_input(c);
         ewmh_set_focus(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
-    } 
+    } else { //client is null, might happen when switching to a new workspace
+             // without any active clients
+        D fprintf(stderr, WINDOW_MANAGER_NAME": Giving focus to dummy window\n");
+        f_client = NULL;
+        XSetInputFocus(display, nofocus, RevertToPointerRoot, CurrentTime);
+    }
 }
 
 static void
@@ -1678,9 +1683,8 @@ safe_to_focus(int ws)
 {
     int mon = ws_m_list[ws];
 
-    if (m_count == 1) {
+    if (m_count == 1)
         return false;
-    }
     
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         if (i != ws && ws_m_list[i] == mon && c_list[i] != NULL && c_list[i]->hidden == false)
@@ -1765,6 +1769,7 @@ setup(void)
 {
     unsigned long data[1], data2[1];
     int mon;
+    XSetWindowAttributes wa = { .override_redirect = true };
     // Setup our conf initially
     conf.b_width     = BORDER_WIDTH;
     conf.t_height    = TITLE_HEIGHT;
@@ -1796,6 +1801,10 @@ setup(void)
     xerrorxlib = XSetErrorHandler(xerror);
 
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
+    nofocus = XCreateSimpleWindow(display, root, -10, -10, 1, 1, 0, 0, 0);
+    XChangeWindowAttributes(display, nofocus, CWOverrideRedirect, &wa);
+    XMapWindow(display, nofocus);
+    client_manage_focus(NULL);
 
     /* ewmh supported atoms */
     utf8string                       = XInternAtom(display, "UTF8_STRING", False);
