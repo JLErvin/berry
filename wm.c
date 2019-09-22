@@ -322,11 +322,6 @@ draw_text(struct client *c, bool focused)
         return;
     }
 
-    if (!c->title) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Client title not set, not drawing text\n");
-        return;
-    }
-
     XftTextExtentsUtf8(display, font, (XftChar8 *)c->title, strlen(c->title), &extents);
     y = (conf.t_height / 2) + ((extents.y) / 2);
     x = !conf.t_center ? TITLE_X_OFFSET : (c->geom.width - extents.width) / 2;
@@ -711,6 +706,7 @@ handle_unmap_notify(XEvent *e)
             XDestroyWindow(display, c->dec);
         client_delete(c);
         free(c);
+        client_raise(f_client);
     }
 }
 
