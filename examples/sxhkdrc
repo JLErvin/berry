@@ -24,7 +24,7 @@ super + {h, j, k, l}
 super + shift +  {h, j, k, l}
     berryc window_resize {-50 0, 0 50, 0 -50, 50 0}
 
-super + {0-9}
+super + {1-9}
     berryc switch_workspace {0-9}
 
 super + shift + {0-9}
