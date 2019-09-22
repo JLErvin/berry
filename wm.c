@@ -902,7 +902,7 @@ static void
 ipc_switch_ws(long *d)
 {
     int ws = d[1];
-    switch_ws(ws - 1);
+    switch_ws(ws);
 }
 
 static void
