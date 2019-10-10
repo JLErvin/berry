@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <X11/Xatom.h>
@@ -24,28 +25,33 @@
 #include "types.h"
 #include "utils.h"
 
+static bool running = true;
+static bool debug = false;
+
+static char global_font[MAXLEN] = DEFAULT_FONT;
+
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
 static struct monitor *m_list = NULL; /* All saved monitors */
 static struct config conf; /* gloabl config */
+
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
-static Cursor move_cursor, normal_cursor;
-static Display *display;
-static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
-static Window root, check, nofocus;
-static bool running = true;
-static bool debug = false;
 static int screen, display_width, display_height;
 static int (*xerrorxlib)(Display *, XErrorEvent *);
+
+static Atom utf8string;
+static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
+static Cursor move_cursor, normal_cursor;
+static Display *display;
+static GC gc;
+static Window root, check, nofocus;
+static XRenderColor r_color;
+
 static XftColor xft_focus_color, xft_unfocus_color;
 static XftFont *font;
-static char global_font[MAXLEN] = DEFAULT_FONT;
-static XRenderColor r_color;
-static GC gc;
-static Atom utf8string;
 
 /* All functions */
 
@@ -1153,6 +1159,14 @@ load_config(char *conf_path)
     }
 }
 
+void
+handle_child(int sig)
+{
+    if (sig == SIGCHLD) {
+        wait(NULL);
+    }
+}
+
 static void
 client_manage_focus(struct client *c)
 {
@@ -2207,6 +2221,7 @@ main(int argc, char *argv[])
     D fprintf(stderr, WINDOW_MANAGER_NAME": Successfully opened display\n");
 
     setup();
+    signal(SIGCHLD, handle_child);
     if (conf_found)
         load_config(conf_path);
     run();
