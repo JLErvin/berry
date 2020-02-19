@@ -1148,7 +1148,8 @@ load_config(char *conf_path)
 {
     if (fork() == 0) {
         setsid();
-        execl(conf_path, conf_path, NULL);
+        /*execl(conf_path, conf_path, NULL);*/
+        execl("/bin/sh", "sh", conf_path, NULL);
         D fprintf(stderr, WINDOW_MANAGER_NAME": CONFIG PATH: %s\n", conf_path);
     }
 }
