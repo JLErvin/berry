@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
@@ -1216,10 +1217,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
         if (prop_ret) {
             prop = ((Atom *)prop_ret)[0];
             if (prop == net_atom[NetWMWindowTypeDock] ||
-                // prop == net_atom[NetWMWindowTypeToolbar] ||
-                prop == net_atom[NetWMWindowTypeUtility] ||
-                // prop == net_atom[NetWMWindowTypeDialog] ||
-                prop == net_atom[NetWMWindowTypeMenu]) {
+                prop == net_atom[NetWMWindowTypeUtility]) {
                 D fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 D fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
                 XMapWindow(display, w);
@@ -1257,7 +1255,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
         D fprintf(stderr, WINDOW_MANAGER_NAME": Error, malloc could not allocated new window\n");
         return;
     }
-    c->window = w;
+	c->window = w;
     c->ws = curr_ws;
     c->geom.x = wa->x;
     c->geom.y = wa->y;
@@ -1266,6 +1264,21 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
+	c->stay_above = false;
+
+	// exemine window state
+	Atom state;
+	unsigned char *state_ret = NULL;
+	if (XGetWindowProperty(display, w, net_atom[NetWMState], 0,
+						sizeof(Atom), False, XA_ATOM, &da, &di, &dl, &dl,
+						&state_ret) == Success){
+		if(state_ret){
+			state  = ((Atom*)state_ret)[0];
+			c->fullscreen = state == net_atom[NetWMStateFullscreen];
+			c->stay_above = state == net_atom[NetWMStateModal] ||
+								state == net_atom[NetWMStateAbove];
+		}
+	}
 
     client_decorations_create(c);
     client_set_title(c);
@@ -1370,6 +1383,7 @@ client_move_relative(struct client *c, int x, int y)
 static void
 client_move_to_front(struct client *c)
 {
+
     int ws;
     ws = c->ws;
 
