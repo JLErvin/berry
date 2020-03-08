@@ -37,7 +37,7 @@ Window root;
 
 static struct command c[] = {
     { "window_move",            IPCWindowMoveRelative,      2, fn_int     },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int     }, 
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int     },
     { "window_resize",          IPCWindowResizeRelative,    2, fn_int     },
     { "window_resize_absolute", IPCWindowResizeAbsolute,    2, fn_int     },
     { "window_raise",           IPCWindowRaise,             0, NULL       },
@@ -45,11 +45,11 @@ static struct command c[] = {
     { "window_close",           IPCWindowClose,             0, NULL       },
     { "window_center",          IPCWindowCenter,            0, NULL       },
     { "focus_color",            IPCFocusColor,              1, fn_hex     },
-    { "unfocus_color",          IPCUnfocusColor,            1, fn_hex     }, 
+    { "unfocus_color",          IPCUnfocusColor,            1, fn_hex     },
     { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex     },
-    { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex     }, 
-    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex     }, 
-    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex     }, 
+    { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex     },
+    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex     },
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex     },
     { "border_width",           IPCBorderWidth,             1, fn_int     },
     { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int     },
     { "title_height",           IPCTitleHeight,             1, fn_int     },
@@ -57,6 +57,7 @@ static struct command c[] = {
     { "send_to_workspace",      IPCSendWorkspace,           1, fn_int     },
     { "fullscreen",             IPCFullscreen,              0, NULL       },
     { "fullscreen_state",       IPCFullscreenState,         0, NULL       },
+    { "toggle_above",           IPCToggleAbove,             0, NULL       },
     { "snap_left",              IPCSnapLeft,                0, NULL       },
     { "snap_right",             IPCSnapRight,               0, NULL       },
     { "cardinal_focus",         IPCCardinalFocus,           1, fn_int     },
@@ -95,7 +96,7 @@ fn_str(long *data, int i, char **argv)
 /* This function works by setting a new atom globally on the root
  * window called BERRY_FONT_PROPERTY which tells berry what font
  * to use for window decoration.
- * We set the font here in the client and then send a message to 
+ * We set the font here in the client and then send a message to
  * berry, notifying the main program to read this value
  */
 static void
@@ -105,7 +106,7 @@ fn_font(long *data, int i, char** argv)
     UNUSED(data);
     char** font_list;
     XTextProperty font_prop;
-    
+
     font_list = malloc(sizeof(char*));
     font_list[0] = argv[0];
     Xutf8TextListToTextProperty(display, font_list, 1,
@@ -201,7 +202,7 @@ main(int argc, char **argv)
     c_argc = argc - 2;
     c_argv = argv + 2;
 
-    if (c_argc == -1) 
+    if (c_argc == -1)
         return 1;
     else if (strcmp(argv[1], "-h") == 0)
         usage();

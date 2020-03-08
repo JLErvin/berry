@@ -58,6 +58,7 @@ static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
 static void client_fullscreen(struct client *c, bool max);
+static void client_toggle_above(struct client *c);
 static void client_hide(struct client *c);
 static void client_manage_focus(struct client *c);
 static void client_move_absolute(struct client *c, int x, int y);
@@ -82,6 +83,7 @@ static void client_set_status(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
+static void ewmh_set_above(struct client *c, bool stay_above);
 static void ewmh_set_viewport(void);
 static void ewmh_set_focus(struct client *c);
 static void ewmh_set_desktop(struct client *c, int ws);
@@ -122,6 +124,7 @@ static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
 static void ipc_fullscreen(long *d);
 static void ipc_fullscreen_state(long *d);
+static void ipc_toggle_above(long *d);
 static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
@@ -191,6 +194,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCSendWorkspace]            = ipc_send_to_ws,
     [IPCFullscreen]               = ipc_fullscreen,
     [IPCFullscreenState]          = ipc_fullscreen_state,
+	[IPCToggleAbove]			  = ipc_toggle_above,
     [IPCSnapLeft]                 = ipc_snap_left,
     [IPCSnapRight]                = ipc_snap_right,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
@@ -486,6 +490,14 @@ client_fullscreen(struct client *c, bool max)
     }
 
     c->fullscreen = !c->fullscreen;
+}
+
+static void
+client_toggle_above(struct client *c)
+{
+	c->stay_above = !c->stay_above;
+	ewmh_set_above(c, c->stay_above);
+	client_manage_focus(c);
 }
 
 /* Focus the next window in the list. Windows are sorted by the order in which they are
@@ -934,6 +946,17 @@ ipc_fullscreen_state(long *d)
         return;
 
     client_fullscreen(f_client, false);
+}
+
+static void
+ipc_toggle_above(long *d)
+{
+	UNUSED(d);
+	D fprintf(stderr, WINDOW_MANAGER_NAME": get command toggle window above state");
+	if(f_client == NULL){
+		return;
+	}
+	client_toggle_above(f_client);
 }
 
 static void
@@ -1825,6 +1848,8 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    net_atom[NetWMStateModal]   	 = XInternAtom(display, "_NET_WM_STATE_MODAL", False);
+    net_atom[NetWMStateAbove]   	 = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
@@ -2040,6 +2065,13 @@ ewmh_set_fullscreen(struct client *c, bool fullscreen)
 {
     XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
             PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 0 : 1 );
+}
+
+static void
+ewmh_set_above(struct client *c, bool stay_above)
+{
+	XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateAbove], stay_above ? 0 : 1 );
 }
 
 static void
