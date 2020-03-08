@@ -18,8 +18,9 @@
 
 static void fn_hex(long *, int, char **);
 static void fn_int(long *, int, char **);
-static void fn_str(long *, int, char **);
+static void fn_bool(long *, int, char **);
 static void fn_font(long *, int, char **);
+static void fn_str(long *, int, char **);
 static void fn_int_str(long *, int, char **);
 static void usage(void);
 static void version(void);
@@ -66,11 +67,13 @@ static struct command c[] = {
     { "quit",                   IPCQuit,                    0, NULL       },
     { "top_gap",                IPCTopGap,                  1, fn_int     },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int     },
-    { "smart_place",            IPCSmartPlace,              1, fn_str     },
-    { "draw_text",              IPCDrawText,                1, fn_str     },
-    { "edge_lock",              IPCEdgeLock,                1, fn_str     },
+    { "smart_place",            IPCSmartPlace,              1, fn_bool    },
+    { "draw_text",              IPCDrawText,                1, fn_bool    },
+    { "edge_lock",              IPCEdgeLock,                1, fn_bool    },
     { "set_font",               IPCSetFont,                 1, fn_font    },
-    { "json_status",            IPCJSONStatus,              1, fn_str     },
+    { "json_status",            IPCJSONStatus,              1, fn_bool    },
+    { "manage",                 IPCManage,                  1, fn_str     },
+    { "unmanage",               IPCUnmanage,                1, fn_str     },
     { "name_desktop",           IPCNameDesktop,             2, fn_int_str },
 };
 
@@ -87,9 +90,20 @@ fn_int(long *data, int i, char **argv)
 }
 
 static void
-fn_str(long *data, int i, char **argv)
+fn_bool(long *data, int i, char **argv)
 {
     data[i] = strcmp(argv[i-1], "true") == 0 ? 1 : 0;
+}
+
+static void
+fn_str(long *data, int i, char **argv)
+{
+    // lord forgive me for I have sinned
+    if (strcmp(argv[i-1], "Dialog") == 0) data[i] = Dialog;
+    else if (strcmp(argv[i-1], "Toolbar") == 0) data[i] = Toolbar;
+    else if (strcmp(argv[i-1], "Menu") == 0) data[i] = Menu;
+    else if (strcmp(argv[i-1], "Splash") == 0) data[i] = Dialog;
+    else if (strcmp(argv[i-1], "Utility") == 0) data[i] = Utility;
 }
 
 /* This function works by setting a new atom globally on the root
