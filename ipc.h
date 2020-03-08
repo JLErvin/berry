@@ -45,7 +45,20 @@ enum IPCCommand
     IPCJSONStatus,
     IPCNameDesktop,
     IPCQuit,
+    IPCManage,
+    IPCUnmanage,
     IPCLast
+};
+
+enum WindowType
+{
+    Dock,
+    Dialog,
+    Toolbar,
+    Menu,
+    Splash,
+    Utility,
+    WindowLast
 };
 
 #endif

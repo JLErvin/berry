@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "ipc.h"
+
 struct client_geom {
     int x, y, width, height;
 };
@@ -23,6 +25,7 @@ struct config {
     int b_width, i_width, t_height, top_gap, r_step, m_step;
     unsigned long bf_color, bu_color, if_color, iu_color;
     bool focus_new, edge_lock, t_center, smart_place, draw_text, json_status;
+    bool manage[WindowLast];
 };
 
 struct monitor {

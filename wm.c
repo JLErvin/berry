@@ -140,6 +140,8 @@ static void ipc_draw_text(long *d);
 static void ipc_edge_lock(long *d);
 static void ipc_set_font(long *d);
 static void ipc_json_status(long *d);
+static void ipc_manage(long *d);
+static void ipc_unmanage(long *d);
 static void ipc_quit(long *d);
 
 static void monitors_free(void);
@@ -210,6 +212,8 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCEdgeLock]                 = ipc_edge_lock,
     [IPCSetFont]                  = ipc_set_font,
     [IPCJSONStatus]               = ipc_json_status,
+    [IPCManage]                   = ipc_manage,
+    [IPCUnmanage]                 = ipc_unmanage,
     [IPCQuit]                     = ipc_quit
 };
 
@@ -1144,6 +1148,32 @@ ipc_json_status(long *d)
 }
 
 static void
+ipc_manage(long *d)
+{
+    int type;
+    type = (int)d[1];
+
+    D fprintf(stderr, "now managing type %d\n", type);
+
+    conf.manage[type] = true;
+
+    refresh_config();
+}
+
+static void
+ipc_unmanage(long *d)
+{
+    int type;
+    type = (int)d[1];
+
+    D fprintf(stderr, "now unmanaging type %d\n", type);
+
+    conf.manage[type] = false;
+
+    refresh_config();
+}
+
+static void
 ipc_quit(long *d)
 {
     UNUSED(d);
@@ -1216,11 +1246,15 @@ manage_new_window(Window w, XWindowAttributes *wa)
                 &prop_ret) == Success) {
         if (prop_ret) {
             prop = ((Atom *)prop_ret)[0];
-            if (prop == net_atom[NetWMWindowTypeDock] ||
-                prop == net_atom[NetWMWindowTypeUtility]) {
+
+            if ((prop == net_atom[NetWMWindowTypeDock]    && !conf.manage[Dock])    ||
+                (prop == net_atom[NetWMWindowTypeToolbar] && !conf.manage[Toolbar]) ||
+                (prop == net_atom[NetWMWindowTypeUtility] && !conf.manage[Utility]) ||
+                (prop == net_atom[NetWMWindowTypeDialog]  && !conf.manage[Dialog])  ||
+                (prop == net_atom[NetWMWindowTypeMenu]    && !conf.manage[Menu])) {
+                XMapWindow(display, w);
                 D fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
                 D fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
-                XMapWindow(display, w);
                 return;
             }
         }
@@ -1821,22 +1855,28 @@ setup(void)
     int mon;
     XSetWindowAttributes wa = { .override_redirect = true };
     // Setup our conf initially
-    conf.b_width     = BORDER_WIDTH;
-    conf.t_height    = TITLE_HEIGHT;
-    conf.i_width     = INTERNAL_BORDER_WIDTH;
-    conf.bf_color    = BORDER_FOCUS_COLOR;
-    conf.bu_color    = BORDER_UNFOCUS_COLOR;
-    conf.if_color    = INNER_FOCUS_COLOR;
-    conf.iu_color    = INNER_UNFOCUS_COLOR;
-    conf.m_step      = MOVE_STEP;
-    conf.r_step      = RESIZE_STEP;
-    conf.focus_new   = FOCUS_NEW;
-    conf.edge_lock   = EDGE_LOCK;
-    conf.t_center    = TITLE_CENTER;
-    conf.top_gap     = TOP_GAP;
-    conf.smart_place = SMART_PLACE;
-    conf.draw_text   = DRAW_TEXT;
-    conf.json_status = JSON_STATUS;
+    conf.b_width         = BORDER_WIDTH;
+    conf.t_height        = TITLE_HEIGHT;
+    conf.i_width         = INTERNAL_BORDER_WIDTH;
+    conf.bf_color        = BORDER_FOCUS_COLOR;
+    conf.bu_color        = BORDER_UNFOCUS_COLOR;
+    conf.if_color        = INNER_FOCUS_COLOR;
+    conf.iu_color        = INNER_UNFOCUS_COLOR; 
+    conf.m_step          = MOVE_STEP;
+    conf.r_step          = RESIZE_STEP;
+    conf.focus_new       = FOCUS_NEW;
+    conf.edge_lock       = EDGE_LOCK;
+    conf.t_center        = TITLE_CENTER;
+    conf.top_gap         = TOP_GAP;
+    conf.smart_place     = SMART_PLACE;
+    conf.draw_text       = DRAW_TEXT;
+    conf.json_status     = JSON_STATUS;
+    conf.manage[Dock]    = MANAGE_DOCK;
+    conf.manage[Dialog]  = MANAGE_DIALOG;
+    conf.manage[Toolbar] = MANAGE_TOOLBAR;
+    conf.manage[Menu]    = MANAGE_MENU;
+    conf.manage[Splash]  = MANAGE_SPLASH;
+    conf.manage[Utility] = MANAGE_UTILITY;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
