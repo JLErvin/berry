@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BERRYC" "1" "September 2019" "" ""
+.TH "BERRYC" "1" "March 2020" "" ""
 .
 .SH "NAME"
 \fBberryc\fR \- client for berry window manager
@@ -141,4 +141,10 @@ or plain text.
 .TP
 \fBname_desktop\fR \fBi\fR \fBd_name\fR
 name the ith desktop d_name (Used with _NET_DESKTOP_NAMES)
+.
+.TP
+
+\fB[manage|unmanage]\fR [Dialog|Toolbar|Menu|Splash|Utility]\fR
+Manage, or unmanage, windows of type Dialog, Toolbar, Menu, Splash, or Utility.
+By default, all are managed.
 .
