@@ -916,7 +916,7 @@ ipc_send_to_ws(long *d)
         return;
 
     int ws = d[1];
-    client_send_to_ws(f_client, ws - 1);
+    client_send_to_ws(f_client, ws);
 }
 
 static void
