@@ -1363,10 +1363,30 @@ client_move_to_front(struct client *c)
         if (tmp->next == c)
             break;
 
-    if (tmp && tmp->next)
+    if (tmp && tmp->next){
         tmp->next = tmp->next->next; /* remove the Client from the list */
-    c->next = c_list[ws]; /* add the client to the front of the list */
-    c_list[ws] = c;
+	}
+	// always on top window always go into top
+	if (c->stay_above){
+    	c->next = c_list[ws]; /* add the client to the front of the list */
+		c_list[ws] = c;
+	}
+	else { // put regular clinet below last always on top (a_on_t) window
+		struct client *last_a_on_t;
+		// get last always on top windows in stack
+		for(last_a_on_t = c_list[ws]; last_a_on_t->next != NULL && last_a_on_t->next->stay_above;
+					last_a_on_t = last_a_on_t->next)
+					{;}
+		// set current client below last always on top
+		if(last_a_on_t && last_a_on_t->stay_above){
+			c->next = last_a_on_t->next;
+			last_a_on_t->next = c;
+		}
+		else {
+			c->next = c_list[ws];
+			c_list[ws] = c;
+		}
+	}
 }
 
 static void
@@ -1471,29 +1491,25 @@ static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
-        if (!c->decorated) {
-            XRaiseWindow(display, c->window);
-        } else {
-            // how may active clients are there on our workspace
-            int count, i;
-            count = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                count++;
-            }
+		// how may active clients are there on our workspace
+		int count, i;
+		count = 0;
+		for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
+			count++;
+		}
 
-            if (count == 0)
-                return;
+		if (count == 0)
+			return;
 
-            Window wins[count*2];
+		Window wins[count*2];
 
-            i = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                wins[i] = tmp->window;
-                wins[i+1] = tmp->dec;
-                i += 2;
-            }
-            XRestackWindows(display, wins, count*2);
-        }
+		i = 0;
+		for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
+			wins[i] = tmp->window;
+			wins[i+1] = tmp->dec;
+			i += 2;
+		}
+		XRestackWindows(display, wins, count*2);
     }
 }
 

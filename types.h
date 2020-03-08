@@ -12,7 +12,7 @@ struct client_geom {
 struct client {
     Window window, dec;
     int ws, x_hide;
-    bool decorated, hidden, fullscreen, mono;
+    bool decorated, hidden, fullscreen, mono, stay_above;
     struct client_geom geom;
     struct client_geom prev;
     struct client *next, *f_next;
@@ -36,6 +36,8 @@ enum atoms_net {
     NetCurrentDesktop,
     NetClientList,
     NetWMStateFullscreen,
+	NetWMStateModal,
+	NetWMStateAbove,
     NetWMCheck,
     NetWMState,
     NetWMName,
