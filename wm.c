@@ -1268,8 +1268,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->ws = curr_ws;
     c->geom.x = wa->x;
     c->geom.y = wa->y;
-    c->geom.width = wa->width;
-    c->geom.height = wa->height;
+    c->geom.width = wa->width + 2 * (conf.b_width + conf.i_width);
+    c->geom.height = wa->height + 2 * (conf.b_width + conf.i_width) + conf.t_height;
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
