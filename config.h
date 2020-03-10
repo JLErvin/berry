@@ -33,11 +33,11 @@
 #define DRAW_TEXT true
 #define JSON_STATUS true
 
-#define MANAGE_DOCK true
+#define MANAGE_DOCK false
 #define MANAGE_DIALOG true
-#define MANAGE_TOOLBAR true
+#define MANAGE_TOOLBAR false
 #define MANAGE_MENU true
-#define MANAGE_SPLASH true
+#define MANAGE_SPLASH false
 #define MANAGE_UTILITY true
 
 #endif

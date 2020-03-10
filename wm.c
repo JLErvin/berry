@@ -24,6 +24,9 @@
 #include "types.h"
 #include "utils.h"
 
+#define LOGN(msg)      do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n"); } while (0) 
+#define LOGP(msg, ...) do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n", __VA_ARGS__); } while (0)
+
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
@@ -227,28 +230,28 @@ client_cardinal_focus(struct client *c, int dir)
         int dist = euclidean_distance(c, tmp);
         switch (dir) {
             case EAST:
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Focusing EAST\n");
+                LOGN("Focusing EAST");
                 if (tmp->geom.x > c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case SOUTH:
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Focusing SOUTH\n");
+                LOGN("Focusing SOUTH");
                 if (tmp->geom.y > c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case WEST:
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Focusing WEST\n");
+                LOGN("Focusing WEST");
                 if (tmp->geom.x < c->geom.x && dist < min) {
                     min = dist;
                     focus_next = tmp;
                 }
                 break;
             case NORTH:
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Focusing NORTH\n");
+                LOGN("Focusing NORTH");
                 if (tmp->geom.y < c->geom.y && dist < min) {
                     min = dist;
                     focus_next = tmp;
@@ -259,10 +262,10 @@ client_cardinal_focus(struct client *c, int dir)
     }
 
     if (focus_next == NULL) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Cannot cardinal focus, no valid windows found\n");
+        LOGN("Cannot cardinal focus, no valid windows found");
         return;
     } else {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Valid window found in direction %d, focusing\n", dir);
+        LOGP("Valid window found in direction %d, focusing", dir);
         client_manage_focus(focus_next);
     }
 }
@@ -274,7 +277,7 @@ static void
 client_center(struct client *c)
 {
     int mon;
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Centering Client\n");
+    LOGN("Centering Client");
     mon = ws_m_list[c->ws];
     client_center_in_rect(c, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
 }
@@ -292,7 +295,7 @@ client_center_in_rect(struct client *c, int x, int y, int w, int h)
 static void
 close_wm(void)
 {
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Shutting down window manager\n");
+    LOGN("Shutting down window manager");
 
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         while (c_list[i] != NULL)
@@ -304,7 +307,7 @@ close_wm(void)
     XDeleteProperty(display, root, net_berry[BerryFontProperty]);
     XDeleteProperty(display, root, net_atom[NetSupported]);
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Closing display...\n");
+    LOGN("Closing display...");
     XCloseDisplay(display);
 }
 
@@ -317,12 +320,12 @@ draw_text(struct client *c, bool focused)
     int x, y, len;
 
     if (!conf.draw_text) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": drawing text disabled\n");
+        LOGN("drawing text disabled");
         return;
     }
     
     if (!c->decorated) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Client not decorated, not drawing text\n");
+        LOGN("Client not decorated, not drawing text");
         return;
     }
 
@@ -336,14 +339,14 @@ draw_text(struct client *c, bool focused)
             break;
     }
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Text height is %u\n", extents.height);
+    LOGP("Text height is %u", extents.height);
 
     if (extents.y > conf.t_height) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Text is taller than title bar height, not drawing text\n");
+        LOGN("Text is taller than title bar height, not drawing text");
         return;
     }
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Drawing text on client\n");
+    LOGN("Drawing text on client");
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
@@ -365,14 +368,14 @@ client_close(struct client *c)
     ev.xclient.data.l[0] = wm_atom[WMDeleteWindow];
     ev.xclient.data.l[1] = CurrentTime;
     XSendEvent(display, c->window, False, NoEventMask, &ev);
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Closing window...\n");
+    LOGN("Closing window...");
 }
 
 /* Create new "dummy" windows to be used as decorations for the given client */
 static void
 client_decorations_create(struct client *c)
 {
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Decorating new client\n");
+    LOGN("Decorating new client");
     int w = c->geom.width + 2 * conf.i_width;
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
@@ -380,7 +383,7 @@ client_decorations_create(struct client *c)
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new decorations\n");
+    LOGN("Mapping new decorations");
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
@@ -395,7 +398,7 @@ client_decorations_create(struct client *c)
 static void 
 client_decorations_destroy(struct client *c)
 {
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Removing decorations\n");
+    LOGN("Removing decorations");
     c->decorated = false;
     XUnmapWindow(display, c->dec);
     XDestroyWindow(display, c->dec);
@@ -413,10 +416,10 @@ client_delete(struct client *c)
     ws = c->ws;
 
     if (ws == -1) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Cannot delete client, not found\n"); 
+        LOGN("Cannot delete client, not found"); 
         return;
     } else {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Deleting client on workspace %d\n", ws); 
+        LOGP("Deleting client on workspace %d", ws); 
     }
 
     /* Delete in the stack */
@@ -534,18 +537,46 @@ get_client_from_window(Window w)
 static void
 handle_client_message(XEvent *e)
 {
+    struct client *c;
     XClientMessageEvent *cme = &e->xclient;
     long cmd, *data;
 
     if (cme->message_type == net_berry[BerryClientEvent]) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Recieved event from berryc\n");
+        LOGN("Recieved event from berryc");
         if (cme->format != 32) {
-			D fprintf(stderr, WINDOW_MANAGER_NAME": Wrong format, ignoring event\n");
+			LOGN("Wrong format, ignoring event");
 			return;
 		}
         cmd = cme->data.l[0];
         data = cme->data.l;
         ipc_handler[cmd](data);
+    } else if (cme->message_type == net_atom[NetWMState]) {
+        c = get_client_from_window(cme->window);
+        if (c == NULL) {
+            LOGN("client not found...");
+            return;
+        }
+
+        /* Note that berry does _not_ respect the requests of clients entering
+         * fullscreen mode to modify the size or position of the respective window.
+         * This is an intentional design violation of ICCCM, which states that the
+         * window manager _should_ change size and remove deocrations based on 
+         * the following event
+         */
+        if ((Atom)cme->data.l[1] == net_atom[NetWMStateFullscreen] ||
+            (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
+            LOGN("Recieved fullscreen request");
+            if (cme->data.l[0] == 0) { // remove fullscreen
+                ewmh_set_fullscreen(c, false);
+                LOGN("type 0");
+            } else if (cme->data.l[0] == 1) { // set fullscreen
+                ewmh_set_fullscreen(c, true);
+                LOGN("type 1");
+            } else if (cme->data.l[0] == 2) { // toggle fullscreen
+                ewmh_set_fullscreen(c, !c->fullscreen);
+                LOGN("type 2");
+            }
+        }
     }
 }
 
@@ -563,7 +594,7 @@ handle_button_press(XEvent *e)
     Window dummy;
 
     XQueryPointer(display, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling button press event\n");
+    LOGN("Handling button press event");
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
@@ -582,7 +613,7 @@ handle_button_press(XEvent *e)
                 draw_text(c, true);
                 break;
             case MotionNotify:
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Handling motion notify event\n");
+                LOGN("Handling motion notify event");
                 nx = ocx + (ev.xmotion.x - x);
                 ny = ocy + (ev.xmotion.y - y);
                 if (conf.edge_lock)
@@ -602,10 +633,10 @@ handle_expose(XEvent *e)
     struct client *c;
     bool focused;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling expose event\n");
+    LOGN("Handling expose event");
     c = get_client_from_window(ev->window);
     if (c == NULL) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Expose event client not found, exiting\n");
+        LOGN("Expose event client not found, exiting");
         return;
     }
     focused = c == f_client;
@@ -628,7 +659,7 @@ handle_property_notify(XEvent *e)
     XPropertyEvent *ev = &e->xproperty;
     struct client *c;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling property notify event\n");
+    LOGN("Handling property notify event");
     c = get_client_from_window(ev->window);
 
     if (c == NULL)
@@ -638,7 +669,7 @@ handle_property_notify(XEvent *e)
         return;
 
     if (ev->atom == net_atom[NetWMName]) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Updating client title\n");
+        LOGN("Updating client title");
         client_set_title(c);
         draw_text(c, c == f_client);
     }
@@ -652,7 +683,7 @@ handle_configure_notify(XEvent *e)
     if (ev->window == root)
         return;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling configure notify event\n");
+    LOGN("Handling configure notify event");
 
     monitors_free();
     monitors_setup();
@@ -665,7 +696,7 @@ handle_configure_request(XEvent *e)
     XConfigureRequestEvent *ev = &e->xconfigurerequest;
     XWindowChanges wc;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling configure request event\n");
+    LOGN("Handling configure request event");
 
     wc.x = ev->x;
     wc.y = ev->y;
@@ -687,7 +718,7 @@ handle_map_request(XEvent *e)
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling map request event\n");
+    LOGN("Handling map request event");
 
     if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
@@ -720,7 +751,7 @@ client_hide(struct client *c)
 {
     if (!c->hidden) {
         c->x_hide = c->geom.x;
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Hiding client\n");
+        LOGN("Hiding client");
         client_move_absolute(c, display_width + conf.b_width, c->geom.y);
         c->hidden = true;
     }
@@ -1023,11 +1054,11 @@ ipc_save_monitor(long *d)
     mon = d[2];
 
     if (mon >= m_count) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Cannot save monitor, number is too high\n");
+        LOGN("Cannot save monitor, number is too high");
         return;
     }
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Saving ws %d to monitor %d\n", ws, mon);
+    LOGP("Saving ws %d to monitor %d", ws, mon);
 
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
@@ -1089,18 +1120,18 @@ ipc_set_font(long *d)
     XTextProperty font_prop;
     char** font_list;
     int err, n;
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Handling new set_font request\n");
+    LOGN("Handling new set_font request");
 
     font_list = NULL;
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Getting text property\n");
+    LOGN("Getting text property");
     XGetTextProperty(display, root, &font_prop, net_berry[BerryFontProperty]);
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Converting to text list\n");
+    LOGN("Converting to text list");
     err = XmbTextPropertyToTextList(display, &font_prop, &font_list, &n);
-    strcpy(global_font, font_list[0]);
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Opening font by name\n");
+    strncpy(global_font, font_list[0], sizeof(global_font));
+    LOGN("Opening font by name");
     font = XftFontOpenName(display, screen, global_font);
     if (font == NULL) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Error, could not open font name\n");
+        LOGN("Error, could not open font name");
         return;
     }
     refresh_config();
@@ -1180,7 +1211,7 @@ load_config(char *conf_path)
         setsid();
         /*execl(conf_path, conf_path, NULL);*/
         execl("/bin/sh", "sh", conf_path, NULL);
-        D fprintf(stderr, WINDOW_MANAGER_NAME": CONFIG PATH: %s\n", conf_path);
+        LOGP("CONFIG PATH: %s", conf_path);
     }
 }
 
@@ -1203,7 +1234,7 @@ client_manage_focus(struct client *c)
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     } else { //client is null, might happen when switching to a new workspace
              // without any active clients
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Giving focus to dummy window\n");
+        LOGN("Giving focus to dummy window");
         f_client = NULL;
         XSetInputFocus(display, nofocus, RevertToPointerRoot, CurrentTime);
     }
@@ -1228,8 +1259,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
                 (prop == net_atom[NetWMWindowTypeDialog]  && !conf.manage[Dialog])  ||
                 (prop == net_atom[NetWMWindowTypeMenu]    && !conf.manage[Menu])) {
                 XMapWindow(display, w);
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Window is of type dock, toolbar, utility, menu, or splash: not managing\n");
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Mapping new window, not managed\n");
+                LOGN("Window is of type dock, toolbar, utility, menu, or splash: not managing");
+                LOGN("Mapping new window, not managed");
                 return;
             }
         }
@@ -1239,7 +1270,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         for (struct client *tmp = c_list[i]; tmp; tmp = tmp->next) {
             if (tmp->window == w) {
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Error, window already mapped. Not mapping.\n");
+                LOGN("Error, window already mapped. Not mapping.");
                 return;
             }
         }
@@ -1248,20 +1279,20 @@ manage_new_window(Window w, XWindowAttributes *wa)
     // Get class information for the current window
     XClassHint ch;
     if (XGetClassHint(display, w, &ch) > Success) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": client has class %s\n", ch.res_class);
-        D fprintf(stderr, WINDOW_MANAGER_NAME": client has name %s\n", ch.res_name);
+        LOGP("client has class %s", ch.res_class);
+        LOGP("client has name %s", ch.res_name);
         if (ch.res_class)
             XFree(ch.res_class);
         if (ch.res_name)
             XFree(ch.res_name);
     } else {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": could not retrieve client class name\n");
+        LOGN("could not retrieve client class name");
     }
 
     struct client *c;
     c = malloc(sizeof(struct client));
     if (c == NULL) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Error, malloc could not allocated new window\n");
+        LOGN("Error, malloc could not allocated new window");
         return;
     }
     c->window = w;
@@ -1533,16 +1564,16 @@ static void monitors_setup(void)
     int n;
 
     if (!XineramaIsActive(display)) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Xinerama not active, cannot read monitors\n");
+        LOGN("Xinerama not active, cannot read monitors");
         return;
     }
 
     m_info = XineramaQueryScreens(display, &n);
     if (m_info == NULL) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Xinerama could not query screens\n");
+        LOGN("Xinerama could not query screens");
         return;
     }
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Found %d screens active\n", n);
+    LOGP("Found %d screens active", n);
     m_count = n;
 
     /* First, we need to decide which monitors are unique.
@@ -1563,7 +1594,7 @@ static void monitors_setup(void)
         m_list[i].height = m_info[i].height;
         m_list[i].x = m_info[i].x_org;
         m_list[i].y = m_info[i].y_org;
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Screen #%d with dim: x=%d y=%d w=%d h=%d\n",
+        LOGP("Screen #%d with dim: x=%d y=%d w=%d h=%d",
                 m_list[i].screen, m_list[i].x, m_list[i].y, m_list[i].width, m_list[i].height);
     }
 
@@ -1573,7 +1604,7 @@ static void monitors_setup(void)
 static void
 client_refresh(struct client *c)
 {
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Refreshing client\n");
+    LOGN("Refreshing client");
     for (int i = 0; i < 2; i++) {
         client_move_relative(c, 0, 0);
         client_resize_relative(c, 0, 0);
@@ -1630,10 +1661,10 @@ client_resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Resizing client main window\n");
+    LOGN("Resizing client main window");
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Resizing client decoration\n");
+        LOGN("Resizing client decoration");
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
 
@@ -1682,9 +1713,9 @@ run(void)
     XSync(display, false);
     while (running) {
         XNextEvent(display, &e);
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Receieved new %d event\n", e.type);
+        LOGP("Receieved new %d event", e.type);
         if (event_handler[e.type]) {
-            D fprintf(stderr, WINDOW_MANAGER_NAME": Handling %d event\n", e.type);
+            LOGP("Handling %d event", e.type);
             event_handler[e.type](&e);
         }
     }
@@ -1731,7 +1762,7 @@ client_send_to_ws(struct client *c, int ws)
     for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
         count++;
     }
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Found %d clients on previous workspace\n", count);
+    LOGP("Found %d clients on previous workspace", count);
     // END DEBUG
 
     prev = c->ws;
@@ -1773,7 +1804,7 @@ client_set_title(struct client *c)
 
     c->title[0] = 0;
     if (!XGetTextProperty(display, c->window, &tp, net_atom[NetWMName])) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Could not read client title, not updating\n");
+        LOGN("Could not read client title, not updating");
         return;
     }
 
@@ -1872,14 +1903,14 @@ setup(void)
     net_berry[BerryClientEvent]      = XInternAtom(display, "BERRY_CLIENT_EVENT", False);
     net_berry[BerryFontProperty]     = XInternAtom(display, "BERRY_FONT_PROPERTY", False);
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Successfully assigned atoms\n");
+    LOGN("Successfully assigned atoms");
 
     XChangeProperty(display , check , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
     XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) WINDOW_MANAGER_NAME , 5);
     XChangeProperty(display , root  , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
     XChangeProperty(display , root  , net_atom[NetSupported] , XA_ATOM    , 32 , PropModeReplace , (unsigned char *) net_atom            , NetLast);
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Successfully set initial properties\n");
+    LOGN("Successfully set initial properties");
 
     /* Set the total number of desktops */
     data[0] = WORKSPACE_NUMBER;
@@ -1888,9 +1919,9 @@ setup(void)
     /* Set the intial "current desktop" to 0 */
     data2[0] = curr_ws;
     XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Setting up monitors\n");
+    LOGN("Setting up monitors");
     monitors_setup();
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Successfully setup monitors\n");
+    LOGN("Successfully setup monitors");
     mon = ws_m_list[curr_ws];
     XWarpPointer(display, None, root, 0, 0, 0, 0,
         m_list[mon].x + m_list[mon].width / 2,
@@ -1898,7 +1929,7 @@ setup(void)
     
     gc = XCreateGC(display, root, 0, 0); 
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Allocating color values\n");
+    LOGN("Allocating color values");
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
             TEXT_FOCUS_COLOR, &xft_focus_color);
     XftColorAllocName(display, DefaultVisual(display, screen), DefaultColormap(display, screen),
@@ -1912,7 +1943,7 @@ static void
 client_show(struct client *c)
 {
     if (c->hidden) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": Showing client");
+        LOGN("Showing client");
         client_move_absolute(c, c->x_hide, c->geom.y);
         client_raise(c);
         c->hidden = false;
@@ -1971,7 +2002,7 @@ switch_ws(int ws)
 
     curr_ws = ws;
     int mon = ws_m_list[ws];
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Setting Screen #%d with active workspace %d\n", m_list[mon].screen, ws);
+    LOGP("Setting Screen #%d with active workspace %d", m_list[mon].screen, ws);
     client_manage_focus(c_list[curr_ws]);
     ewmh_set_active_desktop(ws);
 }
@@ -2003,7 +2034,7 @@ client_set_status(struct client *c)
     char *str = NULL;
     char *state, *decorated;
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Updating client status...\n");
+    LOGN("Updating client status...");
 
     if (c->fullscreen)
         state = "fullscreen";
@@ -2046,7 +2077,7 @@ client_set_status(struct client *c)
     }
 
     if (size == -1) {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": asprintf returned -1, could not report window status\n");
+        LOGN("asprintf returned -1, could not report window status");
         return;
     }
 
@@ -2059,7 +2090,7 @@ static void
 ewmh_set_fullscreen(struct client *c, bool fullscreen)
 {
     XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32, 
-            PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 0 : 1 );
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 1 : 0 );
 }
 
 static void
@@ -2089,9 +2120,9 @@ ewmh_set_desktop(struct client *c, int ws)
 
 static void ewmh_set_frame_extents(struct client *c)
 {
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Setting client frame extents\n");
     unsigned long data[4];
     int left, right, top, bottom;
+    LOGN("Setting client frame extents");
 
     if (c->decorated) {
         left = right = bottom = conf.b_width + conf.i_width;
@@ -2222,7 +2253,7 @@ main(int argc, char *argv[])
         } else {
             char *home = getenv("HOME");
             if (home == NULL) {
-                D fprintf(stderr, WINDOW_MANAGER_NAME": Warning $XDG_CONFIG_HOME and $HOME not found"
+                LOGN("Warning $XDG_CONFIG_HOME and $HOME not found"
                         "autostart will not be loaded.\n");
                 conf_found = false;
             }
@@ -2231,17 +2262,17 @@ main(int argc, char *argv[])
     }
     
     if (font_name[0] == '\0') { // font not loaded
-        D fprintf(stderr, WINDOW_MANAGER_NAME": font not specified, loading default font\n");
+        LOGN("font not specified, loading default font");
     } else {
-        D fprintf(stderr, WINDOW_MANAGER_NAME": font specified, loading... %s\n", font_name);
-        strcpy(global_font, font_name);
+        LOGP("font specified, loading... %s", font_name);
+        strncpy(global_font, font_name, sizeof(global_font));
     }
 
     display = XOpenDisplay(NULL);
     if (!display)
         exit(EXIT_FAILURE);
 
-    D fprintf(stderr, WINDOW_MANAGER_NAME": Successfully opened display\n");
+    LOGN("Successfully opened display");
 
     setup();
     if (conf_found)
