@@ -24,8 +24,6 @@
 #include "types.h"
 #include "utils.h"
 
-#define LOGN(msg)      do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n"); } while (0) 
-#define LOGP(msg, ...) do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n", __VA_ARGS__); } while (0)
 
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
@@ -1185,7 +1183,7 @@ ipc_manage(long *d)
     int type;
     type = (int)d[1];
 
-    D fprintf(stderr, "now managing type %d\n", type);
+    LOGP("Now managing type %d", type);
 
     conf.manage[type] = true;
 
@@ -1198,7 +1196,7 @@ ipc_unmanage(long *d)
     int type;
     type = (int)d[1];
 
-    D fprintf(stderr, "now unmanaging type %d\n", type);
+    LOGP("Now unmanaging type %d", type);
 
     conf.manage[type] = false;
 
@@ -1523,6 +1521,10 @@ client_place(struct client *c)
             }
         }
     }
+
+    /* NOTE: can we factor these for-loops.
+     *       something something spatial locality?...
+     */
 
     for (int i = 0; i < t_gap; i++) { // top gap
         for (int j = 0; j < width; j++) {
@@ -2233,16 +2235,16 @@ ewmh_set_active_desktop(int ws)
 static void
 usage(void)
 {
-    D fprintf(stderr, "Usage: berry [-h|-v|-c CONFIG_PATH]\n");
+    printf("Usage: berry [-h|-v|-c CONFIG_PATH]\n");
     exit(EXIT_SUCCESS);
 }
 
 static void
 version(void)
 {
-    D fprintf(stderr, "%s %s\n", WINDOW_MANAGER_NAME, __THIS_VERSION__);
-    D fprintf(stderr, "Copyright (c) 2018 Joshua L Ervin\n");
-    D fprintf(stderr, "Released under the MIT License\n");
+    printf("%s %s\n", WINDOW_MANAGER_NAME, __THIS_VERSION__);
+    printf("Copyright (c) 2018 Joshua L Ervin\n");
+    printf("Released under the MIT License\n");
     exit(EXIT_SUCCESS);
 }
 
@@ -2261,8 +2263,7 @@ xerror(Display *display, XErrorEvent *e)
             (e->request_code == X_CopyArea && e->error_code == BadDrawable))
         return 0;
 
-    D fprintf(stderr, "Fatal request. request code=%d, error code=%d\n",
-            e->request_code, e->error_code);
+    LOGP("Fatal request. Request code=%d, error code=%d", e->request_code, e->error_code);
     return xerrorxlib(display, e);
 }
 
