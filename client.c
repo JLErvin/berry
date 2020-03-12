@@ -66,6 +66,7 @@ static struct command c[] = {
     { "pointer_focus",          IPCPointerFocus,            0, NULL       },
     { "quit",                   IPCQuit,                    0, NULL       },
     { "top_gap",                IPCTopGap,                  1, fn_int     },
+    { "edge_gap",               IPCEdgeGap,                 4, fn_int     },
     { "save_monitor",           IPCSaveMonitor,             2, fn_int     },
     { "smart_place",            IPCSmartPlace,              1, fn_bool    },
     { "draw_text",              IPCDrawText,                1, fn_bool    },
@@ -196,10 +197,14 @@ send_command(struct command *c, int argc, char **argv)
         return;
     }
 
-    if (c->argc >= 1)
-        (c->handler)(ev.xclient.data.l, 1, argv);
-    if (c->argc == 2)
-        (c->handler)(ev.xclient.data.l, 2, argv);
+    /*if (c->argc >= 1)*/
+        /*(c->handler)(ev.xclient.data.l, 1, argv);*/
+    /*if (c->argc == 2)*/
+        /*(c->handler)(ev.xclient.data.l, 2, argv);*/
+
+    for (int i = 1; i <= argc; i++) {
+        (c->handler)(ev.xclient.data.l, i, argv);
+    }
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);

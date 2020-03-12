@@ -35,6 +35,7 @@ static struct config conf; /* gloabl config */
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
+/*static int min_x, min_y, max_x, max_y; [> Constraints of normal region regarding gaps <]*/
 static Cursor move_cursor, normal_cursor;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
@@ -131,6 +132,7 @@ static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_top_gap(long *d);
+static void ipc_edge_gap(long *d);
 static void ipc_smart_place(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_tf_color(long *d);
@@ -205,6 +207,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCTitleFocusColor]          = ipc_tf_color,
     [IPCTitleUnfocusColor]        = ipc_tu_color,
     [IPCTopGap]                   = ipc_top_gap,
+    [IPCEdgeGap]                  = ipc_edge_gap,
     [IPCSmartPlace]               = ipc_smart_place,
     [IPCDrawText]                 = ipc_draw_text,
     [IPCEdgeLock]                 = ipc_edge_lock,
@@ -285,9 +288,12 @@ client_center(struct client *c)
 static void
 client_center_in_rect(struct client *c, int x, int y, int w, int h) 
 {
-    client_move_absolute(c,
-                         round_k(x + w / 2 - c->geom.width / 2),
-                         round_k(y + (h + conf.top_gap) / 2 - c->geom.height / 2));
+    LOGP("Centering at x=%d, y=%d, w=%d, h=%d", x, y, w, h);
+    int new_x = round_k(x + (conf.left_gap - conf.right_gap) / 2 + w / 2 - c->geom.width / 2);
+    int new_y = round_k(y + (conf.top_gap - conf.bot_gap) / 2 + h / 2 - c->geom.height / 2);
+    LOGP("Sending to x=%d, y=%d", new_x, new_y);
+    client_move_absolute(c, new_x, new_y);
+                         
     client_refresh(c); // in case we went over the top gap
 }
 
@@ -388,7 +394,7 @@ client_decorations_create(struct client *c)
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XMapWindow (display, c->dec);
+    /*XMapWindow (display, c->dec);*/
     draw_text(c, true);
     ewmh_set_frame_extents(c);
     client_set_status(c);
@@ -1039,6 +1045,25 @@ ipc_top_gap(long *d)
 }
 
 static void
+ipc_edge_gap(long *d)
+{
+    int top, bot, left, right;
+    top = d[1];
+    bot = d[2];
+    left = d[3];
+    right = d[4];
+
+    conf.top_gap = top;
+    conf.bot_gap = bot;
+    conf.left_gap = left;
+    conf.right_gap = right;
+
+    LOGN("Changing edge gap...");
+
+    refresh_config();
+}
+
+static void
 ipc_smart_place(long *d) {
     int data = d[1];
     conf.smart_place = data;
@@ -1307,14 +1332,18 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     client_decorations_create(c);
     client_set_title(c);
-    XMapWindow(display, c->window);
+    /*XMapWindow(display, c->window);*/
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
-    client_manage_focus(c);
+    /*client_manage_focus(c);*/
     client_place(c);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
+    /*XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);*/
+    XMapWindow (display, c->dec);
+    XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+    client_manage_focus(c);
 }
 
 static int
@@ -1377,22 +1406,23 @@ static void
 client_move_relative(struct client *c, int x, int y) 
 {
     /* Constrain the current client to the w/h of display */
+    /* God this is soooo ugly */
     if (conf.edge_lock) {
         int dx, dy, mon;
         mon = ws_m_list[c->ws];
 
         /* Lock on the right side of the screen */
-        if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x)
-            dx = m_list[mon].width + m_list[mon].x - c->geom.width;
+        if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x - conf.right_gap)
+            dx = m_list[mon].width + m_list[mon].x - c->geom.width - conf.right_gap;
         /* Lock on the left side of the screen */
-        else if (c->geom.x + x < m_list[mon].x)
-            dx = m_list[mon].x; 
+        else if (c->geom.x + x < m_list[mon].x + conf.left_gap)
+            dx = m_list[mon].x + conf.left_gap; 
         else
             dx = c->geom.x + x;
 
         /* Lock on the bottom of the screen */
-        if (c->geom.y + c->geom.height + y > m_list[mon].height + m_list[mon].y)
-            dy = m_list[mon].height + m_list[mon].y - c->geom.height;
+        if (c->geom.y + c->geom.height + y > m_list[mon].height + m_list[mon].y - conf.bot_gap)
+            dy = m_list[mon].height + m_list[mon].y - conf.bot_gap - c->geom.height;
         /* Lock on the top of the screen */
         else if (c->geom.y + y < m_list[mon].y + conf.top_gap)
             dy = m_list[mon].y + conf.top_gap;
@@ -1443,26 +1473,29 @@ client_monocle(struct client *c)
         c->prev.y = c->geom.y;
         c->prev.width = c->geom.width;
         c->prev.height = c->geom.height;
-        client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-        client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+        client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap); 
+        client_resize_absolute(c, m_list[mon].width - conf.right_gap - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
         c->mono = true;
     }
-
-    //c->mono = !c->mono;
 }
 
 static void
 client_place(struct client *c) 
 {
-    int width, height, mon, count, max_height;
+    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap;
 
     mon = ws_m_list[c->ws];
     width = m_list[mon].width / PLACE_RES;
     height = m_list[mon].height / PLACE_RES;
+    t_gap = conf.top_gap / PLACE_RES;
+    b_gap = conf.bot_gap / PLACE_RES;
+    l_gap = conf.left_gap / PLACE_RES;
+    r_gap = conf.right_gap / PLACE_RES;
 
     // If this is the first window in the workspace, we can simply center
     // it. Also center it if the user wants to disable smart placeement.
     if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
+    /*if (!conf.smart_place) {*/
         client_center(c);
         return;
     }
@@ -1470,18 +1503,9 @@ client_place(struct client *c)
     uint16_t opt[height][width];
 
     // Initialize array to all 1's
-    //memset(opt, 1, sizeof(opt[0][0]) * width * height);
-    //memset(opt, 1, sizeof(uint16_t) * width * height);
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
             opt[i][j] = 1;
-        }
-    }
-
-    // Fill in the top gap
-    for (int i = 0; i < conf.top_gap / PLACE_RES + 1; i++) {
-        for (int j = 0; j < width / PLACE_RES; j++) {
-            opt[i][j] = 0;
         }
     }
 
@@ -1500,6 +1524,30 @@ client_place(struct client *c)
         }
     }
 
+    for (int i = 0; i < t_gap; i++) { // top gap
+        for (int j = 0; j < width; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = height - b_gap; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < l_gap; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < height; i++) {
+        for (int j = width; j < width - r_gap; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
     // fill in the OPT matrix
     for (int i = 1; i < height; i++) {
         for (int j = 0; j < width; j++) {
@@ -1509,8 +1557,8 @@ client_place(struct client *c)
 
     count = 0;
     max_height = INT_MAX;
-    for (int i = height - 1; i >= 0; i--) {
-        for (int j = 0; j < width; j++) {
+    for (int i = height - b_gap - 1; i >= c->geom.height / PLACE_RES; i--) {
+        for (int j = l_gap; j < width - r_gap; j++) {
             while (j < width && opt[i][j] >= c->geom.height / PLACE_RES) {
                 max_height = MIN(max_height, opt[i][j]);
                 count++;
@@ -1519,8 +1567,8 @@ client_place(struct client *c)
             // the window WILL fit here
             if (count >= c->geom.width / PLACE_RES) {
                 client_move_absolute(c, 
-                                    (j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2,
-                                    (i - max_height) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2);
+                                    MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2)),
+                                    MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2)));
                 return;
             }
             count = 0;
@@ -1625,6 +1673,7 @@ refresh_config(void)
             if (tmp->decorated) {
                 client_decorations_destroy(tmp);
                 client_decorations_create(tmp);
+                XMapWindow(display, tmp->dec);
             }
 
             client_refresh(tmp);
@@ -1686,8 +1735,8 @@ client_resize_relative(struct client *c, int w, int h)
          * the right side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->geom.x + c->geom.width + w > m_list[mon].x + m_list[mon].width)
-            dw = m_list[mon].x + m_list[mon].width - c->geom.x;
+        if (c->geom.x + c->geom.width + w > m_list[mon].x + m_list[mon].width - conf.right_gap)
+            dw = m_list[mon].x + m_list[mon].width - c->geom.x - conf.right_gap;
         else
             dw = c->geom.width + w;
 
@@ -1695,8 +1744,8 @@ client_resize_relative(struct client *c, int w, int h)
          * the bottom side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->geom.y + c->geom.height + conf.t_height + h > m_list[mon].y + m_list[mon].height)
-            dh = m_list[mon].height + m_list[mon].y - c->geom.y;
+        if (c->geom.y + c->geom.height + conf.t_height + h > m_list[mon].y + m_list[mon].height - conf.bot_gap)
+            dh = m_list[mon].height + m_list[mon].y - c->geom.y - conf.bot_gap;
         else
             dh = c->geom.height + h;
 
@@ -1842,6 +1891,7 @@ setup(void)
     conf.edge_lock       = EDGE_LOCK;
     conf.t_center        = TITLE_CENTER;
     conf.top_gap         = TOP_GAP;
+    conf.bot_gap         = BOT_GAP;
     conf.smart_place     = SMART_PLACE;
     conf.draw_text       = DRAW_TEXT;
     conf.json_status     = JSON_STATUS;
@@ -1955,8 +2005,8 @@ client_snap_left(struct client *c)
 {
     int mon;
     mon = ws_m_list[c->ws];
-    client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-    client_resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
+    client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap); 
+    client_resize_absolute(c, m_list[mon].width / 2 - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
 
 static void
@@ -1965,7 +2015,7 @@ client_snap_right(struct client *c)
     int mon;
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2, m_list[mon].y + conf.top_gap); 
-    client_resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
+    client_resize_absolute(c, m_list[mon].width / 2 - conf.right_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
 
 static void

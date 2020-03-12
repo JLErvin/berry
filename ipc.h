@@ -37,6 +37,7 @@ enum IPCCommand
     IPCWindowCenter,
     IPCPointerFocus,
     IPCTopGap,
+    IPCEdgeGap,
     IPCSmartPlace,
     IPCDrawText,
     IPCEdgeLock,
