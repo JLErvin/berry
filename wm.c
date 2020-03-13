@@ -33,7 +33,6 @@ static struct config conf; /* gloabl config */
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
-/*static int min_x, min_y, max_x, max_y; [> Constraints of normal region regarding gaps <]*/
 static Cursor move_cursor, normal_cursor;
 static Display *display;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
@@ -113,13 +112,6 @@ static void ipc_resize_relative(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_window_close(long *d);
 static void ipc_window_center(long *d);
-static void ipc_bf_color(long *d);
-static void ipc_bu_color(long *d);
-static void ipc_if_color(long *d);
-static void ipc_iu_color(long *d);
-static void ipc_b_width(long *d);
-static void ipc_i_width(long *d);
-static void ipc_t_height(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
 static void ipc_fullscreen(long *d);
@@ -129,19 +121,9 @@ static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
-static void ipc_top_gap(long *d);
-static void ipc_edge_gap(long *d);
-static void ipc_smart_place(long *d);
+static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
-static void ipc_tf_color(long *d);
-static void ipc_tu_color(long *d);
-static void ipc_draw_text(long *d);
-static void ipc_edge_lock(long *d);
 static void ipc_set_font(long *d);
-static void ipc_json_status(long *d);
-static void ipc_manage(long *d);
-static void ipc_unmanage(long *d);
-static void ipc_quit(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -185,13 +167,6 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
     [IPCWindowClose]              = ipc_window_close,
     [IPCWindowCenter]             = ipc_window_center,
-    [IPCFocusColor]               = ipc_bf_color,
-    [IPCUnfocusColor]             = ipc_bu_color,
-    [IPCInnerFocusColor]          = ipc_if_color,
-    [IPCInnerUnfocusColor]        = ipc_iu_color,
-    [IPCBorderWidth]              = ipc_b_width,
-    [IPCInnerBorderWidth]         = ipc_i_width,
-    [IPCTitleHeight]              = ipc_t_height,
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
     [IPCFullscreen]               = ipc_fullscreen,
@@ -202,18 +177,8 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerFocus]             = ipc_pointer_focus,
     [IPCSaveMonitor]              = ipc_save_monitor,
-    [IPCTitleFocusColor]          = ipc_tf_color,
-    [IPCTitleUnfocusColor]        = ipc_tu_color,
-    [IPCTopGap]                   = ipc_top_gap,
-    [IPCEdgeGap]                  = ipc_edge_gap,
-    [IPCSmartPlace]               = ipc_smart_place,
-    [IPCDrawText]                 = ipc_draw_text,
-    [IPCEdgeLock]                 = ipc_edge_lock,
     [IPCSetFont]                  = ipc_set_font,
-    [IPCJSONStatus]               = ipc_json_status,
-    [IPCManage]                   = ipc_manage,
-    [IPCUnmanage]                 = ipc_unmanage,
-    [IPCQuit]                     = ipc_quit
+    [IPCConfig]                   = ipc_config
 };
 
 /* Give focus to the given client in the given direction */
@@ -866,77 +831,6 @@ ipc_window_center(long *d)
     client_center(f_client);
 }
 
-static void 
-ipc_bf_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.bf_color = nc;
-
-    refresh_config();
-}
-
-void 
-ipc_bu_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.bu_color = nc;
-
-    refresh_config();
-}
-
-static void
-ipc_if_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.if_color = nc;
-
-    refresh_config();
-}
-
-static void
-ipc_iu_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.iu_color = nc;
-
-    refresh_config();
-}
-
-static void 
-ipc_b_width(long *d)
-{
-    int w;
-    w = d[1];
-    conf.b_width = w;
-
-    refresh_config();
-    client_raise(f_client);
-}
-
-static void
-ipc_i_width(long *d)
-{
-    int w;
-    w = d[1];
-    conf.i_width = w;
-
-    refresh_config();
-}
-
-static void 
-ipc_t_height(long *d)
-{
-    int th;
-    th = d[1];
-    conf.t_height = th;
-
-    refresh_config();
-}
-
 static void
 ipc_switch_ws(long *d)
 {
@@ -1034,10 +928,65 @@ ipc_pointer_focus(long *d)
 }
 
 static void
-ipc_top_gap(long *d)
+ipc_config(long *d)
 {
-    int data = d[1];
-    conf.top_gap = data;
+    enum IPCCommand cmd = d[1];
+    LOGP("Handling config command of type %ld", d[1]);
+    LOGP("Data has value %ld", d[1]);
+
+    switch (cmd) {
+        case IPCFocusColor:
+            conf.bf_color = d[2];
+            break;
+        case IPCUnfocusColor:
+            conf.bu_color = d[2];
+            break;
+        case IPCInnerFocusColor:
+            conf.if_color = d[2];
+            break;
+        case IPCInnerUnfocusColor:
+            conf.iu_color = d[2];
+            break;
+        case IPCTitleFocusColor:
+            load_color(&xft_focus_color, d[2]);
+            break;
+        case IPCTitleUnfocusColor:
+            load_color(&xft_unfocus_color, d[2]);
+            break;
+        case IPCBorderWidth:
+            conf.b_width = d[2];
+            break;
+        case IPCInnerBorderWidth:
+            conf.i_width = d[2];
+            break;
+        case IPCTitleHeight:
+            conf.t_height = d[2];
+            break;
+        case IPCEdgeGap:
+            conf.top_gap = d[2];
+            conf.bot_gap = d[3];
+            break;
+        case IPCTopGap:
+            conf.top_gap = d[2];
+            break;
+        case IPCEdgeLock:
+            conf.edge_lock = d[2];
+            break;
+        case IPCJSONStatus:
+            conf.json_status = d[2];
+            break;
+        case IPCManage:
+            conf.manage[(int)d[2]] = true;
+            break;
+        case IPCUnmanage:
+            conf.manage[(int)d[2]] = false;
+            break;
+        case IPCQuit:
+            running = false;
+            break;
+        default:
+            break;
+    }
 
     refresh_config();
 }
@@ -1062,14 +1011,6 @@ ipc_edge_gap(long *d)
 }
 
 static void
-ipc_smart_place(long *d) {
-    int data = d[1];
-    conf.smart_place = data;
-
-    refresh_config();
-}
-
-static void
 ipc_save_monitor(long *d)
 {
     int ws, mon;
@@ -1086,54 +1027,6 @@ ipc_save_monitor(long *d)
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
     ewmh_set_viewport();
-}
-
-static void
-ipc_tf_color(long *d) 
-{
-    unsigned long nc;
-    nc = d[1];
-
-    load_color(&xft_focus_color, nc);
-    refresh_config();
-}
-
-static void
-ipc_tu_color(long *d) 
-{
-    unsigned long nc;
-    nc = d[1];
-
-    load_color(&xft_unfocus_color, nc);
-    refresh_config();
-}
-
-static void
-ipc_draw_text(long *d)
-{
-    unsigned long draw;
-    draw = d[1];
-
-    if (draw == 0)
-        conf.draw_text = false;
-    else
-        conf.draw_text = true;
-
-    refresh_config();
-}
-
-static void
-ipc_edge_lock(long *d)
-{
-    unsigned long draw;
-    draw = d[1];
-
-    if (draw == 0)
-        conf.edge_lock = false;
-    else
-        conf.edge_lock = true;
-
-    refresh_config();
 }
 
 static void
@@ -1161,53 +1054,6 @@ ipc_set_font(long *d)
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
     XFree(font_prop.value);
-}
-
-static void
-ipc_json_status(long *d)
-{
-    unsigned long json;
-    json = d[1];
-
-    if (json == 0)
-        conf.json_status = false;
-    else
-        conf.json_status = true;
-
-    refresh_config();
-}
-
-static void
-ipc_manage(long *d)
-{
-    int type;
-    type = (int)d[1];
-
-    LOGP("Now managing type %d", type);
-
-    conf.manage[type] = true;
-
-    refresh_config();
-}
-
-static void
-ipc_unmanage(long *d)
-{
-    int type;
-    type = (int)d[1];
-
-    LOGP("Now unmanaging type %d", type);
-
-    conf.manage[type] = false;
-
-    refresh_config();
-}
-
-static void
-ipc_quit(long *d)
-{
-    UNUSED(d);
-    running = false;
 }
 
 static void
@@ -2038,6 +1884,9 @@ switch_ws(int ws)
                 count++;
                 client_show(tmp);
             }
+
+            if (count == 0)
+                break;
 
             Window wins[count*2];
             j = 0;

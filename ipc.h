@@ -47,6 +47,7 @@ enum IPCCommand
     IPCQuit,
     IPCManage,
     IPCUnmanage,
+    IPCConfig,
     IPCLast
 };
 
