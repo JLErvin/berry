@@ -1911,10 +1911,12 @@ switch_ws(int ws)
 static void
 client_toggle_decorations(struct client *c)
 {
-    if (c->decorated)
+    if (c->decorated) {
         client_decorations_destroy(c);
-    else
+    } else {
         client_decorations_create(c);
+        XMapWindow(display, c->dec);
+    }
 
     client_refresh(c);
     client_raise(c);

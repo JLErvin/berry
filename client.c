@@ -201,6 +201,7 @@ send_command(struct command *c, int argc, char **argv)
      * If the given command is related to berry's confid then assign it a value of
      * IPCConfig at d[0]. Then, assign the specific config element at d[1], shifting
      * all values up by one.
+     * Otherwise, set the IPC command at d[0] and assign arguments from 1 upwards.
      */
     if (c->config) {
         ev.xclient.data.l[0] = IPCConfig;
