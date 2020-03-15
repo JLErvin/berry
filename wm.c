@@ -492,16 +492,10 @@ focus_best(struct client *c)
     if (c == NULL)
         return;
 
-    struct client *tmp;
-    tmp = f_list[c->ws];
-    if (f_list[c->ws] == c) {
-        while (tmp->f_next != NULL)
-            tmp = tmp->f_next;
-    } else {
-        while (tmp->f_next != c && tmp != NULL)
-            tmp = tmp->f_next;
-    }
-    client_manage_focus(tmp);
+    if (c_list[c->ws]->next == NULL)
+        return;
+    else
+        client_manage_focus(c_list[c->ws]->next);
 }
 
 /* Returns the struct client associated with the given struct Window */
