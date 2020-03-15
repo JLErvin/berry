@@ -486,6 +486,24 @@ focus_next(struct client *c)
     client_manage_focus(tmp);
 }
 
+static void
+focus_best(struct client *c)
+{
+    if (c == NULL)
+        return;
+
+    struct client *tmp;
+    tmp = f_list[c->ws];
+    if (f_list[c->ws] == c) {
+        while (tmp->f_next != NULL)
+            tmp = tmp->f_next;
+    } else {
+        while (tmp->f_next != c && tmp != NULL)
+            tmp = tmp->f_next;
+    }
+    client_manage_focus(tmp);
+}
+
 /* Returns the struct client associated with the given struct Window */
 static struct client*
 get_client_from_window(Window w)
@@ -705,7 +723,8 @@ handle_unmap_notify(XEvent *e)
     c = get_client_from_window(ev->window);
 
     if (c != NULL) {
-        focus_next(c);
+        /*focus_next(c);*/
+        focus_best(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
         client_delete(c);
