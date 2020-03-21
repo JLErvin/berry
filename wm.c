@@ -324,7 +324,6 @@ draw_text(struct client *c, bool focused)
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
     XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
-    /*XftDrawStringUtf8(draw, xft_render_color, font, x, y,  c->title, strlen(c->title));*/
     XftDrawDestroy(draw);
 }
 
@@ -2120,7 +2119,9 @@ xerror(Display *display, XErrorEvent *e)
             (e->request_code == X_ConfigureWindow && e->error_code == BadMatch) ||
             (e->request_code == X_GrabButton && e->error_code == BadAccess) ||
             (e->request_code == X_GrabKey && e->error_code == BadAccess) ||
-            (e->request_code == X_CopyArea && e->error_code == BadDrawable))
+            (e->request_code == X_CopyArea && e->error_code == BadDrawable) ||
+            (e->request_code == 139 && e->error_code == BadDrawable) ||
+            (e->request_code == 139 && e->error_code == 143))
         return 0;
 
     LOGP("Fatal request. Request code=%d, error code=%d", e->request_code, e->error_code);
