@@ -124,6 +124,7 @@ static void ipc_pointer_focus(long *d);
 static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_set_font(long *d);
+static void ipc_edge_gap(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -178,6 +179,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCPointerFocus]             = ipc_pointer_focus,
     [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCSetFont]                  = ipc_set_font,
+    [IPCEdgeGap]                  = ipc_edge_gap,
     [IPCConfig]                   = ipc_config
 };
 
@@ -316,10 +318,13 @@ draw_text(struct client *c, bool focused)
     }
 
     LOGN("Drawing text on client");
+    LOGN("Drawing the following text");
+    LOGP("   %s", c->title);
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
     XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
+    /*XftDrawStringUtf8(draw, xft_render_color, font, x, y,  c->title, strlen(c->title));*/
     XftDrawDestroy(draw);
 }
 
@@ -848,6 +853,7 @@ static void
 ipc_switch_ws(long *d)
 {
     int ws = d[1];
+    LOGP("IPC says switch to workspace %d", ws);
     switch_ws(ws);
 }
 
@@ -1666,15 +1672,6 @@ client_send_to_ws(struct client *c, int ws)
 {
     int prev;
     client_delete(c);
-
-    // DEBUG
-    int count = 0;
-    for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
-        count++;
-    }
-    LOGP("Found %d clients on previous workspace", count);
-    // END DEBUG
-
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
@@ -1887,6 +1884,7 @@ switch_ws(int ws)
         if (i != ws) {
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
+                LOGN("Hiding client...");
             }
         } else if (i == ws) {
             int count, j;
@@ -1898,22 +1896,20 @@ switch_ws(int ws)
                 client_show(tmp);
             }
 
-            if (count == 0)
-                break;
+            if (count != 0) {
+                Window wins[count*2];
+                j = 0;
 
-            Window wins[count*2];
-            j = 0;
+                for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                    wins[j] = tmp->window;
+                    wins[j+1] = tmp->dec;
+                    j += 2;
+                }
 
-            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-                wins[j] = tmp->window;
-                wins[j+1] = tmp->dec;
-                j += 2;
+                XRestackWindows(display, wins, count * 2);
             }
-
-            XRestackWindows(display, wins, count * 2);
         }
     }
-
     curr_ws = ws;
     int mon = ws_m_list[ws];
     LOGP("Setting Screen #%d with active workspace %d", m_list[mon].screen, ws);
