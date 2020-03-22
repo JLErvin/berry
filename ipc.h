@@ -37,6 +37,7 @@ enum IPCCommand
     IPCWindowCenter,
     IPCPointerFocus,
     IPCTopGap,
+    IPCEdgeGap,
     IPCSmartPlace,
     IPCDrawText,
     IPCEdgeLock,
@@ -46,6 +47,8 @@ enum IPCCommand
     IPCQuit,
     IPCManage,
     IPCUnmanage,
+    IPCConfig,
+    IPCDecorate,
     IPCLast
 };
 

@@ -16,6 +16,7 @@
 #define PLACE_RES 10 
 
 #define TOP_GAP 30
+#define BOT_GAP 0
 
 #define BORDER_UNFOCUS_COLOR 0x20292d
 #define BORDER_FOCUS_COLOR 0x20292d
@@ -39,5 +40,7 @@
 #define MANAGE_MENU true
 #define MANAGE_SPLASH false
 #define MANAGE_UTILITY true
+
+#define DECORATE_NEW true
 
 #endif

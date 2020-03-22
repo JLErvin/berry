@@ -16,12 +16,12 @@
 #include "ipc.h"
 #include "utils.h"
 
-static void fn_hex(long *, int, char **);
-static void fn_int(long *, int, char **);
-static void fn_bool(long *, int, char **);
-static void fn_font(long *, int, char **);
-static void fn_str(long *, int, char **);
-static void fn_int_str(long *, int, char **);
+static void fn_hex(long *, bool, int, char **);
+static void fn_int(long *, bool, int, char **);
+static void fn_bool(long *, bool, int, char **);
+static void fn_font(long *, bool, int, char **);
+static void fn_str(long *, bool, int, char **);
+static void fn_int_str(long *, bool, int, char **);
 static void usage(void);
 static void version(void);
 
@@ -29,75 +29,82 @@ struct command
 {
     char *name;
     enum IPCCommand cmd;
+    bool config;
     int argc;
-    void (*handler)(long *, int, char **);
+    void (*handler)(long *, bool, int, char **);
 };
 
 Display *display;
 Window root;
 
 static struct command c[] = {
-    { "window_move",            IPCWindowMoveRelative,      2, fn_int     },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      2, fn_int     }, 
-    { "window_resize",          IPCWindowResizeRelative,    2, fn_int     },
-    { "window_resize_absolute", IPCWindowResizeAbsolute,    2, fn_int     },
-    { "window_raise",           IPCWindowRaise,             0, NULL       },
-    { "window_monocle",         IPCWindowMonocle,           0, NULL       },
-    { "window_close",           IPCWindowClose,             0, NULL       },
-    { "window_center",          IPCWindowCenter,            0, NULL       },
-    { "focus_color",            IPCFocusColor,              1, fn_hex     },
-    { "unfocus_color",          IPCUnfocusColor,            1, fn_hex     }, 
-    { "inner_focus_color",      IPCInnerFocusColor,         1, fn_hex     },
-    { "inner_unfocus_color",    IPCInnerUnfocusColor,       1, fn_hex     }, 
-    { "text_focus_color",       IPCTitleFocusColor,         1, fn_hex     }, 
-    { "text_unfocus_color",     IPCTitleUnfocusColor,       1, fn_hex     }, 
-    { "border_width",           IPCBorderWidth,             1, fn_int     },
-    { "inner_border_width",     IPCInnerBorderWidth,        1, fn_int     },
-    { "title_height",           IPCTitleHeight,             1, fn_int     },
-    { "switch_workspace",       IPCSwitchWorkspace,         1, fn_int     },
-    { "send_to_workspace",      IPCSendWorkspace,           1, fn_int     },
-    { "fullscreen",             IPCFullscreen,              0, NULL       },
-    { "fullscreen_state",       IPCFullscreenState,         0, NULL       },
-    { "snap_left",              IPCSnapLeft,                0, NULL       },
-    { "snap_right",             IPCSnapRight,               0, NULL       },
-    { "cardinal_focus",         IPCCardinalFocus,           1, fn_int     },
-    { "toggle_decorations",     IPCWindowToggleDecorations, 0, NULL       },
-    { "cycle_focus",            IPCCycleFocus,              0, NULL       },
-    { "pointer_focus",          IPCPointerFocus,            0, NULL       },
-    { "quit",                   IPCQuit,                    0, NULL       },
-    { "top_gap",                IPCTopGap,                  1, fn_int     },
-    { "save_monitor",           IPCSaveMonitor,             2, fn_int     },
-    { "smart_place",            IPCSmartPlace,              1, fn_bool    },
-    { "draw_text",              IPCDrawText,                1, fn_bool    },
-    { "edge_lock",              IPCEdgeLock,                1, fn_bool    },
-    { "set_font",               IPCSetFont,                 1, fn_font    },
-    { "json_status",            IPCJSONStatus,              1, fn_bool    },
-    { "manage",                 IPCManage,                  1, fn_str     },
-    { "unmanage",               IPCUnmanage,                1, fn_str     },
-    { "name_desktop",           IPCNameDesktop,             2, fn_int_str },
+    { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     }, 
+    { "window_resize",          IPCWindowResizeRelative,    false, 2, fn_int     },
+    { "window_resize_absolute", IPCWindowResizeAbsolute,    false, 2, fn_int     },
+    { "window_raise",           IPCWindowRaise,             false, 0, NULL       },
+    { "window_monocle",         IPCWindowMonocle,           false, 0, NULL       },
+    { "window_close",           IPCWindowClose,             false, 0, NULL       },
+    { "window_center",          IPCWindowCenter,            false, 0, NULL       },
+    { "focus_color",            IPCFocusColor,              true,  1, fn_hex     },
+    { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     }, 
+    { "inner_focus_color",      IPCInnerFocusColor,         true,  1, fn_hex     },
+    { "inner_unfocus_color",    IPCInnerUnfocusColor,       true,  1, fn_hex     }, 
+    { "text_focus_color",       IPCTitleFocusColor,         true,  1, fn_hex     }, 
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  1, fn_hex     }, 
+    { "border_width",           IPCBorderWidth,             true,  1, fn_int     },
+    { "inner_border_width",     IPCInnerBorderWidth,        true,  1, fn_int     },
+    { "title_height",           IPCTitleHeight,             true,  1, fn_int     },
+    { "switch_workspace",       IPCSwitchWorkspace,         false, 1, fn_int     },
+    { "send_to_workspace",      IPCSendWorkspace,           false, 1, fn_int     },
+    { "fullscreen",             IPCFullscreen,              false, 0, NULL       },
+    { "fullscreen_state",       IPCFullscreenState,         false, 0, NULL       },
+    { "snap_left",              IPCSnapLeft,                false, 0, NULL       },
+    { "snap_right",             IPCSnapRight,               false, 0, NULL       },
+    { "cardinal_focus",         IPCCardinalFocus,           false, 1, fn_int     },
+    { "toggle_decorations",     IPCWindowToggleDecorations, false, 0, NULL       },
+    { "cycle_focus",            IPCCycleFocus,              false, 0, NULL       },
+    { "pointer_focus",          IPCPointerFocus,            false, 0, NULL       },
+    { "quit",                   IPCQuit,                    true,  0, NULL       },
+    { "top_gap",                IPCTopGap,                  true,  1, fn_int     },
+    { "edge_gap",               IPCEdgeGap,                 false, 4, fn_int     },
+    { "save_monitor",           IPCSaveMonitor,             false, 2, fn_int     },
+    { "smart_place",            IPCSmartPlace,              true,  1, fn_bool    },
+    { "draw_text",              IPCDrawText,                true,  1, fn_bool    },
+    { "edge_lock",              IPCEdgeLock,                true,  1, fn_bool    },
+    { "set_font",               IPCSetFont,                 false, 1, fn_font    },
+    { "json_status",            IPCJSONStatus,              true,  1, fn_bool    },
+    { "manage",                 IPCManage,                  true,  1, fn_str     },
+    { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
+    { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
+    { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
 };
 
 static void
-fn_hex(long *data, int i, char **argv)
+fn_hex(long *data, bool b, int i, char **argv)
 {
-    data[i] = strtoul(argv[i - 1], NULL, 16);
+    UNUSED(b);
+    data[i+b] = strtoul(argv[i - 1], NULL, 16);
 }
 
 static void
-fn_int(long *data, int i, char **argv)
+fn_int(long *data, bool b, int i, char **argv)
 {
-    data[i] = strtol(argv[i - 1], NULL, 10);
+    UNUSED(b);
+    data[i+b] = strtol(argv[i - 1], NULL, 10);
 }
 
 static void
-fn_bool(long *data, int i, char **argv)
+fn_bool(long *data, bool b, int i, char **argv)
 {
-    data[i] = strcmp(argv[i-1], "true") == 0 ? 1 : 0;
+    UNUSED(b);
+    data[i+b] = strcmp(argv[i-1], "true") == 0 ? 1 : 0;
 }
 
 static void
-fn_str(long *data, int i, char **argv)
+fn_str(long *data, bool b, int i, char **argv)
 {
+    UNUSED(b);
     // lord forgive me for I have sinned
     if (strcmp(argv[i-1], "Dialog") == 0) data[i] = Dialog;
     else if (strcmp(argv[i-1], "Toolbar") == 0) data[i] = Toolbar;
@@ -113,8 +120,9 @@ fn_str(long *data, int i, char **argv)
  * berry, notifying the main program to read this value
  */
 static void
-fn_font(long *data, int i, char** argv)
+fn_font(long *data, bool b, int i, char** argv)
 {
+    UNUSED(b);
     UNUSED(i);
     UNUSED(data);
     char** font_list;
@@ -135,8 +143,9 @@ fn_font(long *data, int i, char** argv)
  * and the following string to the _NET_DESKTOP_NAMES property
  */
 static void
-fn_int_str(long *data, int i, char **argv)
+fn_int_str(long *data, bool b, int i, char **argv)
 {
+    UNUSED(b);
     UNUSED(data);
     UNUSED(i);
     char *name;
@@ -188,18 +197,29 @@ send_command(struct command *c, int argc, char **argv)
     ev.xclient.window = root;
     ev.xclient.message_type = XInternAtom(display, BERRY_CLIENT_EVENT, False);
     ev.xclient.format = 32;
-    ev.xclient.data.l[0] = c->cmd;
+
+    /* We use the following protocol: 
+     * If the given command is related to berry's confid then assign it a value of
+     * IPCConfig at d[0]. Then, assign the specific config element at d[1], shifting
+     * all values up by one.
+     * Otherwise, set the IPC command at d[0] and assign arguments from 1 upwards.
+     */
+    if (c->config) {
+        ev.xclient.data.l[0] = IPCConfig;
+        ev.xclient.data.l[1] = c->cmd;
+    } else {
+        ev.xclient.data.l[0] = c->cmd;
+    }
 
     if (strcmp(c->name, "name_desktop") == 0) {
-        fn_int_str(ev.xclient.data.l, 2, argv);
+        fn_int_str(ev.xclient.data.l, false, 2, argv);
         XSync(display, false);
         return;
     }
 
-    if (c->argc >= 1)
-        (c->handler)(ev.xclient.data.l, 1, argv);
-    if (c->argc == 2)
-        (c->handler)(ev.xclient.data.l, 2, argv);
+    for (int i = 1; i <= argc; i++) {
+        (c->handler)(ev.xclient.data.l, c->config, i, argv);
+    }
 
     XSendEvent(display, root, false, SubstructureRedirectMask, &ev);
     XSync(display, false);

@@ -1,5 +1,10 @@
 # berry version
-VERSION = 0.1.4
+__THIS_VERSION__ = 0.1.5
+__WINDOW_MANAGER_NAME__ = "berry"
+
+NAME_DEFINES = -D__THIS_VERSION__=\"$(__THIS_VERSION__)\" \
+			   -D__WINDOW_MANAGER_NAME__=\"$(__WINDOW_MANAGER_NAME__)\" \
+			   
 
 # Customize below to fit your system
 
@@ -31,7 +36,7 @@ LIBS = -L${X11LIB} -lX11 ${XINERAMALIBS} ${FREETYPELIBS}
 # flags
 CPPFLAGS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_POSIX_C_SOURCE=2 -DVERSION=\"${VERSION}\" ${XINERAMAFLAGS} ${DEBUG_CPPFLAGS}
 #CFLAGS   = -g -std=c99 -pedantic -Wall -O0 ${INCS} ${CPPFLAGS} ${DEBUG_CFLAGS}
-CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS} ${CPPFLAGS} ${DEBUG_CFLAGS}
+CFLAGS   = -std=c99 -pedantic -Wall -Wno-deprecated-declarations -Os ${INCS} ${CPPFLAGS} ${DEBUG_CFLAGS} $(NAME_DEFINES)
 LDFLAGS  = ${LIBS}
 
 # Solaris

@@ -24,8 +24,6 @@
 #include "types.h"
 #include "utils.h"
 
-#define LOGN(msg)      do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n"); } while (0) 
-#define LOGP(msg, ...) do { if (debug) fprintf(stderr, WINDOW_MANAGER_NAME": "msg"\n", __VA_ARGS__); } while (0)
 
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
@@ -114,13 +112,6 @@ static void ipc_resize_relative(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_window_close(long *d);
 static void ipc_window_center(long *d);
-static void ipc_bf_color(long *d);
-static void ipc_bu_color(long *d);
-static void ipc_if_color(long *d);
-static void ipc_iu_color(long *d);
-static void ipc_b_width(long *d);
-static void ipc_i_width(long *d);
-static void ipc_t_height(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
 static void ipc_fullscreen(long *d);
@@ -130,18 +121,10 @@ static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
-static void ipc_top_gap(long *d);
-static void ipc_smart_place(long *d);
+static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
-static void ipc_tf_color(long *d);
-static void ipc_tu_color(long *d);
-static void ipc_draw_text(long *d);
-static void ipc_edge_lock(long *d);
 static void ipc_set_font(long *d);
-static void ipc_json_status(long *d);
-static void ipc_manage(long *d);
-static void ipc_unmanage(long *d);
-static void ipc_quit(long *d);
+static void ipc_edge_gap(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -185,13 +168,6 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
     [IPCWindowClose]              = ipc_window_close,
     [IPCWindowCenter]             = ipc_window_center,
-    [IPCFocusColor]               = ipc_bf_color,
-    [IPCUnfocusColor]             = ipc_bu_color,
-    [IPCInnerFocusColor]          = ipc_if_color,
-    [IPCInnerUnfocusColor]        = ipc_iu_color,
-    [IPCBorderWidth]              = ipc_b_width,
-    [IPCInnerBorderWidth]         = ipc_i_width,
-    [IPCTitleHeight]              = ipc_t_height,
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
     [IPCFullscreen]               = ipc_fullscreen,
@@ -202,17 +178,9 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerFocus]             = ipc_pointer_focus,
     [IPCSaveMonitor]              = ipc_save_monitor,
-    [IPCTitleFocusColor]          = ipc_tf_color,
-    [IPCTitleUnfocusColor]        = ipc_tu_color,
-    [IPCTopGap]                   = ipc_top_gap,
-    [IPCSmartPlace]               = ipc_smart_place,
-    [IPCDrawText]                 = ipc_draw_text,
-    [IPCEdgeLock]                 = ipc_edge_lock,
     [IPCSetFont]                  = ipc_set_font,
-    [IPCJSONStatus]               = ipc_json_status,
-    [IPCManage]                   = ipc_manage,
-    [IPCUnmanage]                 = ipc_unmanage,
-    [IPCQuit]                     = ipc_quit
+    [IPCEdgeGap]                  = ipc_edge_gap,
+    [IPCConfig]                   = ipc_config
 };
 
 /* Give focus to the given client in the given direction */
@@ -285,9 +253,12 @@ client_center(struct client *c)
 static void
 client_center_in_rect(struct client *c, int x, int y, int w, int h) 
 {
-    client_move_absolute(c,
-                         round_k(x + w / 2 - c->geom.width / 2),
-                         round_k(y + (h + conf.top_gap) / 2 - c->geom.height / 2));
+    LOGP("Centering at x=%d, y=%d, w=%d, h=%d", x, y, w, h);
+    int new_x = round_k(x + (conf.left_gap - conf.right_gap) / 2 + w / 2 - c->geom.width / 2);
+    int new_y = round_k(y + (conf.top_gap - conf.bot_gap) / 2 + h / 2 - c->geom.height / 2);
+    LOGP("Sending to x=%d, y=%d", new_x, new_y);
+    client_move_absolute(c, new_x, new_y);
+                         
     client_refresh(c); // in case we went over the top gap
 }
 
@@ -347,6 +318,8 @@ draw_text(struct client *c, bool focused)
     }
 
     LOGN("Drawing text on client");
+    LOGN("Drawing the following text");
+    LOGP("   %s", c->title);
     XClearWindow(display, c->dec);
     draw = XftDrawCreate(display, c->dec, DefaultVisual(display, screen), DefaultColormap(display, screen));
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
@@ -382,13 +355,10 @@ client_decorations_create(struct client *c)
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
-
-    LOGN("Mapping new decorations");
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XMapWindow (display, c->dec);
     draw_text(c, true);
     ewmh_set_frame_extents(c);
     client_set_status(c);
@@ -515,6 +485,18 @@ focus_next(struct client *c)
     struct client *tmp;
     tmp = c->f_next == NULL ? f_list[ws] : c->f_next;
     client_manage_focus(tmp);
+}
+
+static void
+focus_best(struct client *c)
+{
+    if (c == NULL)
+        return;
+
+    if (c_list[c->ws]->next == NULL)
+        return;
+    else
+        client_manage_focus(c_list[c->ws]->next);
 }
 
 /* Returns the struct client associated with the given struct Window */
@@ -736,7 +718,8 @@ handle_unmap_notify(XEvent *e)
     c = get_client_from_window(ev->window);
 
     if (c != NULL) {
-        focus_next(c);
+        /*focus_next(c);*/
+        focus_best(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
         client_delete(c);
@@ -862,81 +845,11 @@ ipc_window_center(long *d)
     client_center(f_client);
 }
 
-static void 
-ipc_bf_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.bf_color = nc;
-
-    refresh_config();
-}
-
-void 
-ipc_bu_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.bu_color = nc;
-
-    refresh_config();
-}
-
-static void
-ipc_if_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.if_color = nc;
-
-    refresh_config();
-}
-
-static void
-ipc_iu_color(long *d)
-{
-    unsigned long nc;
-    nc = d[1];
-    conf.iu_color = nc;
-
-    refresh_config();
-}
-
-static void 
-ipc_b_width(long *d)
-{
-    int w;
-    w = d[1];
-    conf.b_width = w;
-
-    refresh_config();
-    client_raise(f_client);
-}
-
-static void
-ipc_i_width(long *d)
-{
-    int w;
-    w = d[1];
-    conf.i_width = w;
-
-    refresh_config();
-}
-
-static void 
-ipc_t_height(long *d)
-{
-    int th;
-    th = d[1];
-    conf.t_height = th;
-
-    refresh_config();
-}
-
 static void
 ipc_switch_ws(long *d)
 {
     int ws = d[1];
+    LOGP("IPC says switch to workspace %d", ws);
     switch_ws(ws);
 }
 
@@ -1030,18 +943,87 @@ ipc_pointer_focus(long *d)
 }
 
 static void
-ipc_top_gap(long *d)
+ipc_config(long *d)
 {
-    int data = d[1];
-    conf.top_gap = data;
+    enum IPCCommand cmd = d[1];
+    LOGP("Handling config command of type %ld", d[1]);
+    LOGP("Data has value %ld", d[1]);
+
+    switch (cmd) {
+        case IPCFocusColor:
+            conf.bf_color = d[2];
+            break;
+        case IPCUnfocusColor:
+            conf.bu_color = d[2];
+            break;
+        case IPCInnerFocusColor:
+            conf.if_color = d[2];
+            break;
+        case IPCInnerUnfocusColor:
+            conf.iu_color = d[2];
+            break;
+        case IPCTitleFocusColor:
+            load_color(&xft_focus_color, d[2]);
+            break;
+        case IPCTitleUnfocusColor:
+            load_color(&xft_unfocus_color, d[2]);
+            break;
+        case IPCBorderWidth:
+            conf.b_width = d[2];
+            break;
+        case IPCInnerBorderWidth:
+            conf.i_width = d[2];
+            break;
+        case IPCTitleHeight:
+            conf.t_height = d[2];
+            break;
+        case IPCEdgeGap:
+            conf.top_gap = d[2];
+            conf.bot_gap = d[3];
+            break;
+        case IPCTopGap:
+            conf.top_gap = d[2];
+            break;
+        case IPCEdgeLock:
+            conf.edge_lock = d[2];
+            break;
+        case IPCJSONStatus:
+            conf.json_status = d[2];
+            break;
+        case IPCManage:
+            conf.manage[(int)d[2]] = true;
+            break;
+        case IPCUnmanage:
+            conf.manage[(int)d[2]] = false;
+            break;
+        case IPCQuit:
+            running = false;
+            break;
+        case IPCDecorate:
+            conf.decorate = d[2];
+            break;
+        default:
+            break;
+    }
 
     refresh_config();
 }
 
 static void
-ipc_smart_place(long *d) {
-    int data = d[1];
-    conf.smart_place = data;
+ipc_edge_gap(long *d)
+{
+    int top, bot, left, right;
+    top = d[1];
+    bot = d[2];
+    left = d[3];
+    right = d[4];
+
+    conf.top_gap = top;
+    conf.bot_gap = bot;
+    conf.left_gap = left;
+    conf.right_gap = right;
+
+    LOGN("Changing edge gap...");
 
     refresh_config();
 }
@@ -1063,54 +1045,6 @@ ipc_save_monitor(long *d)
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
     ewmh_set_viewport();
-}
-
-static void
-ipc_tf_color(long *d) 
-{
-    unsigned long nc;
-    nc = d[1];
-
-    load_color(&xft_focus_color, nc);
-    refresh_config();
-}
-
-static void
-ipc_tu_color(long *d) 
-{
-    unsigned long nc;
-    nc = d[1];
-
-    load_color(&xft_unfocus_color, nc);
-    refresh_config();
-}
-
-static void
-ipc_draw_text(long *d)
-{
-    unsigned long draw;
-    draw = d[1];
-
-    if (draw == 0)
-        conf.draw_text = false;
-    else
-        conf.draw_text = true;
-
-    refresh_config();
-}
-
-static void
-ipc_edge_lock(long *d)
-{
-    unsigned long draw;
-    draw = d[1];
-
-    if (draw == 0)
-        conf.edge_lock = false;
-    else
-        conf.edge_lock = true;
-
-    refresh_config();
 }
 
 static void
@@ -1138,53 +1072,6 @@ ipc_set_font(long *d)
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
     XFree(font_prop.value);
-}
-
-static void
-ipc_json_status(long *d)
-{
-    unsigned long json;
-    json = d[1];
-
-    if (json == 0)
-        conf.json_status = false;
-    else
-        conf.json_status = true;
-
-    refresh_config();
-}
-
-static void
-ipc_manage(long *d)
-{
-    int type;
-    type = (int)d[1];
-
-    D fprintf(stderr, "now managing type %d\n", type);
-
-    conf.manage[type] = true;
-
-    refresh_config();
-}
-
-static void
-ipc_unmanage(long *d)
-{
-    int type;
-    type = (int)d[1];
-
-    D fprintf(stderr, "now unmanaging type %d\n", type);
-
-    conf.manage[type] = false;
-
-    refresh_config();
-}
-
-static void
-ipc_quit(long *d)
-{
-    UNUSED(d);
-    running = false;
 }
 
 static void
@@ -1305,16 +1192,22 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->fullscreen = false;
     c->mono = false;
 
-    client_decorations_create(c);
+    if (conf.decorate)
+        client_decorations_create(c);
+
     client_set_title(c);
-    XMapWindow(display, c->window);
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
-    client_manage_focus(c);
     client_place(c);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
+
+    if (conf.decorate)
+        XMapWindow (display, c->dec);
+
+    XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+    client_manage_focus(c);
 }
 
 static int
@@ -1377,22 +1270,23 @@ static void
 client_move_relative(struct client *c, int x, int y) 
 {
     /* Constrain the current client to the w/h of display */
+    /* God this is soooo ugly */
     if (conf.edge_lock) {
         int dx, dy, mon;
         mon = ws_m_list[c->ws];
 
         /* Lock on the right side of the screen */
-        if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x)
-            dx = m_list[mon].width + m_list[mon].x - c->geom.width;
+        if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x - conf.right_gap)
+            dx = m_list[mon].width + m_list[mon].x - c->geom.width - conf.right_gap;
         /* Lock on the left side of the screen */
-        else if (c->geom.x + x < m_list[mon].x)
-            dx = m_list[mon].x; 
+        else if (c->geom.x + x < m_list[mon].x + conf.left_gap)
+            dx = m_list[mon].x + conf.left_gap; 
         else
             dx = c->geom.x + x;
 
         /* Lock on the bottom of the screen */
-        if (c->geom.y + c->geom.height + y > m_list[mon].height + m_list[mon].y)
-            dy = m_list[mon].height + m_list[mon].y - c->geom.height;
+        if (c->geom.y + c->geom.height + y > m_list[mon].height + m_list[mon].y - conf.bot_gap)
+            dy = m_list[mon].height + m_list[mon].y - conf.bot_gap - c->geom.height;
         /* Lock on the top of the screen */
         else if (c->geom.y + y < m_list[mon].y + conf.top_gap)
             dy = m_list[mon].y + conf.top_gap;
@@ -1443,26 +1337,29 @@ client_monocle(struct client *c)
         c->prev.y = c->geom.y;
         c->prev.width = c->geom.width;
         c->prev.height = c->geom.height;
-        client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-        client_resize_absolute(c, m_list[mon].width, m_list[mon].height - conf.top_gap);
+        client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap); 
+        client_resize_absolute(c, m_list[mon].width - conf.right_gap - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
         c->mono = true;
     }
-
-    //c->mono = !c->mono;
 }
 
 static void
 client_place(struct client *c) 
 {
-    int width, height, mon, count, max_height;
+    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap;
 
     mon = ws_m_list[c->ws];
     width = m_list[mon].width / PLACE_RES;
     height = m_list[mon].height / PLACE_RES;
+    t_gap = conf.top_gap / PLACE_RES;
+    b_gap = conf.bot_gap / PLACE_RES;
+    l_gap = conf.left_gap / PLACE_RES;
+    r_gap = conf.right_gap / PLACE_RES;
 
     // If this is the first window in the workspace, we can simply center
     // it. Also center it if the user wants to disable smart placeement.
     if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
+    /*if (!conf.smart_place) {*/
         client_center(c);
         return;
     }
@@ -1470,18 +1367,9 @@ client_place(struct client *c)
     uint16_t opt[height][width];
 
     // Initialize array to all 1's
-    //memset(opt, 1, sizeof(opt[0][0]) * width * height);
-    //memset(opt, 1, sizeof(uint16_t) * width * height);
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
             opt[i][j] = 1;
-        }
-    }
-
-    // Fill in the top gap
-    for (int i = 0; i < conf.top_gap / PLACE_RES + 1; i++) {
-        for (int j = 0; j < width / PLACE_RES; j++) {
-            opt[i][j] = 0;
         }
     }
 
@@ -1500,6 +1388,34 @@ client_place(struct client *c)
         }
     }
 
+    /* NOTE: can we factor these for-loops.
+     *       something something spatial locality?...
+     */
+
+    for (int i = 0; i < t_gap; i++) { // top gap
+        for (int j = 0; j < width; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = height - b_gap; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < l_gap; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < height; i++) {
+        for (int j = width; j < width - r_gap; j++) {
+            opt[i][j] = 0;
+        }
+    }
+
     // fill in the OPT matrix
     for (int i = 1; i < height; i++) {
         for (int j = 0; j < width; j++) {
@@ -1509,8 +1425,8 @@ client_place(struct client *c)
 
     count = 0;
     max_height = INT_MAX;
-    for (int i = height - 1; i >= 0; i--) {
-        for (int j = 0; j < width; j++) {
+    for (int i = height - b_gap - 1; i >= c->geom.height / PLACE_RES; i--) {
+        for (int j = l_gap; j < width - r_gap; j++) {
             while (j < width && opt[i][j] >= c->geom.height / PLACE_RES) {
                 max_height = MIN(max_height, opt[i][j]);
                 count++;
@@ -1519,8 +1435,8 @@ client_place(struct client *c)
             // the window WILL fit here
             if (count >= c->geom.width / PLACE_RES) {
                 client_move_absolute(c, 
-                                    (j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2,
-                                    (i - max_height) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2);
+                                    MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2)),
+                                    MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2)));
                 return;
             }
             count = 0;
@@ -1622,9 +1538,10 @@ refresh_config(void)
              * causes them to be redrawn on the wrong screen, regardless of
              * their current desktop. The easiest way around this is to move
              * them all to the current desktop and then back agian */
-            if (tmp->decorated) {
+            if (tmp->decorated && conf.decorate) {
                 client_decorations_destroy(tmp);
                 client_decorations_create(tmp);
+                XMapWindow(display, tmp->dec);
             }
 
             client_refresh(tmp);
@@ -1686,8 +1603,8 @@ client_resize_relative(struct client *c, int w, int h)
          * the right side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->geom.x + c->geom.width + w > m_list[mon].x + m_list[mon].width)
-            dw = m_list[mon].x + m_list[mon].width - c->geom.x;
+        if (c->geom.x + c->geom.width + w > m_list[mon].x + m_list[mon].width - conf.right_gap)
+            dw = m_list[mon].x + m_list[mon].width - c->geom.x - conf.right_gap;
         else
             dw = c->geom.width + w;
 
@@ -1695,8 +1612,8 @@ client_resize_relative(struct client *c, int w, int h)
          * the bottom side of the given monitor. If they do, cap the resize
          * amount to move only to the edge of the monitor.
          */
-        if (c->geom.y + c->geom.height + conf.t_height + h > m_list[mon].y + m_list[mon].height)
-            dh = m_list[mon].height + m_list[mon].y - c->geom.y;
+        if (c->geom.y + c->geom.height + conf.t_height + h > m_list[mon].y + m_list[mon].height - conf.bot_gap)
+            dh = m_list[mon].height + m_list[mon].y - c->geom.y - conf.bot_gap;
         else
             dh = c->geom.height + h;
 
@@ -1756,15 +1673,6 @@ client_send_to_ws(struct client *c, int ws)
 {
     int prev;
     client_delete(c);
-
-    // DEBUG
-    int count = 0;
-    for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
-        count++;
-    }
-    LOGP("Found %d clients on previous workspace", count);
-    // END DEBUG
-
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
@@ -1842,6 +1750,7 @@ setup(void)
     conf.edge_lock       = EDGE_LOCK;
     conf.t_center        = TITLE_CENTER;
     conf.top_gap         = TOP_GAP;
+    conf.bot_gap         = BOT_GAP;
     conf.smart_place     = SMART_PLACE;
     conf.draw_text       = DRAW_TEXT;
     conf.json_status     = JSON_STATUS;
@@ -1851,6 +1760,7 @@ setup(void)
     conf.manage[Menu]    = MANAGE_MENU;
     conf.manage[Splash]  = MANAGE_SPLASH;
     conf.manage[Utility] = MANAGE_UTILITY;
+    conf.decorate        = DECORATE_NEW;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
@@ -1906,7 +1816,7 @@ setup(void)
     LOGN("Successfully assigned atoms");
 
     XChangeProperty(display , check , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
-    XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) WINDOW_MANAGER_NAME , 5);
+    XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) __WINDOW_MANAGER_NAME__ , 5);
     XChangeProperty(display , root  , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
     XChangeProperty(display , root  , net_atom[NetSupported] , XA_ATOM    , 32 , PropModeReplace , (unsigned char *) net_atom            , NetLast);
 
@@ -1955,8 +1865,8 @@ client_snap_left(struct client *c)
 {
     int mon;
     mon = ws_m_list[c->ws];
-    client_move_absolute(c, m_list[mon].x, m_list[mon].y + conf.top_gap); 
-    client_resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
+    client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap); 
+    client_resize_absolute(c, m_list[mon].width / 2 - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
 
 static void
@@ -1965,7 +1875,7 @@ client_snap_right(struct client *c)
     int mon;
     mon = ws_m_list[c->ws];
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2, m_list[mon].y + conf.top_gap); 
-    client_resize_absolute(c, m_list[mon].width / 2, m_list[mon].height - conf.top_gap);
+    client_resize_absolute(c, m_list[mon].width / 2 - conf.right_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
 
 static void
@@ -1976,6 +1886,7 @@ switch_ws(int ws)
         if (i != ws) {
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
+                LOGN("Hiding client...");
             }
         } else if (i == ws) {
             int count, j;
@@ -1987,19 +1898,20 @@ switch_ws(int ws)
                 client_show(tmp);
             }
 
-            Window wins[count*2];
-            j = 0;
+            if (count != 0) {
+                Window wins[count*2];
+                j = 0;
 
-            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-                wins[j] = tmp->window;
-                wins[j+1] = tmp->dec;
-                j += 2;
+                for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                    wins[j] = tmp->window;
+                    wins[j+1] = tmp->dec;
+                    j += 2;
+                }
+
+                XRestackWindows(display, wins, count * 2);
             }
-
-            XRestackWindows(display, wins, count * 2);
         }
     }
-
     curr_ws = ws;
     int mon = ws_m_list[ws];
     LOGP("Setting Screen #%d with active workspace %d", m_list[mon].screen, ws);
@@ -2010,10 +1922,12 @@ switch_ws(int ws)
 static void
 client_toggle_decorations(struct client *c)
 {
-    if (c->decorated)
+    if (c->decorated) {
         client_decorations_destroy(c);
-    else
+    } else {
         client_decorations_create(c);
+        XMapWindow(display, c->dec);
+    }
 
     client_refresh(c);
     client_raise(c);
@@ -2183,16 +2097,16 @@ ewmh_set_active_desktop(int ws)
 static void
 usage(void)
 {
-    D fprintf(stderr, "Usage: berry [-h|-v|-c CONFIG_PATH]\n");
+    printf("Usage: berry [-h|-v|-c CONFIG_PATH]\n");
     exit(EXIT_SUCCESS);
 }
 
 static void
 version(void)
 {
-    D fprintf(stderr, "%s %s\n", WINDOW_MANAGER_NAME, __THIS_VERSION__);
-    D fprintf(stderr, "Copyright (c) 2018 Joshua L Ervin\n");
-    D fprintf(stderr, "Released under the MIT License\n");
+    printf("%s %s\n", __WINDOW_MANAGER_NAME__, __THIS_VERSION__);
+    printf("Copyright (c) 2018 Joshua L Ervin\n");
+    printf("Released under the MIT License\n");
     exit(EXIT_SUCCESS);
 }
 
@@ -2208,11 +2122,12 @@ xerror(Display *display, XErrorEvent *e)
             (e->request_code == X_ConfigureWindow && e->error_code == BadMatch) ||
             (e->request_code == X_GrabButton && e->error_code == BadAccess) ||
             (e->request_code == X_GrabKey && e->error_code == BadAccess) ||
-            (e->request_code == X_CopyArea && e->error_code == BadDrawable))
+            (e->request_code == X_CopyArea && e->error_code == BadDrawable) ||
+            (e->request_code == 139 && e->error_code == BadDrawable) ||
+            (e->request_code == 139 && e->error_code == 143))
         return 0;
 
-    D fprintf(stderr, "Fatal request. request code=%d, error code=%d\n",
-            e->request_code, e->error_code);
+    LOGP("Fatal request. Request code=%d, error code=%d", e->request_code, e->error_code);
     return xerrorxlib(display, e);
 }
 

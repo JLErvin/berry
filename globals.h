@@ -2,7 +2,11 @@
 #define __BERRY_GLOBALS_H_
 
 #define BERRY_AUTOSTART "berry/autostart"
-#define WINDOW_MANAGER_NAME "berry"
+
+#ifndef __WINDOW_MANAGER_NAME__
+#define __WINDOW_MANAGER_NAME__ "wm"
+#endif
+
 #define MOUSEMASK (PointerMotionMask|ButtonPressMask|ButtonReleaseMask)
 
 #ifndef __THIS_VERSION__
