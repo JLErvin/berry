@@ -1,5 +1,5 @@
 # berry version
-__THIS_VERSION__ = 0.1.4
+__THIS_VERSION__ = 0.1.5
 __WINDOW_MANAGER_NAME__ = "berry"
 
 NAME_DEFINES = -D__THIS_VERSION__=\"$(__THIS_VERSION__)\" \
