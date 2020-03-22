@@ -1813,7 +1813,7 @@ setup(void)
     LOGN("Successfully assigned atoms");
 
     XChangeProperty(display , check , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
-    XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) WINDOW_MANAGER_NAME , 5);
+    XChangeProperty(display , check , net_atom[NetWMName]    , utf8string , 8  , PropModeReplace , (unsigned char *) __WINDOW_MANAGER_NAME__ , 5);
     XChangeProperty(display , root  , net_atom[NetWMCheck]   , XA_WINDOW  , 32 , PropModeReplace , (unsigned char *) &check              , 1);
     XChangeProperty(display , root  , net_atom[NetSupported] , XA_ATOM    , 32 , PropModeReplace , (unsigned char *) net_atom            , NetLast);
 
@@ -2101,7 +2101,7 @@ usage(void)
 static void
 version(void)
 {
-    printf("%s %s\n", WINDOW_MANAGER_NAME, __THIS_VERSION__);
+    printf("%s %s\n", __WINDOW_MANAGER_NAME__, __THIS_VERSION__);
     printf("Copyright (c) 2018 Joshua L Ervin\n");
     printf("Released under the MIT License\n");
     exit(EXIT_SUCCESS);
