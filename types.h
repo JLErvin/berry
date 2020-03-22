@@ -24,7 +24,7 @@ struct client {
 struct config {
     int b_width, i_width, t_height, top_gap, bot_gap, left_gap, right_gap, r_step, m_step;
     unsigned long bf_color, bu_color, if_color, iu_color;
-    bool focus_new, edge_lock, t_center, smart_place, draw_text, json_status;
+    bool focus_new, edge_lock, t_center, smart_place, draw_text, json_status, decorate;
     bool manage[WindowLast];
 };
 

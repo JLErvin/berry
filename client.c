@@ -76,6 +76,7 @@ static struct command c[] = {
     { "json_status",            IPCJSONStatus,              true,  1, fn_bool    },
     { "manage",                 IPCManage,                  true,  1, fn_str     },
     { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
+    { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
 };
 

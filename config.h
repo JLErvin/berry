@@ -41,4 +41,6 @@
 #define MANAGE_SPLASH false
 #define MANAGE_UTILITY true
 
+#define DECORATE_NEW true
+
 #endif

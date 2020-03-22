@@ -355,13 +355,10 @@ client_decorations_create(struct client *c)
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
-
-    LOGN("Mapping new decorations");
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    /*XMapWindow (display, c->dec);*/
     draw_text(c, true);
     ewmh_set_frame_extents(c);
     client_set_status(c);
@@ -1002,6 +999,9 @@ ipc_config(long *d)
         case IPCQuit:
             running = false;
             break;
+        case IPCDecorate:
+            conf.decorate = d[2];
+            break;
         default:
             break;
     }
@@ -1192,17 +1192,19 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->fullscreen = false;
     c->mono = false;
 
-    client_decorations_create(c);
+    if (conf.decorate)
+        client_decorations_create(c);
+
     client_set_title(c);
-    /*XMapWindow(display, c->window);*/
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
-    /*client_manage_focus(c);*/
     client_place(c);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
-    /*XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);*/
-    XMapWindow (display, c->dec);
+
+    if (conf.decorate)
+        XMapWindow (display, c->dec);
+
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
     client_manage_focus(c);
@@ -1536,7 +1538,7 @@ refresh_config(void)
              * causes them to be redrawn on the wrong screen, regardless of
              * their current desktop. The easiest way around this is to move
              * them all to the current desktop and then back agian */
-            if (tmp->decorated) {
+            if (tmp->decorated && conf.decorate) {
                 client_decorations_destroy(tmp);
                 client_decorations_create(tmp);
                 XMapWindow(display, tmp->dec);
@@ -1758,6 +1760,7 @@ setup(void)
     conf.manage[Menu]    = MANAGE_MENU;
     conf.manage[Splash]  = MANAGE_SPLASH;
     conf.manage[Utility] = MANAGE_UTILITY;
+    conf.decorate        = DECORATE_NEW;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
