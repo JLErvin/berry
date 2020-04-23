@@ -1648,6 +1648,8 @@ client_save(struct client *c, int ws)
     /* Save the client o the list of focusing order */
     c->f_next = f_list[ws];
     f_list[ws] = c;
+
+    ewmh_set_client_list();
 }
 
 /* This method will return true if it is safe to show a client on the given workspace
