@@ -42,5 +42,7 @@
 #define MANAGE_UTILITY true
 
 #define DECORATE_NEW true
+#define MOVE_MASK Mod4Mask
+#define RESIZE_MASK Mod1Mask
 
 #endif

@@ -49,6 +49,8 @@ enum IPCCommand
     IPCUnmanage,
     IPCConfig,
     IPCDecorate,
+    IPCMoveMask,
+    IPCResizeMask,
     IPCLast
 };
 

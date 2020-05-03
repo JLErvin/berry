@@ -15,6 +15,7 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xinerama.h>
+#include <X11/extensions/shape.h>
 #include <X11/cursorfont.h>
 #include <X11/Xft/Xft.h>
 
@@ -136,6 +137,8 @@ static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
+static void grab_buttons(void);
+static void ungrab_buttons(void);
 static void refresh_config(void);
 static void run(void);
 static bool safe_to_focus(int ws);
@@ -353,8 +356,10 @@ client_decorations_create(struct client *c)
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
+
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
+
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
@@ -571,7 +576,7 @@ handle_button_press(XEvent *e)
     XButtonPressedEvent *bev = &e->xbutton;
     XEvent ev; 
     struct client *c;
-    int x, y, ocx, ocy, nx, ny, di;
+    int x, y, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
     unsigned int dui;
     Window dummy;
 
@@ -584,6 +589,8 @@ handle_button_press(XEvent *e)
         client_manage_focus(c);
     ocx = c->geom.x;
     ocy = c->geom.y;
+    ocw = c->geom.width;
+    och = c->geom.height;
     if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
         return;
     do {
@@ -596,12 +603,21 @@ handle_button_press(XEvent *e)
                 break;
             case MotionNotify:
                 LOGN("Handling motion notify event");
-                nx = ocx + (ev.xmotion.x - x);
-                ny = ocy + (ev.xmotion.y - y);
-                if (conf.edge_lock)
-                    client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
-                else
-                    client_move_absolute(c, nx, ny);
+                if (ev.xbutton.state == (conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
+                    nx = ocx + (ev.xmotion.x - x);
+                    ny = ocy + (ev.xmotion.y - y);
+                    if (conf.edge_lock)
+                        client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
+                    else
+                        client_move_absolute(c, nx, ny);
+                } else if (ev.xbutton.state == (conf.resize_mask|Button1Mask)) {
+                    nw = ev.xmotion.x - x;
+                    nh = ev.xmotion.y - y;
+                    if (conf.edge_lock)
+                        client_resize_relative(c, nw - c->geom.width + ocw, nh - c->geom.height + och);
+                    else
+                        client_resize_absolute(c, ocw + nw, och + nh);
+                }
                 break;
         }
     } while (ev.type != ButtonRelease);
@@ -1002,6 +1018,16 @@ ipc_config(long *d)
         case IPCDecorate:
             conf.decorate = d[2];
             break;
+        case IPCMoveMask:
+            ungrab_buttons();
+            conf.move_mask = d[2];
+            grab_buttons();
+            break;
+        case IPCResizeMask:
+            ungrab_buttons();
+            conf.resize_mask = d[2];
+            grab_buttons();
+            break;
         default:
             break;
     }
@@ -1207,6 +1233,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+    XGrabButton(display, 1, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, 1, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     client_manage_focus(c);
 }
 
@@ -1238,6 +1266,26 @@ manage_xsend_icccm(struct client *c, Atom atom)
     }
 
     return exists;
+}
+
+static void
+grab_buttons(void)
+{
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            XGrabButton(display, 1, conf.move_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            XGrabButton(display, 1, conf.resize_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+        }
+}
+
+static void
+ungrab_buttons(void)
+{
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            XUngrabButton(display, 1, conf.move_mask, tmp->window);
+            XUngrabButton(display, 1, conf.resize_mask, tmp->window);
+        }
 }
 
 static void
@@ -1763,6 +1811,8 @@ setup(void)
     conf.manage[Splash]  = MANAGE_SPLASH;
     conf.manage[Utility] = MANAGE_UTILITY;
     conf.decorate        = DECORATE_NEW;
+    conf.move_mask       = MOVE_MASK;
+    conf.resize_mask     = RESIZE_MASK;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
