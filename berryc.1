@@ -155,3 +155,13 @@ Set the edge padding around the screen (must include all params)
 \fBdecorate_new\fR \fBtrue/false\fR
 Determine whether new windows are decorated by default.
 .
+.TP
+\fBmove_mask\fR \fBMod1/Mod2/Mod3/Mod4/Mod5\fR
+Determine the button mask used to move windows using the mouse.
+.
+.TP
+\fBresize_mask\fR \fBMod1/Mod2/Mod3/Mod4/Mod5\fR
+Determine the button mask used to resize windows using the mouse.
+If move_mask and resize_mask use the same value, the move_mask
+takes precedence.
+.
