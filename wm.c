@@ -599,7 +599,7 @@ handle_button_press(XEvent *e)
             case ConfigureRequest:
             case Expose:
             case MapRequest:
-                draw_text(c, true);
+                event_handler[ev.type](&ev);
                 break;
             case MotionNotify:
                 LOGN("Handling motion notify event");
