@@ -158,7 +158,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) = {
     [ButtonPress]      = handle_button_press,
     [PropertyNotify]   = handle_property_notify,
     [Expose]           = handle_expose,
-    [FocusIn]          = handle_focus
+    [FocusIn]          = handle_focus,
 };
 
 static void (*ipc_handler[IPCLast])(long *) = {
@@ -1217,6 +1217,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
+
+    XSetWindowBorderWidth(display, c->window, 0);
 
     if (conf.decorate)
         client_decorations_create(c);
