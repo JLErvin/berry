@@ -28,6 +28,8 @@ enum IPCCommand
     IPCSendWorkspace,
     IPCFullscreen,
     IPCFullscreenState,
+    IPCFullscreenRemoveDec,
+    IPCFullscreenMax,
     IPCSnapLeft,
     IPCSnapRight,
     IPCSaveMonitor,

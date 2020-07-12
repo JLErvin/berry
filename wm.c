@@ -444,82 +444,56 @@ static void
 client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
+    bool to_fs;
     mon = ws_m_list[c->ws];
     UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
-    // TODO: FACTOR THIS SHIT
-    if (toggle) {
-        if (!c->fullscreen) {
-            // if the client is not currently fullscreen, maximize it to fill the current screen
-            ewmh_set_fullscreen(c, true);
-            if (c->decorated && conf.fs_remove_dec) { //
-                client_decorations_destroy(c);
-                c->was_fs = true;
-            }
-            if (conf.fs_max) {
-                c->prev.x = c->geom.x;
-                c->prev.y = c->geom.y;
-                c->prev.width = c->geom.width;
-                c->prev.height = c->geom.height;
-                client_move_absolute(c, m_list[mon].x, m_list[mon].y);
-                client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
-            }
-            c->fullscreen = true;
-        } else {
-            // if the client is currently fulscreen, revert it's state to its original size
-            ewmh_set_fullscreen(c, false);
-            if (max) {
-                client_move_absolute(c, c->prev.x, c->prev.y);
-                client_resize_absolute(c, c->prev.width, c->prev.height);
-            }
-            if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
-                client_decorations_create(c);
-                XMapWindow(display, c->dec);
-                client_refresh(c);
-                client_raise(c);
-                client_manage_focus(c);
-                ewmh_set_frame_extents(c);
-            }
-            c->was_fs = false;
-            c->fullscreen = false;
-            client_refresh(c);
-        }
-    } else {
-        if (fullscreen) {
-            ewmh_set_fullscreen(c, true);
-            if (c->decorated && conf.fs_remove_dec) { //
-                client_decorations_destroy(c);
-                c->was_fs = true;
-            }
-            if (conf.fs_max) {
-                c->prev.x = c->geom.x;
-                c->prev.y = c->geom.y;
-                c->prev.width = c->geom.width;
-                c->prev.height = c->geom.height;
-                client_move_absolute(c, m_list[mon].x, m_list[mon].y);
-                client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
-            }
-            c->fullscreen = true;
-        } else {
-            ewmh_set_fullscreen(c, false);
-            if (max) {
-                client_move_absolute(c, c->prev.x, c->prev.y);
-                client_resize_absolute(c, c->prev.width, c->prev.height);
-            }
-            if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
-                client_decorations_create(c);
-                XMapWindow(display, c->dec);
-                client_refresh(c);
-                client_raise(c);
-                client_manage_focus(c);
-                ewmh_set_frame_extents(c);
-            }
+    to_fs = toggle ? !c->fullscreen : fullscreen;
 
-            c->fullscreen = false;
-            c->was_fs = false;
-            client_refresh(c);
+    /* I'm going to keep this comment here for readability
+     * for the previous ternary statement
+    if (toggle)
+        to_fs = !c->fullscreen;
+    else
+        to_fs = fullscreen;
+    */
+
+
+    // TODO: FACTOR THIS SHIT
+    if (to_fs) {
+        ewmh_set_fullscreen(c, true);
+        if (c->decorated && conf.fs_remove_dec) { //
+            client_decorations_destroy(c);
+            c->was_fs = true;
         }
+        if (conf.fs_max) {
+            c->prev.x = c->geom.x;
+            c->prev.y = c->geom.y;
+            c->prev.width = c->geom.width;
+            c->prev.height = c->geom.height;
+            client_move_absolute(c, m_list[mon].x, m_list[mon].y);
+            client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
+        }
+        c->fullscreen = true;
+    } else {
+        ewmh_set_fullscreen(c, false);
+        if (max) {
+            client_move_absolute(c, c->prev.x, c->prev.y);
+            client_resize_absolute(c, c->prev.width, c->prev.height);
+        }
+        if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
+            client_decorations_create(c);
+            XMapWindow(display, c->dec);
+            client_refresh(c);
+            client_raise(c);
+            client_manage_focus(c);
+            ewmh_set_frame_extents(c);
+        }
+
+        c->fullscreen = false;
+        c->was_fs = false;
+        client_refresh(c);
     }
 
     client_set_status(c);

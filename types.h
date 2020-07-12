@@ -14,7 +14,7 @@ struct client_geom {
 struct client {
     Window window, dec;
     int ws, x_hide;
-    bool decorated, hidden, fullscreen, mono;
+    bool decorated, hidden, fullscreen, mono, was_fs;
     struct client_geom geom;
     struct client_geom prev;
     struct client *next, *f_next;
@@ -24,7 +24,7 @@ struct client {
 struct config {
     int b_width, i_width, t_height, top_gap, bot_gap, left_gap, right_gap, r_step, m_step, move_mask, resize_mask;
     unsigned long bf_color, bu_color, if_color, iu_color;
-    bool focus_new, edge_lock, t_center, smart_place, draw_text, json_status, decorate;
+    bool focus_new, focus_motion, edge_lock, t_center, smart_place, draw_text, json_status, decorate, fs_remove_dec, fs_max;
     bool manage[WindowLast];
 };
 

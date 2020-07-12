@@ -28,11 +28,14 @@
 #define TEXT_UNFOCUS_COLOR "#000000"
 
 #define FOCUS_NEW true
+#define FOCUS_MOTION true
 #define EDGE_LOCK true
 #define TITLE_CENTER true
 #define SMART_PLACE true
 #define DRAW_TEXT true
 #define JSON_STATUS true
+#define FULLSCREEN_REMOVE_DEC true
+#define FULLSCREEN_MAX true
 
 #define MANAGE_DOCK false
 #define MANAGE_DIALOG true
