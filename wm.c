@@ -59,7 +59,7 @@ static void client_close(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
-static void client_fullscreen(struct client *c, bool max);
+static void client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max);
 static void client_hide(struct client *c);
 static void client_manage_focus(struct client *c);
 static void client_move_absolute(struct client *c, int x, int y);
@@ -441,33 +441,88 @@ monitors_free(void)
  * Updates the value of _NET_WM_STATE_FULLSCREEN to reflect fullscreen changes
  */
 static void
-client_fullscreen(struct client *c, bool max)
+client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
     mon = ws_m_list[c->ws];
+    UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
-    if (!c->fullscreen) {
-        // if the client is not currently fullscreen, maximize it to fill the current screen
-        ewmh_set_fullscreen(c, true);
-        if (max) {
-            c->prev.x = c->geom.x;
-            c->prev.y = c->geom.y;
-            c->prev.width = c->geom.width;
-            c->prev.height = c->geom.height;
-            client_move_absolute(c, m_list[mon].x, m_list[mon].y);
-            client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
+    // TODO: FACTOR THIS SHIT
+    if (toggle) {
+        if (!c->fullscreen) {
+            // if the client is not currently fullscreen, maximize it to fill the current screen
+            ewmh_set_fullscreen(c, true);
+            if (c->decorated && conf.fs_remove_dec) { //
+                client_decorations_destroy(c);
+                c->was_fs = true;
+            }
+            if (conf.fs_max) {
+                c->prev.x = c->geom.x;
+                c->prev.y = c->geom.y;
+                c->prev.width = c->geom.width;
+                c->prev.height = c->geom.height;
+                client_move_absolute(c, m_list[mon].x, m_list[mon].y);
+                client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
+            }
+            c->fullscreen = true;
+        } else {
+            // if the client is currently fulscreen, revert it's state to its original size
+            ewmh_set_fullscreen(c, false);
+            if (max) {
+                client_move_absolute(c, c->prev.x, c->prev.y);
+                client_resize_absolute(c, c->prev.width, c->prev.height);
+            }
+            if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
+                client_decorations_create(c);
+                XMapWindow(display, c->dec);
+                client_refresh(c);
+                client_raise(c);
+                client_manage_focus(c);
+                ewmh_set_frame_extents(c);
+            }
+            c->was_fs = false;
+            c->fullscreen = false;
+            client_refresh(c);
         }
     } else {
-        // if the client is currently fulscreen, revert it's state to its original size
-        ewmh_set_fullscreen(c, false);
-        if (max) {
-            client_move_absolute(c, c->prev.x, c->prev.y);
-            client_resize_absolute(c, c->prev.width, c->prev.height);
+        if (fullscreen) {
+            ewmh_set_fullscreen(c, true);
+            if (c->decorated && conf.fs_remove_dec) { //
+                client_decorations_destroy(c);
+                c->was_fs = true;
+            }
+            if (conf.fs_max) {
+                c->prev.x = c->geom.x;
+                c->prev.y = c->geom.y;
+                c->prev.width = c->geom.width;
+                c->prev.height = c->geom.height;
+                client_move_absolute(c, m_list[mon].x, m_list[mon].y);
+                client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
+            }
+            c->fullscreen = true;
+        } else {
+            ewmh_set_fullscreen(c, false);
+            if (max) {
+                client_move_absolute(c, c->prev.x, c->prev.y);
+                client_resize_absolute(c, c->prev.width, c->prev.height);
+            }
+            if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
+                client_decorations_create(c);
+                XMapWindow(display, c->dec);
+                client_refresh(c);
+                client_raise(c);
+                client_manage_focus(c);
+                ewmh_set_frame_extents(c);
+            }
+
+            c->fullscreen = false;
+            c->was_fs = false;
+            client_refresh(c);
         }
     }
 
-    c->fullscreen = !c->fullscreen;
+    client_set_status(c);
 }
 
 /* Focus the next window in the list. Windows are sorted by the order in which they are 
@@ -554,13 +609,16 @@ handle_client_message(XEvent *e)
             (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
             LOGN("Recieved fullscreen request");
             if (cme->data.l[0] == 0) { // remove fullscreen
-                ewmh_set_fullscreen(c, false);
+                /*ewmh_set_fullscreen(c, false);*/
+                client_fullscreen(c, false, false, true);
                 LOGN("type 0");
             } else if (cme->data.l[0] == 1) { // set fullscreen
-                ewmh_set_fullscreen(c, true);
+                /*ewmh_set_fullscreen(c, true);*/
+                client_fullscreen(c, false, true, true);
                 LOGN("type 1");
             } else if (cme->data.l[0] == 2) { // toggle fullscreen
-                ewmh_set_fullscreen(c, !c->fullscreen);
+                /*ewmh_set_fullscreen(c, !c->fullscreen);*/
+                client_fullscreen(c, true, true, true);
                 LOGN("type 2");
             }
         }
@@ -886,7 +944,7 @@ ipc_fullscreen(long *d)
     if (f_client == NULL)
         return;
 
-    client_fullscreen(f_client, true);
+    client_fullscreen(f_client, true, true, true);
 }
 
 static void
@@ -897,7 +955,7 @@ ipc_fullscreen_state(long *d)
     if (f_client == NULL)
         return;
 
-    client_fullscreen(f_client, false);
+    client_fullscreen(f_client, true, true, false);
 }
 
 static void
@@ -1008,6 +1066,9 @@ ipc_config(long *d)
             break;
         case IPCManage:
             conf.manage[(int)d[2]] = true;
+            break;
+        case IPCFullscreenRemoveDec:
+            conf.fs_remove_dec = d[2];
             break;
         case IPCUnmanage:
             conf.manage[(int)d[2]] = false;
@@ -1217,6 +1278,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
+    c->was_fs = false;
 
     XSetWindowBorderWidth(display, c->window, 0);
 
@@ -1231,7 +1293,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     ewmh_set_client_list();
 
     if (conf.decorate)
-        XMapWindow (display, c->dec);
+        XMapWindow(display, c->dec);
 
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
@@ -1815,6 +1877,8 @@ setup(void)
     conf.decorate        = DECORATE_NEW;
     conf.move_mask       = MOVE_MASK;
     conf.resize_mask     = RESIZE_MASK;
+    conf.fs_remove_dec   = FULLSCREEN_REMOVE_DEC;
+    conf.fs_max          = FULLSCREEN_MAX;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
