@@ -25,7 +25,6 @@
 #include "types.h"
 #include "utils.h"
 
-
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
@@ -362,7 +361,7 @@ client_decorations_create(struct client *c)
 
     c->dec = dec;
     c->decorated = true;
-    XSelectInput (display, c->dec, ExposureMask);
+    //XSelectInput (display, c->dec, ExposureMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     draw_text(c, true);
     ewmh_set_frame_extents(c);
@@ -595,7 +594,10 @@ handle_client_message(XEvent *e)
                 client_fullscreen(c, true, true, true);
                 LOGN("type 2");
             }
-        }
+        } 
+    } else if (cme->message_type == net_atom[NetActiveWindow]) {
+        struct client *c = get_client_from_window(cme->window);
+        client_manage_focus(c);
     }
 }
 
@@ -634,7 +636,6 @@ handle_button_press(XEvent *e)
                 event_handler[ev.type](&ev);
                 break;
             case MotionNotify:
-                LOGN("Handling motion notify event");
                 if (ev.xbutton.state == (conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
                     nx = ocx + (ev.xmotion.x - x);
                     ny = ocy + (ev.xmotion.y - y);
@@ -679,8 +680,6 @@ handle_focus(XEvent *e)
     XFocusChangeEvent *ev = &e->xfocus;
     UNUSED(ev);
     return;
-    if (ev->window != f_client->window)
-        client_manage_focus(f_client);
 }
 
 static void
@@ -710,8 +709,12 @@ handle_configure_notify(XEvent *e)
 {
     XConfigureEvent *ev = &e->xconfigure;
 
-    if (ev->window == root)
-        return;
+    if (ev->window == root) {
+        // handle display size changes by the root window
+        display_width = ev->width;
+        display_height = ev->height;
+    }
+
 
     LOGN("Handling configure notify event");
 
@@ -748,7 +751,7 @@ handle_map_request(XEvent *e)
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
 
-    LOGN("Handling map request event");
+    /*LOGN("Handling map request event");*/
 
     if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
@@ -1053,6 +1056,9 @@ ipc_config(long *d)
         case IPCDecorate:
             conf.decorate = d[2];
             break;
+        case IPCDrawText:
+            conf.draw_text = d[2];
+            break;
         case IPCMoveMask:
             ungrab_buttons();
             conf.move_mask = d[2];
@@ -1157,7 +1163,6 @@ load_config(char *conf_path)
 {
     if (fork() == 0) {
         setsid();
-        /*execl(conf_path, conf_path, NULL);*/
         execl("/bin/sh", "sh", conf_path, NULL);
         LOGP("CONFIG PATH: %s", conf_path);
     }
@@ -1664,10 +1669,10 @@ client_resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
-    LOGN("Resizing client main window");
+    /*LOGN("Resizing client main window");*/
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
-        LOGN("Resizing client decoration");
+        /*LOGN("Resizing client decoration");*/
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
 
@@ -1863,7 +1868,7 @@ setup(void)
     XDefineCursor(display, root, normal_cursor);
 
     XSelectInput(display, root,
-            SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
+            StructureNotifyMask|SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
     xerrorxlib = XSetErrorHandler(xerror);
 
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
@@ -1878,6 +1883,7 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    /*net_atom[NetWMMoveresize]        = XInternAtom(display, "_NET_WM_MOVERESIZE", False);*/
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
