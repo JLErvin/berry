@@ -53,6 +53,7 @@ enum IPCCommand
     IPCDecorate,
     IPCMoveMask,
     IPCResizeMask,
+    IPCPointerInterval,
     IPCLast
 };
 

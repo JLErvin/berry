@@ -613,6 +613,7 @@ handle_button_press(XEvent *e)
     int x, y, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
     unsigned int dui;
     Window dummy;
+    Time current_time, last_motion;
 
     XQueryPointer(display, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
     LOGN("Handling button press event");
@@ -625,6 +626,7 @@ handle_button_press(XEvent *e)
     ocy = c->geom.y;
     ocw = c->geom.width;
     och = c->geom.height;
+    last_motion = ev.xmotion.time;
     if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
         return;
     do {
@@ -636,6 +638,12 @@ handle_button_press(XEvent *e)
                 event_handler[ev.type](&ev);
                 break;
             case MotionNotify:
+                current_time = ev.xmotion.time;
+                Time diff_time = current_time - last_motion;
+                if (diff_time < (Time)conf.pointer_interval) {
+                    continue;
+                }
+                last_motion = current_time;
                 if (ev.xbutton.state == (conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
                     nx = ocx + (ev.xmotion.x - x);
                     ny = ocy + (ev.xmotion.y - y);
@@ -651,6 +659,8 @@ handle_button_press(XEvent *e)
                     else
                         client_resize_absolute(c, ocw + nw, och + nh);
                 }
+                draw_text(c, true);
+                XFlush(display);
                 break;
         }
     } while (ev.type != ButtonRelease);
@@ -1068,6 +1078,9 @@ ipc_config(long *d)
             ungrab_buttons();
             conf.resize_mask = d[2];
             grab_buttons();
+            break;
+        case IPCPointerInterval:
+            conf.pointer_interval = d[1];
             break;
         default:
             break;
@@ -1858,6 +1871,7 @@ setup(void)
     conf.resize_mask     = RESIZE_MASK;
     conf.fs_remove_dec   = FULLSCREEN_REMOVE_DEC;
     conf.fs_max          = FULLSCREEN_MAX;
+    conf.pointer_interval= POINTER_INTERVAL;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);

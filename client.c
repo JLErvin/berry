@@ -82,6 +82,7 @@ static struct command c[] = {
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
     { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
     { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
+    { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
 };
 
 static void
