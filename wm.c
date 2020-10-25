@@ -361,7 +361,7 @@ client_decorations_create(struct client *c)
 
     c->dec = dec;
     c->decorated = true;
-    //XSelectInput (display, c->dec, ExposureMask);
+    XSelectInput (display, c->dec, ExposureMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     draw_text(c, true);
     ewmh_set_frame_extents(c);
@@ -572,12 +572,6 @@ handle_client_message(XEvent *e)
             return;
         }
 
-        /* Note that berry does _not_ respect the requests of clients entering
-         * fullscreen mode to modify the size or position of the respective window.
-         * This is an intentional design violation of ICCCM, which states that the
-         * window manager _should_ change size and remove deocrations based on 
-         * the following event
-         */
         if ((Atom)cme->data.l[1] == net_atom[NetWMStateFullscreen] ||
             (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
             LOGN("Recieved fullscreen request");
@@ -597,6 +591,8 @@ handle_client_message(XEvent *e)
         } 
     } else if (cme->message_type == net_atom[NetActiveWindow]) {
         struct client *c = get_client_from_window(cme->window);
+        if (c == NULL)
+            return;
         client_manage_focus(c);
     }
 }
@@ -659,7 +655,6 @@ handle_button_press(XEvent *e)
                     else
                         client_resize_absolute(c, ocw + nw, och + nh);
                 }
-                draw_text(c, true);
                 XFlush(display);
                 break;
         }
