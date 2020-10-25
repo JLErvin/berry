@@ -47,6 +47,6 @@
 #define DECORATE_NEW true
 #define MOVE_MASK Mod4Mask
 #define RESIZE_MASK Mod1Mask
-#define POINTER_INTERVAL 17
+#define POINTER_INTERVAL 0
 
 #endif
