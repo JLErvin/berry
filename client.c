@@ -59,6 +59,8 @@ static struct command c[] = {
     { "send_to_workspace",      IPCSendWorkspace,           false, 1, fn_int     },
     { "fullscreen",             IPCFullscreen,              false, 0, NULL       },
     { "fullscreen_state",       IPCFullscreenState,         false, 0, NULL       },
+    { "fullscreen_remove_dec",  IPCFullscreenRemoveDec,     true,  1, fn_bool    },
+    { "fullscreen_max",         IPCFullscreenMax,           true,  1, fn_bool    },
     { "snap_left",              IPCSnapLeft,                false, 0, NULL       },
     { "snap_right",             IPCSnapRight,               false, 0, NULL       },
     { "cardinal_focus",         IPCCardinalFocus,           false, 1, fn_int     },
@@ -78,6 +80,9 @@ static struct command c[] = {
     { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
     { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
+    { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
+    { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
+    { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
 };
 
 static void
@@ -106,11 +111,15 @@ fn_str(long *data, bool b, int i, char **argv)
 {
     UNUSED(b);
     // lord forgive me for I have sinned
-    if (strcmp(argv[i-1], "Dialog") == 0) data[i] = Dialog;
-    else if (strcmp(argv[i-1], "Toolbar") == 0) data[i] = Toolbar;
-    else if (strcmp(argv[i-1], "Menu") == 0) data[i] = Menu;
-    else if (strcmp(argv[i-1], "Splash") == 0) data[i] = Dialog;
-    else if (strcmp(argv[i-1], "Utility") == 0) data[i] = Utility;
+    if (strcmp(argv[i-1], "Dialog") == 0) data[i+b] = Dialog;
+    else if (strcmp(argv[i-1], "Toolbar") == 0) data[i+b] = Toolbar;
+    else if (strcmp(argv[i-1], "Menu") == 0) data[i+b] = Menu;
+    else if (strcmp(argv[i-1], "Splash") == 0) data[i+b] = Splash;
+    else if (strcmp(argv[i-1], "Utility") == 0) data[i+b] = Utility;
+    else if (strcmp(argv[i-1], "Mod1") == 0) data[i+b] = Mod1Mask;
+    else if (strcmp(argv[i-1], "Mod2") == 0) data[i+b] = Mod2Mask;
+    else if (strcmp(argv[i-1], "Mod3") == 0) data[i+b] = Mod3Mask;
+    else if (strcmp(argv[i-1], "Mod4") == 0) data[i+b] = Mod4Mask;
 }
 
 /* This function works by setting a new atom globally on the root

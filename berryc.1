@@ -43,6 +43,10 @@ Monocles the curent window, respecting values of TOP_GAP
 Closes the current window, in turn terminating the associated process
 .
 .TP
+\fBwindow_center\fR
+Centers the current window.
+.
+.TP
 \fBswitch_workspace\fR \fBi\fR
 Switch to the given workspace, showing all windows on the new workspace and hiding all windows not on the given workspace
 .
@@ -154,4 +158,33 @@ Set the edge padding around the screen (must include all params)
 .TP
 \fBdecorate_new\fR \fBtrue/false\fR
 Determine whether new windows are decorated by default.
+.
+.TP
+\fBmove_mask\fR \fBMod1/Mod2/Mod3/Mod4/Mod5\fR
+Determine the button mask used to move windows using the mouse.
+.
+.TP
+\fBresize_mask\fR \fBMod1/Mod2/Mod3/Mod4/Mod5\fR
+Determine the button mask used to resize windows using the mouse.
+If move_mask and resize_mask use the same value, the move_mask
+takes precedence.
+.
+.TP
+\fBpointer_interval\fR \fBn\fR
+Set the minimum interval for processing motion events to n.
+Set to a default value of 0.
+Useful for input lag on high refresh rate screens.
+If you experience input lag on high refresh rate screens, try a value around 15.
+.
+.tp
+\fbquit\fr
+stop the program
+.
+.TP
+\fBedge_lock\fR \fBtrue/false\fR
+Bound windows to the edges of the monitor.
+.
+.TP
+\fBtoggle_decorations\fR
+Toggle decorations for the currently focused client
 .

@@ -15,6 +15,7 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xinerama.h>
+#include <X11/extensions/shape.h>
 #include <X11/cursorfont.h>
 #include <X11/Xft/Xft.h>
 
@@ -23,7 +24,6 @@
 #include "ipc.h"
 #include "types.h"
 #include "utils.h"
-
 
 static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
@@ -58,7 +58,7 @@ static void client_close(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
-static void client_fullscreen(struct client *c, bool max);
+static void client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max);
 static void client_hide(struct client *c);
 static void client_manage_focus(struct client *c);
 static void client_move_absolute(struct client *c, int x, int y);
@@ -136,6 +136,8 @@ static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
+static void grab_buttons(void);
+static void ungrab_buttons(void);
 static void refresh_config(void);
 static void run(void);
 static bool safe_to_focus(int ws);
@@ -155,7 +157,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) = {
     [ButtonPress]      = handle_button_press,
     [PropertyNotify]   = handle_property_notify,
     [Expose]           = handle_expose,
-    [FocusIn]          = handle_focus
+    [FocusIn]          = handle_focus,
 };
 
 static void (*ipc_handler[IPCLast])(long *) = {
@@ -353,8 +355,10 @@ client_decorations_create(struct client *c)
     int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height; 
+
     Window dec = XCreateSimpleWindow(display, root, x, y, w, h, conf.b_width,
             conf.bu_color, conf.bf_color);
+
     c->dec = dec;
     c->decorated = true;
     XSelectInput (display, c->dec, ExposureMask);
@@ -436,16 +440,33 @@ monitors_free(void)
  * Updates the value of _NET_WM_STATE_FULLSCREEN to reflect fullscreen changes
  */
 static void
-client_fullscreen(struct client *c, bool max)
+client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
+    bool to_fs;
     mon = ws_m_list[c->ws];
+    UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
-    if (!c->fullscreen) {
-        // if the client is not currently fullscreen, maximize it to fill the current screen
+    to_fs = toggle ? !c->fullscreen : fullscreen;
+
+    /* I'm going to keep this comment here for readability
+     * for the previous ternary statement
+    if (toggle)
+        to_fs = !c->fullscreen;
+    else
+        to_fs = fullscreen;
+    */
+
+
+    // TODO: FACTOR THIS SHIT
+    if (to_fs) {
         ewmh_set_fullscreen(c, true);
-        if (max) {
+        if (c->decorated && conf.fs_remove_dec) { //
+            client_decorations_destroy(c);
+            c->was_fs = true;
+        }
+        if (conf.fs_max) {
             c->prev.x = c->geom.x;
             c->prev.y = c->geom.y;
             c->prev.width = c->geom.width;
@@ -453,16 +474,28 @@ client_fullscreen(struct client *c, bool max)
             client_move_absolute(c, m_list[mon].x, m_list[mon].y);
             client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
         }
+        c->fullscreen = true;
     } else {
-        // if the client is currently fulscreen, revert it's state to its original size
         ewmh_set_fullscreen(c, false);
         if (max) {
             client_move_absolute(c, c->prev.x, c->prev.y);
             client_resize_absolute(c, c->prev.width, c->prev.height);
         }
+        if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
+            client_decorations_create(c);
+            XMapWindow(display, c->dec);
+            client_refresh(c);
+            client_raise(c);
+            client_manage_focus(c);
+            ewmh_set_frame_extents(c);
+        }
+
+        c->fullscreen = false;
+        c->was_fs = false;
+        client_refresh(c);
     }
 
-    c->fullscreen = !c->fullscreen;
+    client_set_status(c);
 }
 
 /* Focus the next window in the list. Windows are sorted by the order in which they are 
@@ -539,26 +572,28 @@ handle_client_message(XEvent *e)
             return;
         }
 
-        /* Note that berry does _not_ respect the requests of clients entering
-         * fullscreen mode to modify the size or position of the respective window.
-         * This is an intentional design violation of ICCCM, which states that the
-         * window manager _should_ change size and remove deocrations based on 
-         * the following event
-         */
         if ((Atom)cme->data.l[1] == net_atom[NetWMStateFullscreen] ||
             (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
             LOGN("Recieved fullscreen request");
             if (cme->data.l[0] == 0) { // remove fullscreen
-                ewmh_set_fullscreen(c, false);
+                /*ewmh_set_fullscreen(c, false);*/
+                client_fullscreen(c, false, false, true);
                 LOGN("type 0");
             } else if (cme->data.l[0] == 1) { // set fullscreen
-                ewmh_set_fullscreen(c, true);
+                /*ewmh_set_fullscreen(c, true);*/
+                client_fullscreen(c, false, true, true);
                 LOGN("type 1");
             } else if (cme->data.l[0] == 2) { // toggle fullscreen
-                ewmh_set_fullscreen(c, !c->fullscreen);
+                /*ewmh_set_fullscreen(c, !c->fullscreen);*/
+                client_fullscreen(c, true, true, true);
                 LOGN("type 2");
             }
-        }
+        } 
+    } else if (cme->message_type == net_atom[NetActiveWindow]) {
+        struct client *c = get_client_from_window(cme->window);
+        if (c == NULL)
+            return;
+        client_manage_focus(c);
     }
 }
 
@@ -571,9 +606,10 @@ handle_button_press(XEvent *e)
     XButtonPressedEvent *bev = &e->xbutton;
     XEvent ev; 
     struct client *c;
-    int x, y, ocx, ocy, nx, ny, di;
+    int x, y, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
     unsigned int dui;
     Window dummy;
+    Time current_time, last_motion;
 
     XQueryPointer(display, root, &dummy, &dummy, &x, &y, &di, &di, &dui);
     LOGN("Handling button press event");
@@ -584,6 +620,9 @@ handle_button_press(XEvent *e)
         client_manage_focus(c);
     ocx = c->geom.x;
     ocy = c->geom.y;
+    ocw = c->geom.width;
+    och = c->geom.height;
+    last_motion = ev.xmotion.time;
     if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
         return;
     do {
@@ -592,16 +631,31 @@ handle_button_press(XEvent *e)
             case ConfigureRequest:
             case Expose:
             case MapRequest:
-                draw_text(c, true);
+                event_handler[ev.type](&ev);
                 break;
             case MotionNotify:
-                LOGN("Handling motion notify event");
-                nx = ocx + (ev.xmotion.x - x);
-                ny = ocy + (ev.xmotion.y - y);
-                if (conf.edge_lock)
-                    client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
-                else
-                    client_move_absolute(c, nx, ny);
+                current_time = ev.xmotion.time;
+                Time diff_time = current_time - last_motion;
+                if (diff_time < (Time)conf.pointer_interval) {
+                    continue;
+                }
+                last_motion = current_time;
+                if (ev.xbutton.state == (conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
+                    nx = ocx + (ev.xmotion.x - x);
+                    ny = ocy + (ev.xmotion.y - y);
+                    if (conf.edge_lock)
+                        client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
+                    else
+                        client_move_absolute(c, nx, ny);
+                } else if (ev.xbutton.state == (conf.resize_mask|Button1Mask)) {
+                    nw = ev.xmotion.x - x;
+                    nh = ev.xmotion.y - y;
+                    if (conf.edge_lock)
+                        client_resize_relative(c, nw - c->geom.width + ocw, nh - c->geom.height + och);
+                    else
+                        client_resize_absolute(c, ocw + nw, och + nh);
+                }
+                XFlush(display);
                 break;
         }
     } while (ev.type != ButtonRelease);
@@ -631,8 +685,6 @@ handle_focus(XEvent *e)
     XFocusChangeEvent *ev = &e->xfocus;
     UNUSED(ev);
     return;
-    if (ev->window != f_client->window)
-        client_manage_focus(f_client);
 }
 
 static void
@@ -662,8 +714,12 @@ handle_configure_notify(XEvent *e)
 {
     XConfigureEvent *ev = &e->xconfigure;
 
-    if (ev->window == root)
-        return;
+    if (ev->window == root) {
+        // handle display size changes by the root window
+        display_width = ev->width;
+        display_height = ev->height;
+    }
+
 
     LOGN("Handling configure notify event");
 
@@ -700,7 +756,7 @@ handle_map_request(XEvent *e)
     static XWindowAttributes wa;
     XMapRequestEvent *ev = &e->xmaprequest;
 
-    LOGN("Handling map request event");
+    /*LOGN("Handling map request event");*/
 
     if (!XGetWindowAttributes(display, ev->window, &wa))
         return;
@@ -870,7 +926,7 @@ ipc_fullscreen(long *d)
     if (f_client == NULL)
         return;
 
-    client_fullscreen(f_client, true);
+    client_fullscreen(f_client, true, true, true);
 }
 
 static void
@@ -881,7 +937,7 @@ ipc_fullscreen_state(long *d)
     if (f_client == NULL)
         return;
 
-    client_fullscreen(f_client, false);
+    client_fullscreen(f_client, true, true, false);
 }
 
 static void
@@ -993,6 +1049,9 @@ ipc_config(long *d)
         case IPCManage:
             conf.manage[(int)d[2]] = true;
             break;
+        case IPCFullscreenRemoveDec:
+            conf.fs_remove_dec = d[2];
+            break;
         case IPCUnmanage:
             conf.manage[(int)d[2]] = false;
             break;
@@ -1001,6 +1060,22 @@ ipc_config(long *d)
             break;
         case IPCDecorate:
             conf.decorate = d[2];
+            break;
+        case IPCDrawText:
+            conf.draw_text = d[2];
+            break;
+        case IPCMoveMask:
+            ungrab_buttons();
+            conf.move_mask = d[2];
+            grab_buttons();
+            break;
+        case IPCResizeMask:
+            ungrab_buttons();
+            conf.resize_mask = d[2];
+            grab_buttons();
+            break;
+        case IPCPointerInterval:
+            conf.pointer_interval = d[1];
             break;
         default:
             break;
@@ -1096,7 +1171,6 @@ load_config(char *conf_path)
 {
     if (fork() == 0) {
         setsid();
-        /*execl(conf_path, conf_path, NULL);*/
         execl("/bin/sh", "sh", conf_path, NULL);
         LOGP("CONFIG PATH: %s", conf_path);
     }
@@ -1191,6 +1265,9 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
+    c->was_fs = false;
+
+    XSetWindowBorderWidth(display, c->window, 0);
 
     if (conf.decorate)
         client_decorations_create(c);
@@ -1203,10 +1280,12 @@ manage_new_window(Window w, XWindowAttributes *wa)
     ewmh_set_client_list();
 
     if (conf.decorate)
-        XMapWindow (display, c->dec);
+        XMapWindow(display, c->dec);
 
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
+    XGrabButton(display, 1, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, 1, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     client_manage_focus(c);
 }
 
@@ -1238,6 +1317,26 @@ manage_xsend_icccm(struct client *c, Atom atom)
     }
 
     return exists;
+}
+
+static void
+grab_buttons(void)
+{
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            XGrabButton(display, 1, conf.move_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            XGrabButton(display, 1, conf.resize_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+        }
+}
+
+static void
+ungrab_buttons(void)
+{
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            XUngrabButton(display, 1, conf.move_mask, tmp->window);
+            XUngrabButton(display, 1, conf.resize_mask, tmp->window);
+        }
 }
 
 static void
@@ -1578,10 +1677,10 @@ client_resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
-    LOGN("Resizing client main window");
+    /*LOGN("Resizing client main window");*/
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
-        LOGN("Resizing client decoration");
+        /*LOGN("Resizing client decoration");*/
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
 
@@ -1763,6 +1862,11 @@ setup(void)
     conf.manage[Splash]  = MANAGE_SPLASH;
     conf.manage[Utility] = MANAGE_UTILITY;
     conf.decorate        = DECORATE_NEW;
+    conf.move_mask       = MOVE_MASK;
+    conf.resize_mask     = RESIZE_MASK;
+    conf.fs_remove_dec   = FULLSCREEN_REMOVE_DEC;
+    conf.fs_max          = FULLSCREEN_MAX;
+    conf.pointer_interval= POINTER_INTERVAL;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
@@ -1773,7 +1877,7 @@ setup(void)
     XDefineCursor(display, root, normal_cursor);
 
     XSelectInput(display, root,
-            SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
+            StructureNotifyMask|SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|Button1Mask);
     xerrorxlib = XSetErrorHandler(xerror);
 
     check = XCreateSimpleWindow(display, root, 0, 0, 1, 1, 0, 0, 0);
@@ -1788,6 +1892,7 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    /*net_atom[NetWMMoveresize]        = XInternAtom(display, "_NET_WM_MOVERESIZE", False);*/
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
