@@ -1472,7 +1472,7 @@ client_monocle(struct client *c)
 static void
 client_place(struct client *c) 
 {
-    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap;
+    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap, x_off, y_off;
 
     mon = ws_m_list[c->ws];
     width = m_list[mon].width / PLACE_RES;
@@ -1481,11 +1481,12 @@ client_place(struct client *c)
     b_gap = conf.bot_gap / PLACE_RES;
     l_gap = conf.left_gap / PLACE_RES;
     r_gap = conf.right_gap / PLACE_RES;
+    x_off = m_list[mon].x / PLACE_RES;
+    y_off = m_list[mon].y / PLACE_RES;
 
     // If this is the first window in the workspace, we can simply center
     // it. Also center it if the user wants to disable smart placeement.
     if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
-    /*if (!conf.smart_place) {*/
         client_center(c);
         return;
     }
@@ -1503,12 +1504,12 @@ client_place(struct client *c)
         if (tmp != c) {
             struct client_geom *geom = &tmp->geom;
             for (int i = geom->y / PLACE_RES; 
-                 i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES) && i < width;
+                 i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES) && i < height + y_off;
                  i++) {
                 for (int j = geom->x / PLACE_RES; 
-                     j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES) && j < width;
+                     j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES) && j < width + x_off;
                      j++) {
-                    opt[i][j] = 0;
+                    opt[i-y_off][j-x_off] = 0;
                 }
             }
         }
@@ -1560,9 +1561,9 @@ client_place(struct client *c)
             }
             // the window WILL fit here
             if (count >= c->geom.width / PLACE_RES) {
-                client_move_absolute(c, 
-                                    MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2)),
-                                    MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2)));
+                int place_x = x_off * PLACE_RES + MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2));
+                int place_y = y_off * PLACE_RES + MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2));
+                client_move_absolute(c, place_x, place_y);
                 return;
             }
             count = 0;
