@@ -1787,7 +1787,7 @@ safe_to_focus(int ws)
 {
     int mon = ws_m_list[ws];
 
-    if (m_count == 2)
+    if (m_count == 1)
         return false;
     
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
@@ -1801,16 +1801,23 @@ safe_to_focus(int ws)
 static void
 client_send_to_ws(struct client *c, int ws)
 {
-    int prev;
+    int prev, mon_next, mon_prev, x_off, y_off;
+    mon_next = ws_m_list[ws];
+    mon_prev = ws_m_list[c->ws];
     client_delete(c);
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
-    client_hide(c);
     focus_next(f_list[prev]);
+
+    x_off = c->geom.x - m_list[mon_prev].x;
+    y_off = c->geom.y - m_list[mon_prev].y;
+    client_move_absolute(c, m_list[mon_next].x + x_off, m_list[mon_next].y + y_off); 
 
     if (safe_to_focus(ws))
         client_show(c);
+    else
+        client_hide(c);
 
     client_refresh(c);
     ewmh_set_desktop(c, ws);
