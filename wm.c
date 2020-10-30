@@ -633,8 +633,10 @@ handle_button_press(XEvent *e)
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
-    if (c != f_client)
+    if (c != f_client) {
+        switch_ws(c->ws);
         client_manage_focus(c);
+    }
     ocx = c->geom.x;
     ocy = c->geom.y;
     ocw = c->geom.width;
@@ -1020,8 +1022,10 @@ ipc_pointer_focus(long *d)
          * However, don't change focus if the client is already focused
          * otherwise menu's will be hidden behind the parent window
          */
-        if (c != f_client)
+        if (c != f_client) {
             client_manage_focus(c);
+            switch_ws(c->ws);
+        }
     }
 }
 
