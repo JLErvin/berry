@@ -147,6 +147,15 @@ static void usage(void);
 static void version(void);
 static int xerror(Display *display, XErrorEvent *e);
 
+static int get_actual_x(struct client *c);
+static int get_actual_y(struct client *c);
+static int get_actual_width(struct client *c);
+static int get_actual_height(struct client *c);
+static int get_dec_width(struct client *c);
+static int get_dec_height(struct client *c);
+static int left_width(struct client *c);
+static int top_height(struct client *c);
+
 /* Native X11 Event handler */
 static void (*event_handler[LASTEvent])(XEvent *e) = {
     [MapRequest]       = handle_map_request,
@@ -594,6 +603,14 @@ handle_client_message(XEvent *e)
         if (c == NULL)
             return;
         client_manage_focus(c);
+    } else if (cme->message_type == net_atom[NetWMMoveResize]) {
+        LOGN("Handling MOVERESIZE");
+        struct client *c = get_client_from_window(cme->window);
+        if (c == NULL)
+            return;
+        data = cme->data.l;
+        client_move_absolute(c, data[1], data[2]);
+        client_resize_absolute(c, data[3], data[4]);
     }
 }
 
@@ -616,8 +633,10 @@ handle_button_press(XEvent *e)
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
-    if (c != f_client)
+    if (c != f_client) {
+        switch_ws(c->ws);
         client_manage_focus(c);
+    }
     ocx = c->geom.x;
     ocy = c->geom.y;
     ocw = c->geom.width;
@@ -736,6 +755,7 @@ handle_configure_request(XEvent *e)
 
     LOGN("Handling configure request event");
 
+
     wc.x = ev->x;
     wc.y = ev->y;
     wc.width = ev->width;
@@ -746,8 +766,17 @@ handle_configure_request(XEvent *e)
     XConfigureWindow(display, ev->window, ev->value_mask, &wc);
     c = get_client_from_window(ev->window);
 
-    if (c != NULL)
+    if (c != NULL) {
+        client_move_relative(c, 
+                wc.x - get_actual_x(c) - 2 * left_width(c), 
+                wc.y - get_actual_y(c) - 2 * top_height(c));
+        client_resize_relative(c, 
+                wc.width - get_actual_width(c) + 2 * get_dec_width(c), 
+                wc.height - get_actual_height(c) + 2 * get_dec_height(c));
         client_refresh(c);
+    } else {
+        LOGN("Window for configure was not found");
+    }
 }
 
 static void
@@ -993,8 +1022,10 @@ ipc_pointer_focus(long *d)
          * However, don't change focus if the client is already focused
          * otherwise menu's will be hidden behind the parent window
          */
-        if (c != f_client)
+        if (c != f_client) {
             client_manage_focus(c);
+            switch_ws(c->ws);
+        }
     }
 }
 
@@ -1445,7 +1476,7 @@ client_monocle(struct client *c)
 static void
 client_place(struct client *c) 
 {
-    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap;
+    int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap, x_off, y_off;
 
     mon = ws_m_list[c->ws];
     width = m_list[mon].width / PLACE_RES;
@@ -1454,11 +1485,12 @@ client_place(struct client *c)
     b_gap = conf.bot_gap / PLACE_RES;
     l_gap = conf.left_gap / PLACE_RES;
     r_gap = conf.right_gap / PLACE_RES;
+    x_off = m_list[mon].x / PLACE_RES;
+    y_off = m_list[mon].y / PLACE_RES;
 
     // If this is the first window in the workspace, we can simply center
     // it. Also center it if the user wants to disable smart placeement.
     if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
-    /*if (!conf.smart_place) {*/
         client_center(c);
         return;
     }
@@ -1476,12 +1508,12 @@ client_place(struct client *c)
         if (tmp != c) {
             struct client_geom *geom = &tmp->geom;
             for (int i = geom->y / PLACE_RES; 
-                 i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES) && i < width;
+                 i < (geom->y / PLACE_RES) + (geom->height / PLACE_RES) && i < height + y_off;
                  i++) {
                 for (int j = geom->x / PLACE_RES; 
-                     j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES) && j < width;
+                     j < (geom->x / PLACE_RES) + (geom->width / PLACE_RES) && j < width + x_off;
                      j++) {
-                    opt[i][j] = 0;
+                    opt[i-y_off][j-x_off] = 0;
                 }
             }
         }
@@ -1533,9 +1565,9 @@ client_place(struct client *c)
             }
             // the window WILL fit here
             if (count >= c->geom.width / PLACE_RES) {
-                client_move_absolute(c, 
-                                    MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2)),
-                                    MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2)));
+                int place_x = x_off * PLACE_RES + MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2));
+                int place_y = y_off * PLACE_RES + MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2));
+                client_move_absolute(c, place_x, place_y);
                 return;
             }
             count = 0;
@@ -1766,23 +1798,32 @@ safe_to_focus(int ws)
         if (i != ws && ws_m_list[i] == mon && c_list[i] != NULL && c_list[i]->hidden == false)
             return false;
 
+    LOGN("Workspace is safe to focus");
     return true;
 }
 
 static void
 client_send_to_ws(struct client *c, int ws)
 {
-    int prev;
+    int prev, mon_next, mon_prev, x_off, y_off;
+    mon_next = ws_m_list[ws];
+    mon_prev = ws_m_list[c->ws];
     client_delete(c);
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
-    client_hide(c);
     focus_next(f_list[prev]);
+
+    x_off = c->geom.x - m_list[mon_prev].x;
+    y_off = c->geom.y - m_list[mon_prev].y;
+    client_move_absolute(c, m_list[mon_next].x + x_off, m_list[mon_next].y + y_off); 
 
     if (safe_to_focus(ws))
         client_show(c);
+    else
+        client_hide(c);
 
+    client_refresh(c);
     ewmh_set_desktop(c, ws);
 }
 
@@ -1892,7 +1933,7 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
-    /*net_atom[NetWMMoveresize]        = XInternAtom(display, "_NET_WM_MOVERESIZE", False);*/
+    net_atom[NetWMMoveResize]        = XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
     net_atom[NetWMState]             = XInternAtom(display, "_NET_WM_STATE", False);
@@ -1989,8 +2030,8 @@ static void
 switch_ws(int ws)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        /*if (i != ws && ws_m_list[i] == ws_m_list[ws]) {*/
-        if (i != ws) {
+        if (i != ws && ws_m_list[i] == ws_m_list[ws]) {
+        /*if (i != ws) {*/
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
                 LOGN("Hiding client...");
@@ -2236,6 +2277,96 @@ xerror(Display *display, XErrorEvent *e)
 
     LOGP("Fatal request. Request code=%d, error code=%d", e->request_code, e->error_code);
     return xerrorxlib(display, e);
+}
+
+int 
+get_actual_x(struct client *c)
+{
+    int b_width, i_width;
+    
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return c->geom.x - b_width - i_width;
+}
+
+
+int
+get_actual_y(struct client *c)
+{
+    int t_height, b_width, i_width;
+    
+    t_height = c->decorated ? conf.t_height : 0;
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return c->geom.y - b_width - i_width - t_height;
+}
+
+int
+get_actual_width(struct client *c)
+{
+    int dec_width;
+
+    dec_width = get_dec_width(c);
+
+    return c->geom.width + dec_width;
+}
+
+int
+get_actual_height(struct client *c)
+{
+    int dec_height;
+
+    dec_height = get_dec_height(c);
+
+    return c->geom.height + dec_height;
+}
+
+int
+get_dec_width(struct client *c)
+{
+    int b_width, i_width;
+
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return 2 * (b_width + i_width);
+}
+
+int
+get_dec_height(struct client *c)
+{
+    int t_height, b_width, i_width;
+
+    t_height = c->decorated ? conf.t_height : 0;
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return 2 * (b_width + i_width) + t_height;
+}
+
+int
+left_width(struct client *c)
+{
+    int b_width, i_width;
+
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return  b_width + i_width;
+}
+
+int
+top_height(struct client *c)
+{
+    int t_height, b_width, i_width;
+    
+    t_height = c->decorated ? conf.t_height : 0;
+    b_width = c->decorated ? conf.b_width : 0;
+    i_width = c->decorated ? conf.i_width : 0;
+
+    return t_height + b_width + i_width;
 }
 
 int
