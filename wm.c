@@ -641,9 +641,11 @@ handle_button_press(XEvent *e)
     ocy = c->geom.y;
     ocw = c->geom.width;
     och = c->geom.height;
-    last_motion = ev.xmotion.time;
-    if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
+    last_motion = 0;
+    if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess) {
+        LOGN("Could not grab pointer, exiting...");
         return;
+    }
     do {
         XMaskEvent(display, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
         switch (ev.type) {
@@ -656,6 +658,7 @@ handle_button_press(XEvent *e)
                 current_time = ev.xmotion.time;
                 Time diff_time = current_time - last_motion;
                 if (diff_time < (Time)conf.pointer_interval) {
+                    LOGN("Pointer interval time too short, skipping event");
                     continue;
                 }
                 last_motion = current_time;
