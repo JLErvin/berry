@@ -83,6 +83,7 @@ static struct command c[] = {
     { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
     { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
+    { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
 };
 
 static void

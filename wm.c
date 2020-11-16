@@ -101,6 +101,7 @@ static void handle_unmap_notify(XEvent *e);
 static void handle_button_press(XEvent *e);
 static void handle_expose(XEvent *e);
 static void handle_property_notify(XEvent *e);
+static void handle_enter_notify(XEvent *e);
 
 /* IPC client functions */
 static void ipc_move_absolute(long *d);
@@ -167,6 +168,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) = {
     [PropertyNotify]   = handle_property_notify,
     [Expose]           = handle_expose,
     [FocusIn]          = handle_focus,
+    [EnterNotify]      = handle_enter_notify,
 };
 
 static void (*ipc_handler[IPCLast])(long *) = {
@@ -817,6 +819,32 @@ handle_unmap_notify(XEvent *e)
     }
 }
 
+static void
+handle_enter_notify(XEvent *e)
+{
+    XEnterWindowEvent *ev = &e->xcrossing;
+
+    struct client *c;
+
+    c = get_client_from_window(ev->window);
+
+    if (c != NULL && conf.focus_follows_pointer)
+    {
+        if (c != f_client)
+        {
+	    /* Same as ipc_pointer_focus, don't re-focus windows
+             * or switch to current workspace.
+             */
+	    client_manage_focus(c);
+
+	    if (c->ws != curr_ws)
+	    {
+	        switch_ws(c->ws);
+	    }
+        }
+    }
+}
+
 /* Hides the given Client by moving it outside of the visible display */
 static void
 client_hide(struct client *c)
@@ -1112,6 +1140,8 @@ ipc_config(long *d)
         case IPCPointerInterval:
             conf.pointer_interval = d[1];
             break;
+        case IPCFocusFollowsPointer:
+	    conf.focus_follows_pointer = d[2];
         default:
             break;
     }
