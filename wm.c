@@ -603,6 +603,10 @@ handle_client_message(XEvent *e)
         if (c == NULL)
             return;
         client_manage_focus(c);
+
+    } else if (cme->message_type == net_atom[NetCurrentDesktop]) {
+        switch_ws(cme->data.l[0]);
+
     } else if (cme->message_type == net_atom[NetWMMoveResize]) {
         LOGN("Handling MOVERESIZE");
         struct client *c = get_client_from_window(cme->window);
