@@ -372,7 +372,7 @@ client_decorations_create(struct client *c)
 
     c->dec = dec;
     c->decorated = true;
-    XSelectInput (display, c->dec, ExposureMask);
+    XSelectInput (display, c->dec, ExposureMask|EnterWindowMask);
     XGrabButton(display, 1, AnyModifier, c->dec, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     draw_text(c, true);
     ewmh_set_frame_extents(c);
@@ -828,19 +828,12 @@ handle_enter_notify(XEvent *e)
 
     c = get_client_from_window(ev->window);
 
-    if (c != NULL && conf.focus_follows_pointer)
-    {
-        if (c != f_client)
-        {
-	    /* Same as ipc_pointer_focus, don't re-focus windows
-             * or switch to current workspace.
-             */
-	    client_manage_focus(c);
+    if (c != NULL && conf.focus_follows_pointer) {
+        if (c != f_client) {
+            client_manage_focus(c);
 
-	    if (c->ws != curr_ws)
-	    {
-	        switch_ws(c->ws);
-	    }
+            if (c->ws != curr_ws)
+                switch_ws(c->ws);
         }
     }
 }
@@ -1942,6 +1935,7 @@ setup(void)
     conf.fs_remove_dec   = FULLSCREEN_REMOVE_DEC;
     conf.fs_max          = FULLSCREEN_MAX;
     conf.pointer_interval= POINTER_INTERVAL;
+    conf.focus_follows_pointer = FOCUS_FOLLOWS_POINTER;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);

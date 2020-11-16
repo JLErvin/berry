@@ -48,5 +48,6 @@
 #define MOVE_MASK Mod4Mask
 #define RESIZE_MASK Mod1Mask
 #define POINTER_INTERVAL 0
+#define FOCUS_FOLLOWS_POINTER false
 
 #endif
