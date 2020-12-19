@@ -1516,7 +1516,7 @@ client_place(struct client *c)
     y_off = m_list[mon].y / PLACE_RES;
 
     // If this is the first window in the workspace, we can simply center
-    // it. Also center it if the user wants to disable smart placeement.
+    // it. Also center it if the user wants to disable smart placement.
     if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
         client_center(c);
         return;
