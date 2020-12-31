@@ -35,7 +35,7 @@ static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated
 static int curr_ws = 0;
 static int m_count = 0;
 static Cursor move_cursor, normal_cursor;
-static Display *display;
+static Display *display = NULL;
 static Atom net_atom[NetLast], wm_atom[WMLast], net_berry[BerryLast];
 static Window root, check, nofocus;
 static bool running = true;
@@ -564,7 +564,6 @@ get_client_from_window(Window w)
 static void
 handle_client_message(XEvent *e)
 {
-    struct client *c;
     XClientMessageEvent *cme = &e->xclient;
     long cmd, *data;
 
@@ -578,7 +577,7 @@ handle_client_message(XEvent *e)
         data = cme->data.l;
         ipc_handler[cmd](data);
     } else if (cme->message_type == net_atom[NetWMState]) {
-        c = get_client_from_window(cme->window);
+        struct client* c = get_client_from_window(cme->window);
         if (c == NULL) {
             LOGN("client not found...");
             return;
@@ -666,14 +665,14 @@ handle_button_press(XEvent *e)
                     continue;
                 }
                 last_motion = current_time;
-                if (ev.xbutton.state == (conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
+                if (ev.xbutton.state == (unsigned)(conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
                     nx = ocx + (ev.xmotion.x - x);
                     ny = ocy + (ev.xmotion.y - y);
                     if (conf.edge_lock)
                         client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
                     else
                         client_move_absolute(c, nx, ny);
-                } else if (ev.xbutton.state == (conf.resize_mask|Button1Mask)) {
+                } else if (ev.xbutton.state == (unsigned)(conf.resize_mask|Button1Mask)) {
                     nw = ev.xmotion.x - x;
                     nh = ev.xmotion.y - y;
                     if (conf.edge_lock)
@@ -2288,7 +2287,7 @@ version(void)
 }
 
 static int
-xerror(Display *display, XErrorEvent *e)
+xerror(Display *dpy, XErrorEvent *e)
 {
     /* this is stolen verbatim from katriawm which stole it from dwm lol */
     if (e->error_code == BadWindow ||
@@ -2305,7 +2304,7 @@ xerror(Display *display, XErrorEvent *e)
         return 0;
 
     LOGP("Fatal request. Request code=%d, error code=%d", e->request_code, e->error_code);
-    return xerrorxlib(display, e);
+    return xerrorxlib(dpy, e);
 }
 
 int 
