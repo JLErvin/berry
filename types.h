@@ -1,6 +1,8 @@
 #ifndef _BERRY_TYPES_H_
 #define _BERRY_TYPES_H_
 
+#include "config.h"
+
 #include <X11/Xlib.h>
 #include <stdbool.h>
 #include <stdint.h>

@@ -1,6 +1,8 @@
 /* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
 /* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -11,7 +13,6 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
-#include "config.h"
 #include "globals.h"
 #include "ipc.h"
 #include "utils.h"

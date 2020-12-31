@@ -1,6 +1,8 @@
 /* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
 /* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
 
+#include "config.h"
+
 #include <limits.h>
 #include <math.h>
 #include <stdbool.h>
@@ -19,7 +21,6 @@
 #include <X11/cursorfont.h>
 #include <X11/Xft/Xft.h>
 
-#include "config.h"
 #include "globals.h"
 #include "ipc.h"
 #include "types.h"

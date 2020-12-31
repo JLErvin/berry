@@ -1,60 +1,121 @@
 # berry - a healthy, bite-sized window manager
 # See LICENSE file for copyright and license details.
 
-include config.mk
+-include Config.mk
 
-SRC = client.c utils.c wm.c
-OBJ = ${SRC:.c=.o}
+################ Source files ##########################################
 
-all: options berry berryc
+berry	:= $O${name}
+berryc	:= ${berry}c
+srcs	:= $(wildcard *.c)
+objs	:= $(addprefix $O,$(srcs:.c=.o))
+deps	:= ${objs:.o=.d}
+confs	:= Config.mk config.h
+oname   := $(notdir $(abspath $O))
 
-options:
-	@echo berry build options:
-	@echo "CFLAGS   = ${CFLAGS}"
-	@echo "LDFLAGS  = ${LDFLAGS}"
-	@echo "CC       = ${CC}"
+################ Compilation ###########################################
 
-.c.o:
-	${CC} -c ${CFLAGS} $<
+.SUFFIXES:
+.PHONY: all clean distclean maintainer-clean
 
-${OBJ}: config.h config.mk globals.h ipc.h types.h utils.h
+all:	${berry} ${berryc}
 
-config.h:
-	cp config.def.h $@
+${berry}:	$Outils.o $Owm.o
+	@echo "Linking $@ ..."
+	@${CC} ${ldflags} -o $@ $^ ${libs}
 
-berry: utils.o wm.o
-	${CC} -o $@ utils.o wm.o ${LDFLAGS}
+${berryc}:	$Oclient.o
+	@echo "Linking $@ ..."
+	@${CC} ${ldflags} -o $@ $^ ${libs}
 
-berryc: client.o
-	${CC} -o $@ client.o ${LDFLAGS}
+$O%.o:	%.c
+	@echo "    Compiling $< ..."
+	@${CC} ${cflags} -MMD -MT "$(<:.c=.s) $@" -o $@ -c $<
+
+%.s:	%.c
+	@echo "    Compiling $< to assembly ..."
+	@${CC} ${cflags} -S -o $@ -c $<
+
+################ Installation ##########################################
+
+.PHONY:	install installdirs
+.PHONY: uninstall uninstall-man
+
+ifdef bindir
+exed	:= ${DESTDIR}${bindir}
+berryi	:= ${exed}/$(notdir ${berry})
+berryci	:= ${exed}/$(notdir ${berryc})
+
+${exed}:
+	@echo "Creating $@ ..."
+	@${INSTALL} -d $@
+${berryi}:	${berry} | ${exed}
+	@echo "Installing $@ ..."
+	@${INSTALL_PROGRAM} $< $@
+${berryci}:	${berryc} | ${exed}
+	@echo "Installing $@ ..."
+	@${INSTALL_PROGRAM} $< $@
+
+installdirs:	${exed}
+install:	${berryi} ${berryci}
+uninstall:
+	@if [ -f ${exei} ]; then\
+	    echo "Removing ${berryi} and ${berryci} ...";\
+	    rm -f ${berryi} ${berryci};\
+	fi
+endif
+ifdef man1dir
+mand	:= ${DESTDIR}${man1dir}
+mani	:= ${mand}/${name}.1
+manci	:= ${mand}/${name}c.1
+
+${mand}:
+	@echo "Creating $@ ..."
+	@${INSTALL} -d $@
+${mani}:	${name}.1 | ${mand}
+	@echo "Installing $@ ..."
+	@${INSTALL_DATA} $< $@
+${manci}:	${name}c.1 | ${mand}
+	@echo "Installing $@ ..."
+	@${INSTALL_DATA} $< $@
+
+installdirs:	${mand}
+install:	${mani} ${manci}
+uninstall:	uninstall-man
+uninstall-man:
+	@if [ -f ${mani} ]; then\
+	    echo "Removing ${mani} and ${manci} ...";\
+	    rm -f ${mani} ${manci};\
+	fi
+endif
+
+################ Maintenance ###########################################
 
 clean:
-	rm -f berry berryc ${OBJ} berry-${VERSION}.tar.gz
+	@if [ -d ${builddir} ]; then\
+	    rm -f ${berry} ${berryc} ${objs} ${deps} $O.d;\
+	    rmdir ${builddir};\
+	fi
 
-dist: clean
-	mkdir -p berry-${VERSION}
-	cp -R LICENSE Makefile README.md config.def.h config.mk\
-		berry.1 berryc.1 globals.h ipc.h types.h utils.h ${SRC} berry-${VERSION}
-	tar -cf berry-${VERSION}.tar berry-${VERSION}
-	gzip berry-${VERSION}.tar
-	rm -rf berry-${VERSION}
+distclean:	clean
+	@rm -f ${oname} ${confs} config.status
 
-install: all
-	mkdir -p ${DESTDIR}${PREFIX}/bin
-	cp -f berry ${DESTDIR}${PREFIX}/bin
-	cp -f berryc ${DESTDIR}${PREFIX}/bin
-	chmod 755 ${DESTDIR}${PREFIX}/bin/berry
-	chmod 755 ${DESTDIR}${PREFIX}/bin/berryc
-	mkdir -p ${DESTDIR}${MANPREFIX}/man1
-	sed "s/VERSION/${VERSION}/g" < berry.1 > ${DESTDIR}${MANPREFIX}/man1/berry.1
-	sed "s/VERSION/${VERSION}/g" < berryc.1 > ${DESTDIR}${MANPREFIX}/man1/berryc.1
-	chmod 644 ${DESTDIR}${MANPREFIX}/man1/berry.1
-	chmod 644 ${DESTDIR}${MANPREFIX}/man1/berryc.1
+maintainer-clean: distclean
 
-uninstall:
-	rm -f ${DESTDIR}${PREFIX}/bin/berry\
-		${DESTDIR}${PREFIX}/bin/berryc\
-		${DESTDIR}${MANPREFIX}/man1/berry.1\
-		${DESTDIR}${MANPREFIX}/man1/berryc.1
+${builddir}/.d:
+	@[ -d $(dir $@) ] || mkdir -p $(dir $@)
+	@touch $@
+$O.d:	| ${builddir}/.d
+	@[ -h ${oname} ] || ln -sf ${builddir} ${oname}
 
-.PHONY: all options clean dist install uninstall
+${objs}:	Makefile ${confs} | $O.d
+config.h:	config.h.in | Config.mk
+Config.mk:	Config.mk.in
+${confs}:	configure
+	@if [ -x config.status ]; then echo "Reconfiguring ...";\
+	    ./config.status;\
+	else echo "Running configure ...";\
+	    ./configure;\
+	fi
+
+-include ${deps}

@@ -1,6 +1,23 @@
 #ifndef _BERRY_CONFIG_H_
 #define _BERRY_CONFIG_H_
 
+/* Define to the one symbol short name of this package. */
+#define @pkg_uname@_NAME	"@pkg_name@"
+/* Define to the version of this package. */
+#define @pkg_uname@_VERSION	@pkg_version@
+/* Define to the version string of this package. */
+#define @pkg_uname@_VERSTRING	"@pkg_verstr@"
+/* Define to the address where bug reports for this package should be sent. */
+#define @pkg_uname@_BUGREPORT	"@pkg_bugreport@"
+
+#define VERSION "@pkg_major@.@pkg_minor@.@pkg_build@"
+#define __THIS_VERSION__ VERSION
+#define __WINDOW_MANAGER_NAME__ @pkg_uname@_NAME
+
+#define _DEFAULT_SOURCE 1
+#define _BSD_SOURCE 1
+#define _POSIX_C_SOURCE 2
+
 /* CHANGE THIS TO USE A DIFFERENT FONT */
 #define DEFAULT_FONT "Monospace 10"
 
