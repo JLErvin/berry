@@ -145,6 +145,7 @@ static void run(void);
 static bool safe_to_focus(int ws);
 static void setup(void);
 static void switch_ws(int ws);
+static void warp_pointer(struct client *c);
 static void usage(void);
 static void version(void);
 static int xerror(Display *display, XErrorEvent *e);
@@ -809,7 +810,6 @@ handle_unmap_notify(XEvent *e)
     c = get_client_from_window(ev->window);
 
     if (c != NULL) {
-        /*focus_next(c);*/
         focus_best(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
@@ -826,15 +826,19 @@ handle_enter_notify(XEvent *e)
 
     struct client *c;
 
+    if (!conf.follow_pointer)
+        return;
+
     c = get_client_from_window(ev->window);
 
-    if (c != NULL && conf.focus_follows_pointer) {
-        if (c != f_client) {
-            client_manage_focus(c);
-
-            if (c->ws != curr_ws)
-                switch_ws(c->ws);
-        }
+    if (c != NULL && c != f_client) {
+        bool warp_pointer;
+        warp_pointer = conf.warp_pointer;
+        conf.warp_pointer = false;
+        client_manage_focus(c);
+        if (c->ws != curr_ws)
+            switch_ws(c->ws);
+        conf.warp_pointer = warp_pointer;
     }
 }
 
@@ -1059,7 +1063,7 @@ ipc_config(long *d)
 {
     enum IPCCommand cmd = d[1];
     LOGP("Handling config command of type %ld", d[1]);
-    LOGP("Data has value %ld", d[1]);
+    LOGP("Data has value %ld", d[2]);
 
     switch (cmd) {
         case IPCFocusColor:
@@ -1131,10 +1135,14 @@ ipc_config(long *d)
             grab_buttons();
             break;
         case IPCPointerInterval:
-            conf.pointer_interval = d[1];
+            conf.pointer_interval = d[2];
             break;
         case IPCFocusFollowsPointer:
-	    conf.focus_follows_pointer = d[2];
+            conf.follow_pointer = d[2];
+            break;
+        case IPCWarpPointer:
+            conf.warp_pointer = d[2];
+            break;
         default:
             break;
     }
@@ -1249,6 +1257,8 @@ client_manage_focus(struct client *c)
         draw_text(c, true);
         client_raise(c);
         client_set_input(c);
+        if (conf.warp_pointer)
+            warp_pointer(c);
         ewmh_set_focus(c);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     } else { //client is null, might happen when switching to a new workspace
@@ -1906,36 +1916,37 @@ setup(void)
     int mon;
     XSetWindowAttributes wa = { .override_redirect = true };
     // Setup our conf initially
-    conf.b_width         = BORDER_WIDTH;
-    conf.t_height        = TITLE_HEIGHT;
-    conf.i_width         = INTERNAL_BORDER_WIDTH;
-    conf.bf_color        = BORDER_FOCUS_COLOR;
-    conf.bu_color        = BORDER_UNFOCUS_COLOR;
-    conf.if_color        = INNER_FOCUS_COLOR;
-    conf.iu_color        = INNER_UNFOCUS_COLOR; 
-    conf.m_step          = MOVE_STEP;
-    conf.r_step          = RESIZE_STEP;
-    conf.focus_new       = FOCUS_NEW;
-    conf.edge_lock       = EDGE_LOCK;
-    conf.t_center        = TITLE_CENTER;
-    conf.top_gap         = TOP_GAP;
-    conf.bot_gap         = BOT_GAP;
-    conf.smart_place     = SMART_PLACE;
-    conf.draw_text       = DRAW_TEXT;
-    conf.json_status     = JSON_STATUS;
-    conf.manage[Dock]    = MANAGE_DOCK;
-    conf.manage[Dialog]  = MANAGE_DIALOG;
-    conf.manage[Toolbar] = MANAGE_TOOLBAR;
-    conf.manage[Menu]    = MANAGE_MENU;
-    conf.manage[Splash]  = MANAGE_SPLASH;
-    conf.manage[Utility] = MANAGE_UTILITY;
-    conf.decorate        = DECORATE_NEW;
-    conf.move_mask       = MOVE_MASK;
-    conf.resize_mask     = RESIZE_MASK;
-    conf.fs_remove_dec   = FULLSCREEN_REMOVE_DEC;
-    conf.fs_max          = FULLSCREEN_MAX;
-    conf.pointer_interval= POINTER_INTERVAL;
-    conf.focus_follows_pointer = FOCUS_FOLLOWS_POINTER;
+    conf.b_width          = BORDER_WIDTH;
+    conf.t_height         = TITLE_HEIGHT;
+    conf.i_width          = INTERNAL_BORDER_WIDTH;
+    conf.bf_color         = BORDER_FOCUS_COLOR;
+    conf.bu_color         = BORDER_UNFOCUS_COLOR;
+    conf.if_color         = INNER_FOCUS_COLOR;
+    conf.iu_color         = INNER_UNFOCUS_COLOR; 
+    conf.m_step           = MOVE_STEP;
+    conf.r_step           = RESIZE_STEP;
+    conf.focus_new        = FOCUS_NEW;
+    conf.edge_lock        = EDGE_LOCK;
+    conf.t_center         = TITLE_CENTER;
+    conf.top_gap          = TOP_GAP;
+    conf.bot_gap          = BOT_GAP;
+    conf.smart_place      = SMART_PLACE;
+    conf.draw_text        = DRAW_TEXT;
+    conf.json_status      = JSON_STATUS;
+    conf.manage[Dock]     = MANAGE_DOCK;
+    conf.manage[Dialog]   = MANAGE_DIALOG;
+    conf.manage[Toolbar]  = MANAGE_TOOLBAR;
+    conf.manage[Menu]     = MANAGE_MENU;
+    conf.manage[Splash]   = MANAGE_SPLASH;
+    conf.manage[Utility]  = MANAGE_UTILITY;
+    conf.decorate         = DECORATE_NEW;
+    conf.move_mask        = MOVE_MASK;
+    conf.resize_mask      = RESIZE_MASK;
+    conf.fs_remove_dec    = FULLSCREEN_REMOVE_DEC;
+    conf.fs_max           = FULLSCREEN_MAX;
+    conf.pointer_interval = POINTER_INTERVAL;
+    conf.follow_pointer   = FOLLOW_POINTER;
+    conf.warp_pointer     = WARP_POINTER;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
@@ -2093,6 +2104,13 @@ switch_ws(int ws)
     LOGP("Setting Screen #%d with active workspace %d", m_list[mon].screen, ws);
     client_manage_focus(c_list[curr_ws]);
     ewmh_set_active_desktop(ws);
+    XSync(display, True);
+}
+
+static void
+warp_pointer(struct client *c)
+{
+    XWarpPointer(display, None, c->dec, 0, 0, 0, 0, c->geom.width / 2, c->geom.height / 2);
 }
 
 static void
