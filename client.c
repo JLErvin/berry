@@ -1,6 +1,8 @@
 /* Copyright (c) 2018 Joshua L Ervin. All rights reserved. */
 /* Licensed under the MIT License. See the LICENSE file in the project root for full license information. */
 
+#include "config.h"
+
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -11,7 +13,6 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
-#include "config.h"
 #include "globals.h"
 #include "ipc.h"
 #include "utils.h"
@@ -25,19 +26,17 @@ static void fn_int_str(long *, bool, int, char **);
 static void usage(void);
 static void version(void);
 
-struct command
-{
-    char *name;
+static Display* display = NULL;
+static Window root = 0;
+
+struct command {
+    const char* name;
     enum IPCCommand cmd;
     bool config;
     int argc;
     void (*handler)(long *, bool, int, char **);
 };
-
-Display *display;
-Window root;
-
-static struct command c[] = {
+static const struct command command_table[] = {
     { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
     { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     }, 
     { "window_resize",          IPCWindowResizeRelative,    false, 2, fn_int     },
@@ -190,7 +189,7 @@ version(void)
 }
 
 static void
-send_command(struct command *c, int argc, char **argv)
+send_command(const struct command *c, int argc, char **argv)
 {
     XEvent ev;
     UNUSED(argc);
@@ -252,14 +251,14 @@ main(int argc, char **argv)
     else if (strcmp(argv[1], "-v") == 0)
         version();
 
-    for (int i = 0; i < (int)(sizeof c / sizeof c[0]); i++) {
-        if (strcmp(argv[1], c[i].name) == 0) {
-            if (c[i].argc != c_argc) {
+    for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
+        if (strcmp(argv[1], command_table[i].name) == 0) {
+            if (command_table[i].argc != c_argc) {
                 printf("Wrong number of arguments\n");
-                printf("%d expected for command %s\n", c[i].argc, c[i].name);
+                printf("%d expected for command %s\n", command_table[i].argc, command_table[i].name);
                 return EXIT_FAILURE;
             }
-            send_command(&c[i], c_argc, c_argv);
+            send_command(&command_table[i], c_argc, c_argv);
             return EXIT_SUCCESS;
         }
     }

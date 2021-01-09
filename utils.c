@@ -1,12 +1,9 @@
+#include "types.h"
+#include "utils.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <X11/Xlib.h>
-
-
-#include "types.h"
-#include "utils.h"
 
 int
 asprintf(char **buf, const char *fmt, ...)

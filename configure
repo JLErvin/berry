@@ -1,0 +1,196 @@
+#! /bin/sh
+######################################################################
+# Project Configuration						     #
+######################################################################
+
+pkg_name="berry"
+pkg_verstr="0.1.7"
+pkg_bugreport="Joshua L Ervin <joshue@uw.edu>"
+
+# Files that get created by this script
+files="Config.mk config.h"
+
+# Package options
+components='
+{
+name=[with-debug]
+desc=[	Compile for debugging]
+seds=[s/^#\(debug\)/\1/]
+}{
+name=[with-native]
+desc=[	Use -march=native]
+seds=[s/ -std=c/ -march=native -std=c/]
+}';
+
+# First pair is used if nothing matches
+progs="CC=gcc CC=clang CC=cc INSTALL=install"
+
+# Required dependencies
+pkgs="x11 xinerama fontconfig xft"
+
+# Default pkg flags to substitute when pkg-config is not found
+pkg_libs="-lX11 -lXinerama -lfontconfig -lfreetype -lXft"
+pkg_cflags="-I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harfbuzz -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include"
+pkg_ldflags=""
+
+# Automatic vars
+[ -d .git ] && pkg_verstr=`git describe --always --tags`
+pkg_major=`expr "$pkg_verstr" : '\([0-9]*\)\.[0-9]*\.[0-9]*'`
+pkg_minor=`expr "$pkg_verstr" : '[0-9]*\.\([0-9]*\)\.[0-9]*'`
+pkg_build=`expr "$pkg_verstr" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+pkg_string="$pkg_name $pkg_verstr"
+
+# Miscellaneous substitutions
+custsubs="s/@pkg_name@/$pkg_name/g
+s/@pkg_version@/0x$pkg_major$pkg_minor$pkg_build/g
+s/@pkg_verstr@/$pkg_verstr/g
+s/@pkg_string@/$pkg_string/g
+s/@pkg_uname@/`echo $pkg_name|tr a-z A-Z`/g
+s/@pkg_bugreport@/$pkg_bugreport/g
+s/@pkg_major@/$pkg_major/g
+s/@pkg_minor@/$pkg_minor/g
+s/@pkg_build@/$pkg_build/g"
+
+######################################################################
+#### The rest of the file is configuration code. Leave it alone. #####
+######################################################################
+
+die() { rm -f config.sed; exit; }
+sub() { printf "%s\n" "$1">>config.sed; }
+escpath() { echo $1 | sed 's/\//\\\//g'; }
+
+#### Printing helper functions #######################################
+
+print_components() {
+    local cc name desc
+    cc=$components
+    echo "Options:"
+    while [ ! -z "$cc" ]; do
+	name=`expr "$cc" : '[^}]*name=\[\([^]]*\)\]'`
+	desc=`expr "$cc" : '[^}]*desc=\[\([^]]*\)\]'`
+	echo "  --$name	$desc"
+	cc=`expr "$cc" : '[^}]*}\(.*\)'`
+    done
+    echo
+}
+
+print_help() {
+    echo "This program configures $pkg_string build system.
+
+Usage: configure [option]...
+
+Configuration:
+  -h, --help		display this help and exit
+  -V, --version		display version information and exit
+
+Installation directories:
+  --prefix=dir		architecture-independent root [/usr/local]
+  --bindir=dir		admin executable dir [prefix/bin]
+  --datadir=dir		architecture-independent data dir [prefix/share]
+  --mandir=dir		man page root [datadir/man]
+  --man1dir=dir		man 1 page root [mandir/man1]
+  --builddir=dir	location for compiled objects [\$TMPDIR/make]
+"
+    print_components
+    echo "Report bugs to $pkg_bugreport"
+}
+
+print_version() {
+    echo "$pkg_name $pkg_verstr configure"
+}
+
+sub_var() {
+    local esc2
+    esc2=`escpath $2`
+    eval ac_var_$1='$esc2';
+    sub "s/@$1@/$esc2/g"
+}
+
+sub_comp() {
+    local cc name seds
+    cc=$components
+    while [ ! -z "$cc" ]; do
+	name=`expr "$cc" : '[^}]*name=\[\([^]]*\)\]'`
+	seds=`expr "$cc" : '[^}]*seds=\[\([^]]*\)\]'`
+	[ "$name" = "$1" ] && sub "$seds"
+	cc=`expr "$cc" : '[^}]*}\(.*\)'`
+    done
+}
+
+for i in $*; do
+    case $i in
+	--)		break;;
+	--version |-V)	print_version && die;;
+	--help |-h |-?)	print_help && die;;
+	--*=*)		sub_var `expr -- "$i" : '--\([^=]*\)='` `expr -- "$i" : '[^=]*=\(.*\)'`;;
+	--*)		sub_comp `expr -- "$i" : '--\(.*\)'`;;
+	*)		echo "Error: unrecognized option \"$i\"" && die;;
+    esac
+done
+
+#### Set directory prefixes ##########################################
+
+sub "s/@prefix@/${ac_var_prefix:=\/usr\/local}/g
+s/@bindir@/${ac_var_bindir:=\$\{prefix\}\/bin}/g
+s/@datadir@/${ac_var_datadir:=\$\{prefix\}\/share}/g
+s/@mandir@/${ac_var_mandir:=\$\{datadir\}\/man}/g
+s/@man1dir@/${ac_var_man1dir:=\$\{mandir\}\/man1}/g
+s/@TMPDIR@/$(escpath ${TMPDIR:-/tmp})/g
+s/@builddir@/\$\{TMPDIR\}\/make/g"
+
+#### Find headers, libs, programs, and subs ##########################
+
+# Programs found using which
+for i in $progs; do
+    pname=`expr "$i" : '\([^=]*\)=[^=]*'`
+    pcall=`expr "$i" : '[^=]*=\([^=]*\)'`
+    ppath=`eval echo \$\{$pname\}`
+    ppath=`escpath "$ppath"`
+    # First check if an environment variable is set
+    [ ! -z "$ppath" ] && sub "s/@$pname@/$ppath/g"
+    # Check if the program exists
+    ppath=`which $pcall 2>/dev/null`
+    [ ! -z "$ppath" -a -x "$ppath" ] && sub "s/@$pname@/$pcall/g"
+done
+# If nothing found in first loop, set the first pair anyway
+for i in $progs; do
+    pname=`expr "$i" : '\([^=]*\)=[^=]*'`
+    pcall=`expr "$i" : '[^=]*=\([^=]*\)'`
+    sub "s/@$pname@/$pcall/g"
+done
+
+# Packages found using pkg-config
+pkgconfig=`which pkg-config 2>/dev/null`
+if [ ! -z "$pkgconfig" -a -x "$pkgconfig" ]; then
+    faildeps=""
+    for i in $pkgs; do
+	`$pkgconfig --exists $i` || faildeps="$i $faildeps"
+    done
+    if [ ! -z "$faildeps" ]; then
+	echo "Error: missing required packages: $faildeps"; die
+    fi
+    pkg_cflags=$(escpath "$($pkgconfig --cflags $pkgs)")
+    pkg_libs=$(escpath "$($pkgconfig --libs-only-l $pkgs)")
+    pkg_ldflags=$(escpath "$($pkgconfig --libs-only-L --libs-only-other $pkgs)")
+fi
+sub "s/@pkg_cflags@/$pkg_cflags/"
+sub "s/@pkg_libs@/$pkg_libs/"
+sub "s/@pkg_ldflags@/$pkg_ldflags/"
+
+# Miscellaneous custom substitutions
+sub "$custsubs"
+
+#### Apply substitutions to all files ################################
+
+for i in $files; do
+    sed -f config.sed $i.in > $i
+done
+
+touch config.status
+echo "#! /bin/sh
+$0 $*
+`tail -n+3 config.status`" > config.status.new
+chmod u+x config.status.new
+mv config.status.new config.status
+
+die

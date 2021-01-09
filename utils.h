@@ -1,10 +1,9 @@
 #ifndef _BERRY_UTILS_H_
 #define _BERRY_UTILS_H_
 
+#include "types.h"
 #include <X11/Xlib.h>
 #include <stdarg.h>
-
-#include "types.h"
 
 #define MAX(a, b) ((a > b) ? (a) : (b))
 #define MIN(a, b) ((a < b) ? (a) : (b))

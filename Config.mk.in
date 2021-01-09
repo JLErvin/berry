@@ -1,0 +1,36 @@
+name		:= @pkg_name@
+VERSION		:= @pkg_major@.@pkg_minor@.@pkg_build@
+
+################ Programs ############################################
+
+CC		:= @CC@
+INSTALL		:= @INSTALL@
+INSTALL_DATA	:= ${INSTALL} -m 644
+INSTALL_PROGRAM	:= ${INSTALL} -m 755 -s
+
+################ Destination #########################################
+
+prefix		:= @prefix@
+bindir		:= @bindir@
+datadir		:= @datadir@
+mandir		:= @mandir@
+man1dir		:= @man1dir@
+TMPDIR		:= @TMPDIR@
+builddir	:= @builddir@/${name}
+O		:= .o/
+
+################ Compiler options ####################################
+
+#debug		:= 1
+libs		:= @pkg_libs@
+ifdef debug
+    cflags	:= -O0 -ggdb3
+    ldflags	:= -g -rdynamic
+else
+    cflags	:= -Os -g0 -DNDEBUG=1
+    ldflags	:= -s
+endif
+CFLAGS		:= -Wall -Wextra -Wredundant-decls -Wshadow \
+		   -Wno-deprecated-declarations -pedantic
+cflags		+= -std=c99 @pkg_cflags@ ${CFLAGS}
+ldflags		+= @pkg_ldflags@ ${LDFLAGS}
