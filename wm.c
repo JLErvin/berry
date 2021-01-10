@@ -127,6 +127,7 @@ static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_set_font(long *d);
 static void ipc_edge_gap(long *d);
+static void ipc_toggle_for_window(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -194,6 +195,7 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCSetFont]                  = ipc_set_font,
     [IPCEdgeGap]                  = ipc_edge_gap,
+    [IPCToggleForWindow]          = ipc_toggle_for_window,
     [IPCConfig]                   = ipc_config
 };
 
@@ -548,8 +550,11 @@ focus_best(struct client *c)
 static struct client*
 get_client_from_window(Window w)
 {
+    LOGP("Looking for client with value %lu", w);
+    w = (unsigned long)w;
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+            LOGP("Window has ID %lu", tmp->window);
             if (tmp->window == w)
                 return tmp;
             else if (tmp->decorated && tmp->dec == w)
@@ -1159,6 +1164,18 @@ ipc_edge_gap(long *d)
     LOGN("Changing edge gap...");
 
     refresh_config();
+}
+
+static void
+ipc_toggle_for_window(long *d)
+{
+    struct client *c;
+    c = get_client_from_window(d[1]);
+    if (c == NULL) {
+        LOGN("Toggle for window could not find window");
+        return;
+    }
+    client_toggle_decorations(c);
 }
 
 static void

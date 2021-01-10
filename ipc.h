@@ -54,8 +54,9 @@ enum IPCCommand
     IPCMoveMask,
     IPCResizeMask,
     IPCPointerInterval,
-    IPCLast,
     IPCFocusFollowsPointer,
+    IPCToggleForWindow,
+    IPCLast,
 };
 
 enum WindowType

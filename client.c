@@ -19,6 +19,7 @@
 
 static void fn_hex(long *, bool, int, char **);
 static void fn_int(long *, bool, int, char **);
+static void fn_id(long *, bool, int, char **);
 static void fn_bool(long *, bool, int, char **);
 static void fn_font(long *, bool, int, char **);
 static void fn_str(long *, bool, int, char **);
@@ -83,6 +84,7 @@ static const struct command command_table[] = {
     { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
+    { "toggle_for_window",      IPCToggleForWindow,         false, 1, fn_id      },
 };
 
 static void
@@ -97,6 +99,14 @@ fn_int(long *data, bool b, int i, char **argv)
 {
     UNUSED(b);
     data[i+b] = strtol(argv[i - 1], NULL, 10);
+}
+
+static void
+fn_id(long *data, bool b, int i, char **argv)
+{
+    UNUSED(b);
+    data[i+b] = strtol(argv[i - 1], NULL, 0);
+    printf("Has value %lu\n", data[i+b]);
 }
 
 static void
