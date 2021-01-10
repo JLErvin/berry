@@ -105,8 +105,10 @@ static void
 fn_id(long *data, bool b, int i, char **argv)
 {
     UNUSED(b);
-    data[i+b] = strtol(argv[i - 1], NULL, 0);
-    printf("Has value %lu\n", data[i+b]);
+    if (strncmp(argv[i-1], "0x", 2) == 0)
+        data[i+b] = strtol(argv[i - 1], NULL, 0);
+    else
+        data[i+b] = 0;
 }
 
 static void

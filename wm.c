@@ -938,7 +938,13 @@ ipc_toggle_decorations(long *d)
     if (f_client == NULL)
         return ;
 
-    client_toggle_decorations(f_client);
+    if (d[1] == 0)
+        client_toggle_decorations(f_client);
+    else {
+        struct client *c;
+        c = get_client_from_window((Window)d[1]);
+        client_toggle_decorations(c);
+    }
 }
 
 static void
