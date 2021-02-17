@@ -1,4 +1,4 @@
-.o
+*.o
 config.status
 Config.mk
 config.h
