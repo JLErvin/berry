@@ -1860,7 +1860,6 @@ client_send_to_ws(struct client *c, int ws)
     else
         client_hide(c);
 
-    client_refresh(c);
     ewmh_set_desktop(c, ws);
 }
 
