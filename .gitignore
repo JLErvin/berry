@@ -1,4 +1,6 @@
-.o
+*.o
+berry
+berryc
 config.status
 Config.mk
 config.h
