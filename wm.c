@@ -283,10 +283,9 @@ close_wm(void)
 {
     LOGN("Shutting down window manager");
 
-    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
         while (c_list[i] != NULL)
             client_delete(c_list[i]);
-    }
 
 
     XDeleteProperty(display, root, net_berry[BerryWindowStatus]);
@@ -549,14 +548,13 @@ focus_best(struct client *c)
 static struct client*
 get_client_from_window(Window w)
 {
-    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
             if (tmp->window == w)
                 return tmp;
             else if (tmp->decorated && tmp->dec == w)
                 return tmp;
         }
-    }
 
     return NULL;
 }
@@ -1046,8 +1044,7 @@ ipc_pointer_focus(long *d)
     c = get_client_from_window(child);
 
     if (c != NULL)
-    {
-        /* Focus the client for either type of event 
+        /* Focus the client for either type of event
          * However, don't change focus if the client is already focused
          * otherwise menu's will be hidden behind the parent window
          */
@@ -1055,7 +1052,6 @@ ipc_pointer_focus(long *d)
             client_manage_focus(c);
             switch_ws(c->ws);
         }
-    }
 }
 
 static void
@@ -1296,14 +1292,12 @@ manage_new_window(Window w, XWindowAttributes *wa)
     }
 
     // Make sure we aren't trying to map the same window twice
-    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        for (struct client *tmp = c_list[i]; tmp; tmp = tmp->next) {
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        for (struct client *tmp = c_list[i]; tmp; tmp = tmp->next)
             if (tmp->window == w) {
                 LOGN("Error, window already mapped. Not mapping.");
                 return;
             }
-        }
-    }
 
     // Get class information for the current window
     XClassHint ch;
@@ -1541,7 +1535,8 @@ client_place(struct client *c)
         }
     }
 
-    for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
+// What the hell is going on over here?
+    for (struct client *tmp = f_list[curr_ws]; tmp != NULL; tmp = tmp->next)
         if (tmp != c) {
             struct client_geom *geom = &tmp->geom;
             for (int i = geom->y / PLACE_RES; 
@@ -1554,46 +1549,35 @@ client_place(struct client *c)
                 }
             }
         }
-    }
 
     /* NOTE: can we factor these for-loops.
      *       something something spatial locality?...
      */
 
-    for (int i = 0; i < t_gap; i++) { // top gap
-        for (int j = 0; j < width; j++) {
+    for (int i = 0; i < t_gap; i++) // top gap
+        for (int j = 0; j < width; j++)
             opt[i][j] = 0;
-        }
-    }
 
-    for (int i = height - b_gap; i < height; i++) {
-        for (int j = 0; j < width; j++) {
+    for (int i = height - b_gap; i < height; i++)
+        for (int j = 0; j < width; j++)
             opt[i][j] = 0;
-        }
-    }
 
-    for (int i = 0; i < height; i++) {
-        for (int j = 0; j < l_gap; j++) {
+    for (int i = 0; i < height; i++)
+        for (int j = 0; j < l_gap; j++)
             opt[i][j] = 0;
-        }
-    }
 
-    for (int i = 0; i < height; i++) {
-        for (int j = width; j < width - r_gap; j++) {
+    for (int i = 0; i < height; i++)
+        for (int j = width; j < width - r_gap; j++)
             opt[i][j] = 0;
-        }
-    }
 
     // fill in the OPT matrix
-    for (int i = 1; i < height; i++) {
-        for (int j = 0; j < width; j++) {
+    for (int i = 1; i < height; i++)
+        for (int j = 0; j < width; j++)
             opt[i][j] = opt[i][j] == 0 ? 0 : opt[i-1][j] + 1;
-        }
-    }
 
     count = 0;
     max_height = INT_MAX;
-    for (int i = height - b_gap - 1; i >= c->geom.height / PLACE_RES; i--) {
+    for (int i = height - b_gap - 1; i >= c->geom.height / PLACE_RES; i--)
         for (int j = l_gap; j < width - r_gap; j++) {
             while (j < width && opt[i][j] >= c->geom.height / PLACE_RES) {
                 max_height = MIN(max_height, opt[i][j]);
@@ -1609,7 +1593,6 @@ client_place(struct client *c)
             }
             count = 0;
         }
-    }
 }
 
 static void
@@ -2424,7 +2407,7 @@ main(int argc, char *argv[])
     conf_path[0] = '\0';
     font_name[0] = '\0';
 
-    while ((opt = getopt(argc, argv, "dhf:vc:")) != -1) {
+    while ((opt = getopt(argc, argv, "dhf:vc:")) != -1)
         switch (opt) {
             case 'h':
                 usage();
@@ -2442,7 +2425,6 @@ main(int argc, char *argv[])
                 debug = true;
                 break;
         }
-    }
 
     if (conf_path[0] == '\0') {
         char *xdg_home = getenv("XDG_CONFIG_HOME");
