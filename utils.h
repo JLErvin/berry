@@ -13,7 +13,6 @@
 
 int asprintf(char **buf, const char *fmt, ...);
 int vasprintf(char **buf, const char *fmt, va_list args);
-int euclidean_distance(struct client *a, struct client *b);
 int round_k(int n);
 
 #endif

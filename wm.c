@@ -198,6 +198,13 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCConfig]                   = ipc_config
 };
 
+static unsigned
+euclidean_distance (const struct client *a, const struct client *b)
+{
+    int dx = a->geom.x - b->geom.x, dy = a->geom.y - b->geom.y;
+    return dx*dx + dy*dy;
+}
+
 /* Give focus to the given client in the given direction */
 static void
 client_cardinal_focus(struct client *c, int dir)
