@@ -158,8 +158,11 @@ static int get_dec_height(struct client *c);
 static int left_width(struct client *c);
 static int top_height(struct client *c);
 
+typedef void (*x11_event_handler_t)(XEvent *e);
+typedef void (*ipc_event_handler_t)(long *e);
+
 /* Native X11 Event handler */
-static void (*event_handler[LASTEvent])(XEvent *e) = {
+static const x11_event_handler_t event_handler [LASTEvent] = {
     [MapRequest]       = handle_map_request,
     [UnmapNotify]      = handle_unmap_notify,
     [ConfigureNotify]  = handle_configure_notify,
@@ -172,7 +175,7 @@ static void (*event_handler[LASTEvent])(XEvent *e) = {
     [EnterNotify]      = handle_enter_notify,
 };
 
-static void (*ipc_handler[IPCLast])(long *) = {
+static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCWindowMoveRelative]       = ipc_move_relative,
     [IPCWindowMoveAbsolute]       = ipc_move_absolute,
     [IPCWindowMonocle]            = ipc_monocle,
