@@ -4,7 +4,6 @@
 #include "config.h"
 
 #include <limits.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -54,7 +53,7 @@ static Atom utf8string;
 /* Client management functions */
 static void client_cardinal_focus(struct client *c, int dir);
 static void client_center(struct client *c);
-static void client_center_in_rect(struct client *c, int x, int y, int w, int h);
+static void client_center_in_rect(struct client *c, int x, int y, unsigned w, unsigned h);
 static void client_close(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
@@ -272,12 +271,18 @@ client_center(struct client *c)
     client_center_in_rect(c, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
 }
 
+static int
+ceil10 (int n)
+{
+    return (n + 9) - (n + 9) % 10;
+}
+
 static void
-client_center_in_rect(struct client *c, int x, int y, int w, int h) 
+client_center_in_rect(struct client *c, int x, int y, unsigned w, unsigned h) 
 {
     LOGP("Centering at x=%d, y=%d, w=%d, h=%d", x, y, w, h);
-    int new_x = round_k(x + (conf.left_gap - conf.right_gap) / 2 + w / 2 - c->geom.width / 2);
-    int new_y = round_k(y + (conf.top_gap - conf.bot_gap) / 2 + h / 2 - c->geom.height / 2);
+    int new_x = ceil10(x + (conf.left_gap - conf.right_gap) / 2 + w / 2 - c->geom.width / 2);
+    int new_y = ceil10(y + (conf.top_gap - conf.bot_gap) / 2 + h / 2 - c->geom.height / 2);
     LOGP("Sending to x=%d, y=%d", new_x, new_y);
     client_move_absolute(c, new_x, new_y);
                          
@@ -1609,8 +1614,8 @@ client_place(struct client *c)
             }
             // the window WILL fit here
             if (count >= c->geom.width / PLACE_RES) {
-                int place_x = x_off * PLACE_RES + MAX(conf.left_gap, round_k((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2));
-                int place_y = y_off * PLACE_RES + MAX(conf.top_gap, round_k((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2));
+                int place_x = x_off * PLACE_RES + MAX(conf.left_gap, ceil10((j - count) * PLACE_RES + (count * PLACE_RES - c->geom.width) / 2));
+                int place_y = y_off * PLACE_RES + MAX(conf.top_gap, ceil10((i - max_height + 1) * PLACE_RES + (max_height * PLACE_RES - c->geom.height) / 2));
                 client_move_absolute(c, place_x, place_y);
                 return;
             }

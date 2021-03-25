@@ -1,9 +1,6 @@
-#include "types.h"
 #include "utils.h"
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <X11/Xlib.h>
 
 int
 asprintf(char **buf, const char *fmt, ...)
@@ -36,10 +33,4 @@ vasprintf(char **buf, const char *fmt, va_list args)
 
 	size = vsprintf(*buf, fmt, args);
 	return size;
-}
-
-int
-round_k(int n)
-{
-    return ceil(n / 10) * 10;
 }

@@ -2,7 +2,6 @@
 #define _BERRY_UTILS_H_
 
 #include "types.h"
-#include <X11/Xlib.h>
 #include <stdarg.h>
 
 #define MAX(a, b) ((a > b) ? (a) : (b))
@@ -13,6 +12,5 @@
 
 int asprintf(char **buf, const char *fmt, ...);
 int vasprintf(char **buf, const char *fmt, va_list args);
-int round_k(int n);
 
 #endif
