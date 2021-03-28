@@ -4,7 +4,7 @@
 # Set decoration geometry
 berryc border_width       5
 berryc inner_border_width 3
-berryc title_height       30
+berryc title_height       0
 berryc top_gap            30
 
 # Set decoration colors
@@ -17,6 +17,7 @@ berryc text_unfocus_color  eeeeee
 
 # Other options
 berryc smart_place "true"
-berryc draw_text   "true"
+berryc draw_text   "false"
 berryc edge_lock   "true"
-berryc set_font    "Dina-9"
+
+berryc refresh_config
