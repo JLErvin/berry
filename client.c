@@ -38,7 +38,7 @@ struct command {
 };
 static const struct command command_table[] = {
     { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     }, 
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     },
     { "window_resize",          IPCWindowResizeRelative,    false, 2, fn_int     },
     { "window_resize_absolute", IPCWindowResizeAbsolute,    false, 2, fn_int     },
     { "window_raise",           IPCWindowRaise,             false, 0, NULL       },
@@ -46,11 +46,11 @@ static const struct command command_table[] = {
     { "window_close",           IPCWindowClose,             false, 0, NULL       },
     { "window_center",          IPCWindowCenter,            false, 0, NULL       },
     { "focus_color",            IPCFocusColor,              true,  1, fn_hex     },
-    { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     }, 
+    { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     },
     { "inner_focus_color",      IPCInnerFocusColor,         true,  1, fn_hex     },
-    { "inner_unfocus_color",    IPCInnerUnfocusColor,       true,  1, fn_hex     }, 
-    { "text_focus_color",       IPCTitleFocusColor,         true,  1, fn_hex     }, 
-    { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  1, fn_hex     }, 
+    { "inner_unfocus_color",    IPCInnerUnfocusColor,       true,  1, fn_hex     },
+    { "text_focus_color",       IPCTitleFocusColor,         true,  1, fn_hex     },
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  1, fn_hex     },
     { "border_width",           IPCBorderWidth,             true,  1, fn_int     },
     { "inner_border_width",     IPCInnerBorderWidth,        true,  1, fn_int     },
     { "title_height",           IPCTitleHeight,             true,  1, fn_int     },
@@ -126,7 +126,7 @@ fn_str(long *data, bool b, int i, char **argv)
 /* This function works by setting a new atom globally on the root
  * window called BERRY_FONT_PROPERTY which tells berry what font
  * to use for window decoration.
- * We set the font here in the client and then send a message to 
+ * We set the font here in the client and then send a message to
  * berry, notifying the main program to read this value
  */
 static void
@@ -137,7 +137,7 @@ fn_font(long *data, bool b, int i, char** argv)
     UNUSED(data);
     char** font_list;
     XTextProperty font_prop;
-    
+
     font_list = malloc(sizeof(char*));
     font_list[0] = argv[0];
     Xutf8TextListToTextProperty(display, font_list, 1,
@@ -208,7 +208,7 @@ send_command(const struct command *c, int argc, char **argv)
     ev.xclient.message_type = XInternAtom(display, BERRY_CLIENT_EVENT, False);
     ev.xclient.format = 32;
 
-    /* We use the following protocol: 
+    /* We use the following protocol:
      * If the given command is related to berry's confid then assign it a value of
      * IPCConfig at d[0]. Then, assign the specific config element at d[1], shifting
      * all values up by one.
@@ -245,7 +245,7 @@ main(int argc, char **argv)
     c_argc = argc - 2;
     c_argv = argv + 2;
 
-    if (c_argc == -1) 
+    if (c_argc == -1)
         return 1;
     else if (strcmp(argv[1], "-h") == 0)
         usage();
