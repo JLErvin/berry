@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BERRYC" "1" "March 2020" "" ""
+.TH "BERRYC" "1" "March 2021" "" ""
 .
 .SH "NAME"
 \fBberryc\fR \- client for berry window manager
@@ -32,7 +32,7 @@ Resize the current window the absolute w/h arguments
 .
 .TP
 \fBwindow_raise\fR
-Raises the current window to the stop of the stack
+Raises the current window to the top of the stack
 .
 .TP
 \fBwindow_monocle\fR
@@ -65,6 +65,10 @@ Toggle the fullscreen status of the active window, don't change the size
 .TP
 \fBsnap_left\fR
 Move and resize the current window to fill the left half of the screen\. Respects TOP_GAP\.
+.
+.TP
+\fBomni\fR
+Toggle the focused window omnipresense on all workspaces\.
 .
 .TP
 \fBsnap_right\fR
@@ -125,11 +129,6 @@ Associate the ith workspace to the jth monitor
 .
 
 .TP
-\fBsmart_place\fR \fBtrue/false\fR
-Place newly created windows in unoccupied regions of the screen.
-Otherwise place new clients in the top left corner of the active workspace.
-.
-.TP
 \fBdraw_text\fR \fBtrue/false\fR
 determine whether or not to draw text in window title bars
 .
@@ -178,7 +177,7 @@ If you experience input lag on high refresh rate screens, try a value around 15.
 .
 .tp
 \fbquit\fr
-stop the program
+Stop the program
 .
 .TP
 \fBedge_lock\fR \fBtrue/false\fR
@@ -186,8 +185,14 @@ Bound windows to the edges of the monitor.
 .
 .TP
 \fBtoggle_decorations\fR
-Toggle decorations for the currently focused client
+Toggle decorations for the currently focused client\.
 .
 .TP
 \fBfocus_follows_pointer\fR \fBtrue/false\fR
-Focus the window underneath the pointer.
+Focus the window underneath the pointer\.
+.
+.TP
+\fBrefresh_config\fR
+Do the window recreation after config change routine manually\.
+Must be done after changing the config\.
+.

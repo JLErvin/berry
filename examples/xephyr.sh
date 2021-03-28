@@ -1,12 +1,13 @@
 #!/bin/bash
 
 make || exit 1
-killall sxhkd
+sudo make install
+pkill sxhkd
 
 Xephyr -screen 640x480 -screen 640x480 +xinerama :80 &
 sleep 1
 
 export DISPLAY=:80
-sxhkd -c example/sxhkdrc &
+sxhkd -c examples/sxhkdrc &
 
-while sleep 1; do berry -c example/autostart ; done
+while sleep 1; do berry -c examples/autostart -d; done

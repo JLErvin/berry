@@ -3,56 +3,59 @@
 #
 
 # terminal emulator
-super + Return
-	urxvt
+alt + Return
+	st
 
 # program launcher
-super + d
+alt + d
 	dmenu_run
 
 # make sxhkd reload its configuration files:
-super + Escape
+alt + Escape
 	pkill -USR1 -x sxhkd
 
 #
 # berry hotkeys
 #
 
-super + {h, j, k, l}
+alt + {h, j, k, l}
     berryc window_move {-50 0, 0 50, 0 -50, 50 0}
 
-super + shift +  {h, j, k, l}
+alt + shift +  {h, j, k, l}
     berryc window_resize {-50 0, 0 50, 0 -50, 50 0}
 
-super + {1-9}
+alt + {1-9}
     berryc switch_workspace {0-9}
 
-super + shift + {1-9}
+alt + shift + {1-9}
     berryc send_to_workspace {0-9}
 
-super + m
+alt + m
     berryc window_monocle
 
-super + f
+alt + f
     berryc fullscreen
 
-super +  p
+alt +  p
     berryc snap_right
 
-super + o 
-    berryc snap_left
+alt + o 
+    berryc omni
 
-super + n
+alt + n
     berryc toggle_decorations
 
-super + Tab
+alt + Tab
     berryc cycle_focus
 
-super + q
+alt + q
     berryc window_close
 
-super + c
+alt + c
     berryc window_center
 
 ~button1
     berryc pointer_focus
+
+~button2
+	berryc pointer_focus

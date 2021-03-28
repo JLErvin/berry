@@ -31,7 +31,6 @@ static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
 static struct monitor *m_list = NULL; /* All saved monitors */
 static struct config conf; /* gloabl config */
-static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
 static Cursor move_cursor, normal_cursor;
@@ -81,6 +80,7 @@ static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
 static void client_toggle_decorations(struct client *c);
 static void client_set_status(struct client *c);
+static void client_toggle_omni(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
@@ -124,9 +124,10 @@ static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_config(long *d);
-static void ipc_save_monitor(long *d);
 static void ipc_set_font(long *d);
 static void ipc_edge_gap(long *d);
+static void ipc_omni(long *d);
+static void ipc_refresh_config(long *d);
 
 static void monitors_free(void);
 static void monitors_setup(void);
@@ -134,6 +135,7 @@ static void monitors_setup(void);
 static void close_wm(void);
 static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
+static int get_monitor_from_client(struct client *c);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
@@ -189,10 +191,11 @@ static void (*ipc_handler[IPCLast])(long *) = {
     [IPCFullscreenState]          = ipc_fullscreen_state,
     [IPCSnapLeft]                 = ipc_snap_left,
     [IPCSnapRight]                = ipc_snap_right,
+    [IPCOmni]                     = ipc_omni,
+    [IPCRefreshConfig]            = ipc_refresh_config,
     [IPCCardinalFocus]            = ipc_cardinal_focus,
     [IPCCycleFocus]               = ipc_cycle_focus,
     [IPCPointerFocus]             = ipc_pointer_focus,
-    [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCSetFont]                  = ipc_set_font,
     [IPCEdgeGap]                  = ipc_edge_gap,
     [IPCConfig]                   = ipc_config
@@ -261,7 +264,7 @@ client_center(struct client *c)
 {
     int mon;
     LOGN("Centering Client");
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(c);
     client_center_in_rect(c, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
 }
 
@@ -457,7 +460,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
     bool to_fs;
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(c);
     UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
@@ -561,6 +564,31 @@ get_client_from_window(Window w)
     return NULL;
 }
 
+static int
+get_monitor_from_client(struct client *c)
+{
+    if (c == NULL) return 0;
+    int cx, cy;
+
+    cx = c->geom.x + c->geom.width/2;
+    cy = c->geom.y + c->geom.height/2;
+
+    int i;
+
+    for (i = 0; i < m_count; i++) {
+        if (
+                cx > m_list[i].x + conf.left_gap &&
+                cx < m_list[i].x + m_list[i].width - conf.right_gap &&
+                cy > m_list[i].y + conf.top_gap &&
+                cy < m_list[i].y + m_list[i].height - conf.bot_gap
+            ) {
+            break;
+        }
+    }
+
+    return i;
+}
+
 /* Redirect an XEvent from berry's client program, berryc */
 static void
 handle_client_message(XEvent *e)
@@ -571,9 +599,9 @@ handle_client_message(XEvent *e)
     if (cme->message_type == net_berry[BerryClientEvent]) {
         LOGN("Recieved event from berryc");
         if (cme->format != 32) {
-			LOGN("Wrong format, ignoring event");
-			return;
-		}
+            LOGN("Wrong format, ignoring event");
+            return;
+        }
         cmd = cme->data.l[0];
         data = cme->data.l;
         ipc_handler[cmd](data);
@@ -1146,8 +1174,23 @@ ipc_config(long *d)
         default:
             break;
     }
+}
 
+static void
+ipc_refresh_config(long *d)
+{
+    UNUSED(d);
     refresh_config();
+}
+
+static void
+ipc_omni(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    client_toggle_omni(f_client);
 }
 
 static void
@@ -1165,27 +1208,6 @@ ipc_edge_gap(long *d)
     conf.right_gap = right;
 
     LOGN("Changing edge gap...");
-
-    refresh_config();
-}
-
-static void
-ipc_save_monitor(long *d)
-{
-    int ws, mon;
-    ws = d[1];
-    mon = d[2];
-
-    if (mon >= m_count) {
-        LOGN("Cannot save monitor, number is too high");
-        return;
-    }
-
-    LOGP("Saving ws %d to monitor %d", ws, mon);
-
-    /* Associate the given workspace to the given monitor */
-    ws_m_list[ws] = mon;
-    ewmh_set_viewport();
 }
 
 static void
@@ -1209,7 +1231,6 @@ ipc_set_font(long *d)
         LOGN("Error, could not open font name");
         return;
     }
-    refresh_config();
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
     XFree(font_prop.value);
@@ -1334,6 +1355,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->fullscreen = false;
     c->mono = false;
     c->was_fs = false;
+    c->omni = false;
 
     XSetWindowBorderWidth(display, c->window, 0);
 
@@ -1440,7 +1462,7 @@ client_move_relative(struct client *c, int x, int y)
     /* God this is soooo ugly */
     if (conf.edge_lock) {
         int dx, dy, mon;
-        mon = ws_m_list[c->ws];
+        mon = get_monitor_from_client(c);
 
         /* Lock on the right side of the screen */
         if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x - conf.right_gap)
@@ -1495,7 +1517,7 @@ static void
 client_monocle(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(c);
     if (c->mono) {
         client_move_absolute(c, c->prev.x, c->prev.y);
         client_resize_absolute(c, c->prev.width, c->prev.height);
@@ -1515,7 +1537,7 @@ client_place(struct client *c)
 {
     int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap, x_off, y_off;
 
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(f_client);
     width = m_list[mon].width / PLACE_RES;
     height = m_list[mon].height / PLACE_RES;
     t_gap = conf.top_gap / PLACE_RES;
@@ -1525,9 +1547,9 @@ client_place(struct client *c)
     x_off = m_list[mon].x / PLACE_RES;
     y_off = m_list[mon].y / PLACE_RES;
 
-    // If this is the first window in the workspace, we can simply center
-    // it. Also center it if the user wants to disable smart placement.
-    if (f_list[curr_ws]->next == NULL || !conf.smart_place) {
+    // If this is the first window in the workspace, we can simply center it.
+    if (f_list[curr_ws]->next == NULL) {
+        client_move_absolute(c, m_list[mon].x, m_list[mon].y);
         client_center(c);
         return;
     }
@@ -1610,6 +1632,8 @@ client_place(struct client *c)
             count = 0;
         }
     }
+    client_move_absolute(c, m_list[mon].x, m_list[mon].y);
+    client_center(c);
 }
 
 static void
@@ -1765,7 +1789,7 @@ client_resize_relative(struct client *c, int w, int h)
 {
     if (conf.edge_lock) {
         int dw, dh, mon;
-        mon = ws_m_list[c->ws];
+        mon = get_monitor_from_client(c);
 
         /* First, check if the resize will exceed the dimensions set by
          * the right side of the given monitor. If they do, cap the resize
@@ -1826,13 +1850,11 @@ client_save(struct client *c, int ws)
 static bool
 safe_to_focus(int ws)
 {
-    int mon = ws_m_list[ws];
-
     if (m_count == 1)
         return false;
     
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
-        if (i != ws && ws_m_list[i] == mon && c_list[i] != NULL && c_list[i]->hidden == false)
+        if (i != ws && c_list[i] != NULL && c_list[i]->hidden == false)
             return false;
 
     LOGN("Workspace is safe to focus");
@@ -1842,18 +1864,17 @@ safe_to_focus(int ws)
 static void
 client_send_to_ws(struct client *c, int ws)
 {
-    int prev, mon_next, mon_prev, x_off, y_off;
-    mon_next = ws_m_list[ws];
-    mon_prev = ws_m_list[c->ws];
+    int prev, mon, x_off, y_off;
+    mon = get_monitor_from_client(c);
     client_delete(c);
     prev = c->ws;
     c->ws = ws;
     client_save(c, ws);
     focus_next(f_list[prev]);
 
-    x_off = c->geom.x - m_list[mon_prev].x;
-    y_off = c->geom.y - m_list[mon_prev].y;
-    client_move_absolute(c, m_list[mon_next].x + x_off, m_list[mon_next].y + y_off); 
+    x_off = c->geom.x - m_list[mon].x;
+    y_off = c->geom.y - m_list[mon].y;
+    client_move_absolute(c, m_list[mon].x + x_off, m_list[mon].y + y_off); 
 
     if (safe_to_focus(ws))
         client_show(c);
@@ -1912,7 +1933,7 @@ static void
 setup(void)
 {
     unsigned long data[1], data2[1];
-    int mon;
+    int mon = 0;
     XSetWindowAttributes wa = { .override_redirect = true };
     // Setup our conf initially
     conf.b_width          = BORDER_WIDTH;
@@ -1929,7 +1950,6 @@ setup(void)
     conf.t_center         = TITLE_CENTER;
     conf.top_gap          = TOP_GAP;
     conf.bot_gap          = BOT_GAP;
-    conf.smart_place      = SMART_PLACE;
     conf.draw_text        = DRAW_TEXT;
     conf.json_status      = JSON_STATUS;
     conf.manage[Dock]     = MANAGE_DOCK;
@@ -2018,7 +2038,6 @@ setup(void)
     LOGN("Setting up monitors");
     monitors_setup();
     LOGN("Successfully setup monitors");
-    mon = ws_m_list[curr_ws];
     XWarpPointer(display, None, root, 0, 0, 0, 0,
         m_list[mon].x + m_list[mon].width / 2,
         m_list[mon].y + m_list[mon].height / 2);
@@ -2050,7 +2069,7 @@ static void
 client_snap_left(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(c);
     client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap); 
     client_resize_absolute(c, m_list[mon].width / 2 - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
@@ -2059,7 +2078,7 @@ static void
 client_snap_right(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_monitor_from_client(c);
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2, m_list[mon].y + conf.top_gap); 
     client_resize_absolute(c, m_list[mon].width / 2 - conf.right_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
@@ -2068,8 +2087,15 @@ static void
 switch_ws(int ws)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        if (i != ws && ws_m_list[i] == ws_m_list[ws]) {
-        /*if (i != ws) {*/
+        if (i != ws) {
+            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                if (tmp->omni) {
+                    client_delete(tmp);
+                    tmp->ws = ws;
+                    ewmh_set_desktop(tmp, ws);
+                    client_save(tmp, ws);
+                }
+            }
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
                 LOGN("Hiding client...");
@@ -2099,8 +2125,6 @@ switch_ws(int ws)
         }
     }
     curr_ws = ws;
-    int mon = ws_m_list[ws];
-    LOGP("Setting Screen #%d with active workspace %d", m_list[mon].screen, ws);
     client_manage_focus(c_list[curr_ws]);
     ewmh_set_active_desktop(ws);
     XSync(display, True);
@@ -2191,6 +2215,12 @@ client_set_status(struct client *c)
     XChangeProperty(display, c->window, net_berry[BerryWindowStatus], utf8string, 8, PropModeReplace,
             (unsigned char *) str, strlen(str));
     free(str);
+}
+
+static void
+client_toggle_omni(struct client *c)
+{
+    c->omni=!c->omni;
 }
 
 static void
