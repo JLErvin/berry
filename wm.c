@@ -648,6 +648,8 @@ handle_client_message(XEvent *e)
         struct client *c = get_client_from_window(cme->window);
         if (c == NULL)
             return;
+        if (curr_ws != c->ws && c->ws != -1)
+            switch_ws(c->ws);
         client_manage_focus(c);
 
     } else if (cme->message_type == net_atom[NetCurrentDesktop]) {
@@ -2101,14 +2103,15 @@ client_snap_right(struct client *c)
 static void
 switch_ws(int ws)
 {
+    int mon = get_monitor_from_client(f_client);
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         if (i != ws) {
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 if (tmp->omni) {
                     client_delete(tmp);
                     tmp->ws = ws;
-                    ewmh_set_desktop(tmp, ws);
                     client_save(tmp, ws);
+                    ewmh_set_desktop(tmp, ws);
                 }
             }
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
@@ -2141,6 +2144,12 @@ switch_ws(int ws)
     }
     curr_ws = ws;
     client_manage_focus(c_list[curr_ws]);
+    for (struct client *tmp = c_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
+        if (mon == get_monitor_from_client(tmp)) {
+            client_manage_focus(tmp);
+            break;
+        }
+    }
     ewmh_set_active_desktop(ws);
     XSync(display, True);
 }
