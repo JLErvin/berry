@@ -648,7 +648,7 @@ handle_client_message(XEvent *e)
         struct client *c = get_client_from_window(cme->window);
         if (c == NULL)
             return;
-        if (curr_ws != c->ws && c->ws != -1)
+        if (curr_ws != c->ws)
             switch_ws(c->ws);
         client_manage_focus(c);
 
@@ -880,9 +880,9 @@ handle_enter_notify(XEvent *e)
         bool warp_pointer;
         warp_pointer = conf.warp_pointer;
         conf.warp_pointer = false;
-        client_manage_focus(c);
         if (c->ws != curr_ws)
             switch_ws(c->ws);
+        client_manage_focus(c);
         conf.warp_pointer = warp_pointer;
     }
 }
@@ -903,38 +903,71 @@ static void
 ipc_move_absolute(long *d)
 {
     int x, y;
-
-    if (f_client == NULL)
-        return;
+    struct client *c;
 
     x = d[1];
     y = d[2];
 
-    client_move_absolute(f_client, x, y);
+    c = get_client_from_window((Window)d[3]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_move_absolute(c, x, y);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
 ipc_move_relative(long *d)
 {
     int x, y;
-
-    if (f_client == NULL)
-        return;
+    struct client *c;
 
     x = d[1];
     y = d[2];
 
-    client_move_relative(f_client, x, y);
+    c = get_client_from_window((Window)d[3]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_move_relative(c, x, y);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
 ipc_monocle(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    client_monocle(f_client);
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_monocle(c);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
@@ -951,45 +984,87 @@ static void
 ipc_resize_absolute(long *d)
 {
     int w, h;
-
-    if (f_client == NULL)
-        return;
+    struct client *c;
 
     w = d[1];
     h = d[2];
 
-    client_resize_absolute(f_client, w, h);
+    c = get_client_from_window((Window)d[3]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_resize_absolute(c, w, h);
+    if (client_hidden)
+        client_hide(c);
+
 }
 
 static void
 ipc_resize_relative(long *d)
 {
     int w, h;
-
-    if (f_client == NULL)
-        return;
+    struct client *c;
 
     w = d[1];
     h = d[2];
 
-    client_resize_relative(f_client, w, h);
+    c = get_client_from_window((Window)d[3]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_resize_relative(c, w, h);
+    if (client_hidden)
+        client_hide(c);
+
 }
 
 static void
 ipc_toggle_decorations(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
-        return ;
+    struct client *c;
 
-    client_toggle_decorations(f_client);
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_toggle_decorations(c);
+    if (client_hidden)
+        client_hide(c);
+
 }
 
 static void
 ipc_window_close(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
     client_close(f_client);
@@ -998,10 +1073,22 @@ ipc_window_close(long *d)
 static void
 ipc_window_center(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
-    client_center(f_client);
+
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_center(c);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
@@ -1015,53 +1102,130 @@ ipc_switch_ws(long *d)
 static void
 ipc_send_to_ws(long *d)
 {
-    if (f_client == NULL)
+    struct client *c;
+    int ws = d[1];
+
+    c = get_client_from_window((Window)d[2]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    int ws = d[1];
-    client_send_to_ws(f_client, ws);
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_send_to_ws(c, ws);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
 ipc_fullscreen(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    client_fullscreen(f_client, true, true, true);
+    bool client_hidden = c->hidden;
+    struct client *curr_c = f_client;
+    if (client_hidden)
+        client_show(c);
+    client_fullscreen(c, true, true, true);
+    if (client_hidden) {
+        client_hide(c);
+        client_manage_focus(curr_c);
+    }
 }
 
 static void
 ipc_fullscreen_state(long *d)
 {
-    UNUSED(d);
+    struct client *c;
 
-    if (f_client == NULL)
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    client_fullscreen(f_client, true, true, false);
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_fullscreen(c, true, true, false);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
 ipc_snap_left(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    client_snap_left(f_client);
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_snap_left(c);
+    if (client_hidden)
+        client_hide(c);
 }
 
 static void
 ipc_snap_right(long *d)
 {
-    UNUSED(d);
-    if (f_client == NULL)
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
         return;
 
-    client_snap_right(f_client);
+    bool client_hidden = c->hidden;
+    if (client_hidden)
+        client_show(c);
+    client_snap_right(c);
+    if (client_hidden)
+        client_hide(c);
 }
+
+static void
+ipc_omni(long *d)
+{
+    struct client *c;
+
+    c = get_client_from_window((Window)d[1]);
+
+    if (c == NULL)
+        c = f_client;
+
+    if (c == NULL)
+        return;
+
+    client_toggle_omni(c);
+    if (c->hidden)
+       switch_ws(curr_ws);
+}
+
 
 static void
 ipc_cardinal_focus(long *d)
@@ -1097,8 +1261,8 @@ ipc_pointer_focus(long *d)
          * otherwise menu's will be hidden behind the parent window
          */
         if (c != f_client) {
-            client_manage_focus(c);
             switch_ws(c->ws);
+            client_manage_focus(c);
         }
     }
 }
@@ -1191,6 +1355,8 @@ ipc_config(long *d)
         default:
             break;
     }
+
+    refresh_config();
 }
 
 static void
@@ -1198,16 +1364,6 @@ ipc_refresh_config(long *d)
 {
     UNUSED(d);
     refresh_config();
-}
-
-static void
-ipc_omni(long *d)
-{
-    UNUSED(d);
-    if (f_client == NULL)
-        return;
-
-    client_toggle_omni(f_client);
 }
 
 static void
@@ -1225,6 +1381,8 @@ ipc_edge_gap(long *d)
     conf.right_gap = right;
 
     LOGN("Changing edge gap...");
+
+    //refresh_config();
 }
 
 static void
@@ -1248,6 +1406,7 @@ ipc_set_font(long *d)
         LOGN("Error, could not open font name");
         return;
     }
+    refresh_config();
     if (err >= Success && n > 0 && *font_list)
         XFreeStringList(font_list);
     XFree(font_prop.value);
@@ -1380,9 +1539,9 @@ manage_new_window(Window w, XWindowAttributes *wa)
         client_decorations_create(c);
 
     client_set_title(c);
-    client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
     client_place(c);
+    client_refresh(c);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
 
@@ -1753,8 +1912,8 @@ refresh_config(void)
                 XMapWindow(display, tmp->dec);
             }
 
-            client_refresh(tmp);
             client_show(tmp);
+            client_refresh(tmp);
 
             if (f_client != tmp)
                 client_set_color(tmp, conf.iu_color, conf.bu_color);

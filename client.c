@@ -33,57 +33,58 @@ struct command {
     const char* name;
     enum IPCCommand cmd;
     bool config;
+    bool spec_client;
     int argc;
     void (*handler)(long *, bool, int, char **);
 };
 static const struct command command_table[] = {
-    { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
-    { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     },
-    { "window_resize",          IPCWindowResizeRelative,    false, 2, fn_int     },
-    { "window_resize_absolute", IPCWindowResizeAbsolute,    false, 2, fn_int     },
-    { "window_raise",           IPCWindowRaise,             false, 0, NULL       },
-    { "window_monocle",         IPCWindowMonocle,           false, 0, NULL       },
-    { "window_close",           IPCWindowClose,             false, 0, NULL       },
-    { "window_center",          IPCWindowCenter,            false, 0, NULL       },
-    { "focus_color",            IPCFocusColor,              true,  1, fn_hex     },
-    { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     },
-    { "inner_focus_color",      IPCInnerFocusColor,         true,  1, fn_hex     },
-    { "inner_unfocus_color",    IPCInnerUnfocusColor,       true,  1, fn_hex     },
-    { "text_focus_color",       IPCTitleFocusColor,         true,  1, fn_hex     },
-    { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  1, fn_hex     },
-    { "border_width",           IPCBorderWidth,             true,  1, fn_int     },
-    { "inner_border_width",     IPCInnerBorderWidth,        true,  1, fn_int     },
-    { "title_height",           IPCTitleHeight,             true,  1, fn_int     },
-    { "switch_workspace",       IPCSwitchWorkspace,         false, 1, fn_int     },
-    { "send_to_workspace",      IPCSendWorkspace,           false, 1, fn_int     },
-    { "fullscreen",             IPCFullscreen,              false, 0, NULL       },
-    { "fullscreen_state",       IPCFullscreenState,         false, 0, NULL       },
-    { "fullscreen_remove_dec",  IPCFullscreenRemoveDec,     true,  1, fn_bool    },
-    { "fullscreen_max",         IPCFullscreenMax,           true,  1, fn_bool    },
-    { "snap_left",              IPCSnapLeft,                false, 0, NULL       },
-    { "snap_right",             IPCSnapRight,               false, 0, NULL       },
-    { "omni",                   IPCOmni,                    false, 0, NULL       },
-    { "refresh_config",         IPCRefreshConfig,           false, 0, NULL       },
-    { "cardinal_focus",         IPCCardinalFocus,           false, 1, fn_int     },
-    { "toggle_decorations",     IPCWindowToggleDecorations, false, 0, NULL       },
-    { "cycle_focus",            IPCCycleFocus,              false, 0, NULL       },
-    { "pointer_focus",          IPCPointerFocus,            false, 0, NULL       },
-    { "quit",                   IPCQuit,                    true,  0, NULL       },
-    { "top_gap",                IPCTopGap,                  true,  1, fn_int     },
-    { "edge_gap",               IPCEdgeGap,                 false, 4, fn_int     },
-    { "draw_text",              IPCDrawText,                true,  1, fn_bool    },
-    { "edge_lock",              IPCEdgeLock,                true,  1, fn_bool    },
-    { "set_font",               IPCSetFont,                 false, 1, fn_font    },
-    { "json_status",            IPCJSONStatus,              true,  1, fn_bool    },
-    { "manage",                 IPCManage,                  true,  1, fn_str     },
-    { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
-    { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
-    { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
-    { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
-    { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
-    { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
-    { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
-    { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
+    { "window_move",            IPCWindowMoveRelative,      false, true,  2, fn_int     },
+    { "window_move_absolute",   IPCWindowMoveAbsolute,      false, true,  2, fn_int     },
+    { "window_resize",          IPCWindowResizeRelative,    false, true,  2, fn_int     },
+    { "window_resize_absolute", IPCWindowResizeAbsolute,    false, true,  2, fn_int     },
+    { "window_raise",           IPCWindowRaise,             false, false, 0, NULL       },
+    { "window_monocle",         IPCWindowMonocle,           false, true,  0, NULL       },
+    { "window_close",           IPCWindowClose,             false, true,  0, NULL       },
+    { "window_center",          IPCWindowCenter,            false, true,  0, NULL       },
+    { "focus_color",            IPCFocusColor,              true,  false, 1, fn_hex     },
+    { "unfocus_color",          IPCUnfocusColor,            true,  false, 1, fn_hex     },
+    { "inner_focus_color",      IPCInnerFocusColor,         true,  false, 1, fn_hex     },
+    { "inner_unfocus_color",    IPCInnerUnfocusColor,       true,  false, 1, fn_hex     },
+    { "text_focus_color",       IPCTitleFocusColor,         true,  false, 1, fn_hex     },
+    { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  false, 1, fn_hex     },
+    { "border_width",           IPCBorderWidth,             true,  false, 1, fn_int     },
+    { "inner_border_width",     IPCInnerBorderWidth,        true,  false, 1, fn_int     },
+    { "title_height",           IPCTitleHeight,             true,  false, 1, fn_int     },
+    { "switch_workspace",       IPCSwitchWorkspace,         false, false, 1, fn_int     },
+    { "send_to_workspace",      IPCSendWorkspace,           false, true,  1, fn_int     },
+    { "fullscreen",             IPCFullscreen,              false, true,  0, NULL       },
+    { "fullscreen_state",       IPCFullscreenState,         false, true,  0, NULL       },
+    { "fullscreen_remove_dec",  IPCFullscreenRemoveDec,     true,  false, 1, fn_bool    },
+    { "fullscreen_max",         IPCFullscreenMax,           true,  false, 1, fn_bool    },
+    { "snap_left",              IPCSnapLeft,                false, true,  0, NULL       },
+    { "snap_right",             IPCSnapRight,               false, true,  0, NULL       },
+    { "omni",                   IPCOmni,                    false, true,  0, NULL       },
+    { "refresh_config",         IPCRefreshConfig,           false, false, 0, NULL       },
+    { "cardinal_focus",         IPCCardinalFocus,           false, false, 1, fn_int     },
+    { "toggle_decorations",     IPCWindowToggleDecorations, false, true,  0, NULL       },
+    { "cycle_focus",            IPCCycleFocus,              false, false, 0, NULL       },
+    { "pointer_focus",          IPCPointerFocus,            false, false, 0, NULL       },
+    { "quit",                   IPCQuit,                    true,  false, 0, NULL       },
+    { "top_gap",                IPCTopGap,                  true,  false, 1, fn_int     },
+    { "edge_gap",               IPCEdgeGap,                 false, false, 4, fn_int     },
+    { "draw_text",              IPCDrawText,                true,  false, 1, fn_bool    },
+    { "edge_lock",              IPCEdgeLock,                true,  false, 1, fn_bool    },
+    { "set_font",               IPCSetFont,                 false, false, 1, fn_font    },
+    { "json_status",            IPCJSONStatus,              true,  false, 1, fn_bool    },
+    { "manage",                 IPCManage,                  true,  false, 1, fn_str     },
+    { "unmanage",               IPCUnmanage,                true,  false, 1, fn_str     },
+    { "decorate_new",           IPCDecorate,                true,  false, 1, fn_bool    },
+    { "name_desktop",           IPCNameDesktop,             false, false, 2, fn_int_str },
+    { "move_mask",              IPCMoveMask,                true,  false, 1, fn_str     },
+    { "resize_mask",            IPCResizeMask,              true,  false, 1, fn_str     },
+    { "pointer_interval",       IPCPointerInterval,         true,  false, 1, fn_int     },
+    { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  false, 1, fn_bool    },
+    { "warp_pointer",           IPCWarpPointer,             true,  false, 1, fn_bool    },
 };
 
 static void
@@ -176,6 +177,21 @@ fn_int_str(long *data, bool b, int i, char **argv)
 }
 
 static void
+read_window(long *data, bool b, int i, char **argv)
+{
+    unsigned long wid;
+
+    UNUSED(b);
+    if (sscanf(argv[i - 1], "0x%lx", &wid) != 1 &&
+            sscanf(argv[i - 1], "0X%lx", &wid) != 1 &&
+            sscanf(argv[i - 1], "%lu", &wid) != 1) {
+        printf("Cannot convert argument to number.\n");
+        wid = 0;
+    }
+    data[i+b] = wid;
+}
+
+static void
 usage(void)
 {
     printf("Usage: berryc [-h|-v] <command> [args...]\n");
@@ -227,6 +243,14 @@ send_command(const struct command *c, int argc, char **argv)
         return;
     }
 
+    if (c->spec_client && argc == c->argc + 1) {
+        if (argc == c->argc + 1) {
+            read_window(ev.xclient.data.l, c->config, argc, argv);
+            argc--;
+        } else {
+            ev.xclient.data.l[argc + c->config] = (unsigned long)0;
+        }
+    }
     for (int i = 1; i <= argc; i++) {
         (c->handler)(ev.xclient.data.l, c->config, i, argv);
     }
@@ -254,9 +278,15 @@ main(int argc, char **argv)
 
     for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
         if (strcmp(argv[1], command_table[i].name) == 0) {
-            if (command_table[i].argc != c_argc) {
+            if (command_table[i].argc != c_argc &&
+                command_table[i].argc + command_table[i].spec_client != c_argc) {
                 printf("Wrong number of arguments\n");
-                printf("%d expected for command %s\n", command_table[i].argc, command_table[i].name);
+                if (command_table[i].spec_client) {
+                    printf("%d or %d expected for command %s\n", command_table[i].argc,
+                        command_table[i].argc + command_table[i].spec_client, command_table[i].name);
+                } else {
+                    printf("%d expected for command %s\n", command_table[i].argc, command_table[i].name);
+                }
                 return EXIT_FAILURE;
             }
             send_command(&command_table[i], c_argc, c_argv);
