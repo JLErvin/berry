@@ -2266,14 +2266,6 @@ switch_ws(int ws)
     for (int i = 0; i < WORKSPACE_NUMBER; i++) {
         if (i != ws) {
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-                if (tmp->omni) {
-                    client_delete(tmp);
-                    tmp->ws = ws;
-                    client_save(tmp, ws);
-                    ewmh_set_desktop(tmp, ws);
-                }
-            }
-            for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
                 client_hide(tmp);
                 LOGN("Hiding client...");
             }
@@ -2301,6 +2293,28 @@ switch_ws(int ws)
             }
         }
     }
+    bool stopper = false;
+    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
+        if (ws != i) {
+            while (true) {
+                stopper = false;
+                for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
+                    if (tmp->omni) {
+                        client_delete(tmp);
+                        tmp->ws = ws;
+                        client_save(tmp, ws);
+                        ewmh_set_desktop(tmp, ws);
+                        client_show(tmp);
+                        stopper = true;
+                        break;
+                    }
+                }
+                if (!stopper)
+                    break;
+            }
+        }
+    }
+
     curr_ws = ws;
     client_manage_focus(c_list[curr_ws]);
     for (struct client *tmp = c_list[curr_ws]; tmp != NULL; tmp = tmp->next) {
