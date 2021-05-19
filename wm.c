@@ -789,6 +789,9 @@ handle_configure_request(XEvent *e)
     c = get_client_from_window(ev->window);
 
     if (c != NULL) {
+        if (c->fullscreen)
+            return;
+
         client_move_relative(c,
                 wc.x - get_actual_x(c) - 2 * left_width(c),
                 wc.y - get_actual_y(c) - 2 * top_height(c));
