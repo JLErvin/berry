@@ -209,7 +209,7 @@ send_command(const struct command *c, int argc, char **argv)
     ev.xclient.format = 32;
 
     /* We use the following protocol:
-     * If the given command is related to berry's confid then assign it a value of
+     * If the given command is related to berry's config then assign it a value of
      * IPCConfig at d[0]. Then, assign the specific config element at d[1], shifting
      * all values up by one.
      * Otherwise, set the IPC command at d[0] and assign arguments from 1 upwards.
