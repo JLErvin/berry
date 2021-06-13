@@ -825,12 +825,25 @@ handle_unmap_notify(XEvent *e)
     c = get_client_from_window(ev->window);
 
     if (c != NULL) {
+        LOGN("Client found while unmapping, focusing next client");
         focus_best(c);
         if (c->decorated)
             XDestroyWindow(display, c->dec);
         client_delete(c);
         free(c);
         client_raise(f_client);
+    } else {
+        /* Some applications *ahem* Spotify *ahem*, don't seem to place nicely with being deleted.
+         * They close slowing, causing focusing issues with unmap requests. Check to see if the current
+         * workspace is empty and, if so, focus the root client so that we can pick up new key presses..
+         */
+        if (f_list[curr_ws] == NULL) {
+            LOGN("Client not found while deleting and ws is empty, focusing root window");
+            client_manage_focus(NULL);
+
+        } else {
+            LOGN("Client not found while deleting and ws is non-empty, doing nothing");
+        }
     }
 }
 
