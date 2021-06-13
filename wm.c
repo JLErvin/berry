@@ -424,6 +424,9 @@ client_delete(struct client *c)
         LOGP("Deleting client on workspace %d", ws);
     }
 
+    /* Prevent BadDrawable error which sometimes occurs as a window is closed */
+    client_decorations_destroy(c);
+
     /* Delete in the stack */
     if (c_list[ws] == c) {
         c_list[ws] = c_list[ws]->next;
