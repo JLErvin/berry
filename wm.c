@@ -153,6 +153,7 @@ static int get_actual_x(struct client *c);
 static int get_actual_y(struct client *c);
 static int get_actual_width(struct client *c);
 static int get_actual_height(struct client *c);
+static int get_client_monitor(struct client *c);
 static int get_dec_width(struct client *c);
 static int get_dec_height(struct client *c);
 static int left_width(struct client *c);
@@ -270,7 +271,7 @@ client_center(struct client *c)
 {
     int mon;
     LOGN("Centering Client");
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     client_center_in_rect(c, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
 }
 
@@ -475,7 +476,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
     bool to_fs;
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
@@ -1474,7 +1475,7 @@ client_move_relative(struct client *c, int x, int y)
     /* God this is soooo ugly */
     if (conf.edge_lock) {
         int dx, dy, mon;
-        mon = ws_m_list[c->ws];
+        mon = get_client_monitor(c);
 
         /* Lock on the right side of the screen */
         if (c->geom.x + c->geom.width + x > m_list[mon].width + m_list[mon].x - conf.right_gap)
@@ -1529,7 +1530,7 @@ static void
 client_monocle(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     if (c->mono) {
         client_move_absolute(c, c->prev.x, c->prev.y);
         client_resize_absolute(c, c->prev.width, c->prev.height);
@@ -1549,7 +1550,7 @@ client_place(struct client *c)
 {
     int width, height, mon, count, max_height, t_gap, b_gap, l_gap, r_gap, x_off, y_off;
 
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     width = m_list[mon].width / PLACE_RES;
     height = m_list[mon].height / PLACE_RES;
     t_gap = conf.top_gap / PLACE_RES;
@@ -1799,7 +1800,7 @@ client_resize_relative(struct client *c, int w, int h)
 {
     if (conf.edge_lock) {
         int dw, dh, mon;
-        mon = ws_m_list[c->ws];
+        mon = get_client_monitor(c);
 
         /* First, check if the resize will exceed the dimensions set by
          * the right side of the given monitor. If they do, cap the resize
@@ -1878,7 +1879,7 @@ client_send_to_ws(struct client *c, int ws)
 {
     int prev, mon_next, mon_prev, x_off, y_off;
     mon_next = ws_m_list[ws];
-    mon_prev = ws_m_list[c->ws];
+    mon_prev = get_client_monitor(c);
     client_delete(c);
     prev = c->ws;
     c->ws = ws;
@@ -2084,7 +2085,7 @@ static void
 client_snap_left(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     client_move_absolute(c, m_list[mon].x + conf.left_gap, m_list[mon].y + conf.top_gap);
     client_resize_absolute(c, m_list[mon].width / 2 - conf.left_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
@@ -2093,7 +2094,7 @@ static void
 client_snap_right(struct client *c)
 {
     int mon;
-    mon = ws_m_list[c->ws];
+    mon = get_client_monitor(c);
     client_move_absolute(c, m_list[mon].x + m_list[mon].width / 2, m_list[mon].y + conf.top_gap);
     client_resize_absolute(c, m_list[mon].width / 2 - conf.right_gap, m_list[mon].height - conf.top_gap - conf.bot_gap);
 }
@@ -2400,6 +2401,18 @@ get_actual_height(struct client *c)
     dec_height = get_dec_height(c);
 
     return c->geom.height + dec_height;
+}
+
+int
+get_client_monitor(struct client *c)
+{
+    for(int i = 0; i < m_count; i++) {
+        /* check if the position of the client is within the montior */
+        if(m_list[i].x < c->geom.x && c->geom.x < m_list[i].x + m_list[i].width && /* check x */
+                m_list[i].y < c->geom.y && c->geom.y < m_list[i].y + m_list[i].height) /* check y */
+            return i;
+    }
+    return ws_m_list[c->ws]; /* fallback to old method if suitable monitor not found */
 }
 
 int
