@@ -135,6 +135,7 @@ static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
+static void round_window_corners(struct client *c, int rad);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
 static void grab_buttons(void);
@@ -526,6 +527,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
         client_refresh(c);
     }
 
+    round_window_corners(c, c->fullscreen ? 0 : ROUND_CORNERS);
     client_set_status(c);
 }
 
@@ -1304,6 +1306,43 @@ client_manage_focus(struct client *c)
 }
 
 static void
+round_window_corners(struct client *c, int rad)
+{
+    unsigned int ww, wh, dia = 2 * rad;
+
+    ww = get_actual_width(c);
+    wh = get_actual_height(c);
+
+    if (ww < dia || wh < dia) return;
+
+    Pixmap mask = XCreatePixmap(display, c->window, ww, wh, 1);
+
+    if (!mask) return;
+
+    XGCValues xgcv;
+    GC shape_gc = XCreateGC(display, mask, 0, &xgcv);
+
+    if (!shape_gc) {
+        XFreePixmap(display, mask);
+        return;
+    }
+
+    XSetForeground(display, shape_gc, 0);
+    XFillRectangle(display, mask, shape_gc, 0, 0, ww, wh);
+    XSetForeground(display, shape_gc, 1);
+    XFillArc(display, mask, shape_gc, 0, 0, dia, dia, 0, 23040);
+    XFillArc(display, mask, shape_gc, ww-dia-1, 0, dia, dia, 0, 23040);
+    XFillArc(display, mask, shape_gc, 0, wh-dia-1, dia, dia, 0, 23040);
+    XFillArc(display, mask, shape_gc, ww-dia-1, wh-dia-1, dia, dia, 0, 23040);
+    XFillRectangle(display, mask, shape_gc, rad, 0, ww-dia, wh);
+    XFillRectangle(display, mask, shape_gc, 0, rad, ww, wh-dia);
+    XShapeCombineMask(display, c->window, ShapeBounding, 0, 0, mask, ShapeSet);
+    XShapeCombineMask(display, c->dec, ShapeBounding, 0, 0, mask, ShapeSet);
+    XFreePixmap(display, mask);
+    XFreeGC(display, shape_gc);
+}
+
+static void
 manage_new_window(Window w, XWindowAttributes *wa)
 {
     /* Credits to vain for XGWP checking */
@@ -1380,6 +1419,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_place(c);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
+
+    round_window_corners(c, ROUND_CORNERS);
 
     if (conf.decorate)
         XMapWindow(display, c->dec);
@@ -1780,6 +1821,13 @@ client_resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
+    c->geom.width = MAX(w, MINIMUM_DIM);
+    c->geom.height = MAX(h, MINIMUM_DIM);
+    if (c->mono)
+        c->mono = false;
+
+    round_window_corners(c, ROUND_CORNERS);
+
     /*LOGN("Resizing client main window");*/
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
@@ -1787,10 +1835,6 @@ client_resize_absolute(struct client *c, int w, int h)
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
 
-    c->geom.width = MAX(w, MINIMUM_DIM);
-    c->geom.height = MAX(h, MINIMUM_DIM);
-    if (c->mono)
-        c->mono = false;
     client_set_status(c);
 }
 

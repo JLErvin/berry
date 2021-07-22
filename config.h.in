@@ -67,5 +67,6 @@
 #define POINTER_INTERVAL 0
 #define FOLLOW_POINTER false
 #define WARP_POINTER false
+#define ROUND_CORNERS 20
 
 #endif
