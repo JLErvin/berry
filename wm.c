@@ -135,7 +135,7 @@ static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
-static void round_window_corners(struct client *c, int rad);
+static void round_window_corners(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
 static void grab_buttons(void);
@@ -380,8 +380,8 @@ static void
 client_decorations_create(struct client *c)
 {
     LOGN("Decorating new client");
-    int w = c->geom.width + 2 * conf.i_width;
-    int h = c->geom.height + 2 * conf.i_width + conf.t_height;
+    int w = c->geom.width + 2 * (conf.i_width + conf.b_width);
+    int h = c->geom.height + 2 * (conf.i_width + conf.b_width) + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height;
 
@@ -527,7 +527,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
         client_refresh(c);
     }
 
-    round_window_corners(c, c->fullscreen ? 0 : ROUND_CORNERS);
+    round_window_corners(c);
     client_set_status(c);
 }
 
@@ -1179,6 +1179,9 @@ ipc_config(long *d)
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
             break;
+        case IPCBorderRadius:
+            conf.border_radius = d[2];
+            break;
         default:
             break;
     }
@@ -1306,40 +1309,40 @@ client_manage_focus(struct client *c)
 }
 
 static void
-round_window_corners(struct client *c, int rad)
-{
-    unsigned int ww, wh, dia = 2 * rad;
+round_window_corners(struct client *c)
+{   
+    unsigned int dia = 2 * conf.border_radius,
+                 ww = c->geom.width,
+                 wh = c->geom.height;
 
-    ww = get_actual_width(c);
-    wh = get_actual_height(c);
+    XGCValues w_xgcv;
 
-    if (ww < dia || wh < dia) return;
+    if (ww < dia || wh < dia)
+        return;
+    
+    Pixmap w_mask = XCreatePixmap(display, c->window, ww, wh, 1);
+    if (!w_mask) return;
 
-    Pixmap mask = XCreatePixmap(display, c->window, ww, wh, 1);
-
-    if (!mask) return;
-
-    XGCValues xgcv;
-    GC shape_gc = XCreateGC(display, mask, 0, &xgcv);
-
-    if (!shape_gc) {
-        XFreePixmap(display, mask);
+    GC w_shape_gc = XCreateGC(display, w_mask, 0, &w_xgcv);
+    if (!w_shape_gc) {
+        XFreePixmap(display, w_mask);
         return;
     }
 
-    XSetForeground(display, shape_gc, 0);
-    XFillRectangle(display, mask, shape_gc, 0, 0, ww, wh);
-    XSetForeground(display, shape_gc, 1);
-    XFillArc(display, mask, shape_gc, 0, 0, dia, dia, 0, 23040);
-    XFillArc(display, mask, shape_gc, ww-dia-1, 0, dia, dia, 0, 23040);
-    XFillArc(display, mask, shape_gc, 0, wh-dia-1, dia, dia, 0, 23040);
-    XFillArc(display, mask, shape_gc, ww-dia-1, wh-dia-1, dia, dia, 0, 23040);
-    XFillRectangle(display, mask, shape_gc, rad, 0, ww-dia, wh);
-    XFillRectangle(display, mask, shape_gc, 0, rad, ww, wh-dia);
-    XShapeCombineMask(display, c->window, ShapeBounding, 0, 0, mask, ShapeSet);
-    XShapeCombineMask(display, c->dec, ShapeBounding, 0, 0, mask, ShapeSet);
-    XFreePixmap(display, mask);
-    XFreeGC(display, shape_gc);
+    XSetForeground(display, w_shape_gc, 0);
+    XFillRectangle(display, w_mask, w_shape_gc, 0, 0, ww, wh);
+    XSetForeground(display, w_shape_gc, 1);
+    
+    XFillArc(display, w_mask, w_shape_gc,      0,      0, dia, dia, 0, 360 << 6);
+    XFillArc(display, w_mask, w_shape_gc, ww-dia,      0, dia, dia, 0, 360 << 6);
+    XFillArc(display, w_mask, w_shape_gc,      0, wh-dia, dia, dia, 0, 360 << 6);
+    XFillArc(display, w_mask, w_shape_gc, ww-dia, wh-dia, dia, dia, 0, 360 << 6);
+
+    XFillRectangle(display, w_mask, w_shape_gc, conf.border_radius, 0, ww-dia, wh);
+    XFillRectangle(display, w_mask, w_shape_gc, 0, conf.border_radius, ww, wh-dia);
+    XShapeCombineMask(display, c->window, ShapeBounding, 0, 0, w_mask, ShapeSet);
+    XFreePixmap(display, w_mask);
+    XFreeGC(display, w_shape_gc);
 }
 
 static void
@@ -1420,8 +1423,6 @@ manage_new_window(Window w, XWindowAttributes *wa)
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
 
-    round_window_corners(c, ROUND_CORNERS);
-
     if (conf.decorate)
         XMapWindow(display, c->dec);
 
@@ -1430,6 +1431,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     XGrabButton(display, 1, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     XGrabButton(display, 1, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     client_manage_focus(c);
+
+    round_window_corners(c);
 }
 
 static int
@@ -1826,14 +1829,14 @@ client_resize_absolute(struct client *c, int w, int h)
     if (c->mono)
         c->mono = false;
 
-    round_window_corners(c, ROUND_CORNERS);
-
     /*LOGN("Resizing client main window");*/
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
         /*LOGN("Resizing client decoration");*/
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
+
+    round_window_corners(c);
 
     client_set_status(c);
 }
@@ -1996,6 +1999,7 @@ setup(void)
     conf.b_width          = BORDER_WIDTH;
     conf.t_height         = TITLE_HEIGHT;
     conf.i_width          = INTERNAL_BORDER_WIDTH;
+    conf.border_radius    = BORDER_RADIUS;
     conf.bf_color         = BORDER_FOCUS_COLOR;
     conf.bu_color         = BORDER_UNFOCUS_COLOR;
     conf.if_color         = INNER_FOCUS_COLOR;
@@ -2204,6 +2208,7 @@ client_toggle_decorations(struct client *c)
     client_raise(c);
     client_manage_focus(c);
     ewmh_set_frame_extents(c);
+    round_window_corners(c);
 }
 
 /*

@@ -53,6 +53,7 @@ static const struct command command_table[] = {
     { "text_unfocus_color",     IPCTitleUnfocusColor,       true,  1, fn_hex     },
     { "border_width",           IPCBorderWidth,             true,  1, fn_int     },
     { "inner_border_width",     IPCInnerBorderWidth,        true,  1, fn_int     },
+    { "border_radius",          IPCBorderRadius,            true,  1, fn_int     },
     { "title_height",           IPCTitleHeight,             true,  1, fn_int     },
     { "switch_workspace",       IPCSwitchWorkspace,         false, 1, fn_int     },
     { "send_to_workspace",      IPCSendWorkspace,           false, 1, fn_int     },

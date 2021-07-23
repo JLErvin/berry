@@ -27,6 +27,7 @@
 #define BORDER_WIDTH 3
 #define INTERNAL_BORDER_WIDTH 3
 #define TITLE_HEIGHT 30
+#define BORDER_RADIUS 20
 
 #define MOVE_STEP 40
 #define RESIZE_STEP 40
@@ -67,6 +68,5 @@
 #define POINTER_INTERVAL 0
 #define FOLLOW_POINTER false
 #define WARP_POINTER false
-#define ROUND_CORNERS 20
 
 #endif
