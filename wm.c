@@ -1310,7 +1310,7 @@ client_manage_focus(struct client *c)
 
 static void
 round_window_corners(struct client *c)
-{   
+{
     unsigned int dia = 2 * conf.border_radius,
                  ww = c->geom.width,
                  wh = c->geom.height;
@@ -1319,7 +1319,7 @@ round_window_corners(struct client *c)
 
     if (ww < dia || wh < dia)
         return;
-    
+
     Pixmap w_mask = XCreatePixmap(display, c->window, ww, wh, 1);
     if (!w_mask) return;
 
@@ -1332,7 +1332,7 @@ round_window_corners(struct client *c)
     XSetForeground(display, w_shape_gc, 0);
     XFillRectangle(display, w_mask, w_shape_gc, 0, 0, ww, wh);
     XSetForeground(display, w_shape_gc, 1);
-    
+
     XFillArc(display, w_mask, w_shape_gc,      0,      0, dia, dia, 0, 360 << 6);
     XFillArc(display, w_mask, w_shape_gc, ww-dia,      0, dia, dia, 0, 360 << 6);
     XFillArc(display, w_mask, w_shape_gc,      0, wh-dia, dia, dia, 0, 360 << 6);
