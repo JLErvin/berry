@@ -118,10 +118,6 @@ fn_str(long *data, bool b, int i, char **argv)
     else if (strcmp(argv[i-1], "Menu") == 0) data[i+b] = Menu;
     else if (strcmp(argv[i-1], "Splash") == 0) data[i+b] = Splash;
     else if (strcmp(argv[i-1], "Utility") == 0) data[i+b] = Utility;
-    else if (strcmp(argv[i-1], "Mod1") == 0) data[i+b] = Mod1Mask;
-    else if (strcmp(argv[i-1], "Mod2") == 0) data[i+b] = Mod2Mask;
-    else if (strcmp(argv[i-1], "Mod3") == 0) data[i+b] = Mod3Mask;
-    else if (strcmp(argv[i-1], "Mod4") == 0) data[i+b] = Mod4Mask;
 }
 
 /* This function works by setting a new atom globally on the root
