@@ -380,8 +380,8 @@ static void
 client_decorations_create(struct client *c)
 {
     LOGN("Decorating new client");
-    int w = c->geom.width + 2 * (conf.i_width + conf.b_width);
-    int h = c->geom.height + 2 * (conf.i_width + conf.b_width) + conf.t_height;
+    int w = c->geom.width + 2 * conf.i_width;
+    int h = c->geom.height + 2 * conf.i_width + conf.t_height;
     int x = c->geom.x - conf.i_width - conf.b_width;
     int y = c->geom.y - conf.i_width - conf.b_width - conf.t_height;
 
@@ -507,6 +507,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
             client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
         }
         c->fullscreen = true;
+        client_refresh(c);
     } else {
         ewmh_set_fullscreen(c, false);
         if (max) {
@@ -526,8 +527,6 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
         c->was_fs = false;
         client_refresh(c);
     }
-
-    round_window_corners(c);
     client_set_status(c);
 }
 
@@ -1310,42 +1309,48 @@ client_manage_focus(struct client *c)
 
 static void
 round_window_corners(struct client *c)
-{   
-    unsigned int dia = 2 * conf.border_radius,
-                 ww = c->geom.width,
-                 wh = c->geom.height,
-                 dw = get_actual_width(c),
-                 dh = get_actual_height(c);
+{
+    unsigned int rad = conf.border_radius;
+
+    if (c->fullscreen)
+        rad = 0;
+
+    unsigned int ww, wh, dw, dh, dia = 2 * rad;
+    
+    ww = c->geom.width - (c->decorated ? get_dec_width(c) : 0) ;
+    wh = c->geom.height - (c->decorated ? get_dec_width(c) : 0) ;
+    dw = c->geom.width;
+    dh = c->geom.height;
 
     XGCValues w_xgcv, d_xgcv;
 
     if (ww < dia || wh < dia)
         return;
 
+    if (c->decorated == true) {
+        /* Add rounnded corners to the dec window */
+        Pixmap d_mask = XCreatePixmap(display, c->dec, dw, dh, 1);
+        if (!d_mask) return;
+        
+        GC d_shape_gc = XCreateGC(display, d_mask, 0, &d_xgcv);
+        if (!d_shape_gc) {
+            XFreePixmap(display, d_mask);
+            return;
+        }
 
-    /* Add rounnded corners to the dec window */
-    Pixmap d_mask = XCreatePixmap(display, c->dec, dw, dh, 1);
-    if (!d_mask) return;
-    
-    GC d_shape_gc = XCreateGC(display, d_mask, 0, &d_xgcv);
-    if (!d_shape_gc) {
+        XSetForeground(display, d_shape_gc, 0);
+        XFillRectangle(display, d_mask, d_shape_gc, 0, 0, dw, dh);
+        XSetForeground(display, d_shape_gc, 1);
+        XFillArc(display, d_mask, d_shape_gc,      0,      0, dia, dia, 0, 360 << 6);
+        XFillArc(display, d_mask, d_shape_gc, dw-dia,      0, dia, dia, 0, 360 << 6);
+        XFillArc(display, d_mask, d_shape_gc,      0, dh-dia, dia, dia, 0, 360 << 6);
+        XFillArc(display, d_mask, d_shape_gc, dw-dia, dh-dia, dia, dia, 0, 360 << 6);
+        XFillRectangle(display, d_mask, d_shape_gc, rad, 0, dw-dia, dh);
+        XFillRectangle(display, d_mask, d_shape_gc, 0, rad, dw, dh-dia);
+        XShapeCombineMask(display, c->dec, ShapeBounding, -conf.b_width, -conf.b_width, d_mask, ShapeSet);
         XFreePixmap(display, d_mask);
-        return;
+        XFreeGC(display, d_shape_gc);
     }
-
-    XSetForeground(display, d_shape_gc, 0);
-    XFillRectangle(display, d_mask, d_shape_gc, 0, 0, dw, dh);
-    XSetForeground(display, d_shape_gc, 1);
-    XFillArc(display, d_mask, d_shape_gc,      0,      0, dia, dia, 0, 360 << 6);
-    XFillArc(display, d_mask, d_shape_gc, dw-dia,      0, dia, dia, 0, 360 << 6);
-    XFillArc(display, d_mask, d_shape_gc,      0, dh-dia, dia, dia, 0, 360 << 6);
-    XFillArc(display, d_mask, d_shape_gc, dw-dia, dh-dia, dia, dia, 0, 360 << 6);
-    XFillRectangle(display, d_mask, d_shape_gc, conf.border_radius, 0, dw-dia, dh);
-    XFillRectangle(display, d_mask, d_shape_gc, 0, conf.border_radius, dw, dh-dia);
-    XShapeCombineMask(display, c->dec, ShapeBounding, 0, 0, d_mask, ShapeSet);
-    XFreePixmap(display, d_mask);
-    XFreeGC(display, d_shape_gc);
-
 
     /* Add corners to the dec window */
     Pixmap w_mask = XCreatePixmap(display, c->window, ww, wh, 1);
@@ -1364,8 +1369,8 @@ round_window_corners(struct client *c)
     XFillArc(display, w_mask, w_shape_gc, ww-dia,      0, dia, dia, 0, 360 << 6);
     XFillArc(display, w_mask, w_shape_gc,      0, wh-dia, dia, dia, 0, 360 << 6);
     XFillArc(display, w_mask, w_shape_gc, ww-dia, wh-dia, dia, dia, 0, 360 << 6);
-    XFillRectangle(display, w_mask, w_shape_gc, conf.border_radius, 0, ww-dia, wh);
-    XFillRectangle(display, w_mask, w_shape_gc, 0, conf.border_radius, ww, wh-dia);
+    XFillRectangle(display, w_mask, w_shape_gc, rad, 0, ww-dia, wh);
+    XFillRectangle(display, w_mask, w_shape_gc, 0, rad, ww, wh-dia);
     XShapeCombineMask(display, c->window, ShapeBounding, 0, 0, w_mask, ShapeSet);
     XFreePixmap(display, w_mask);
     XFreeGC(display, w_shape_gc);
@@ -1535,6 +1540,7 @@ client_move_absolute(struct client *c, int x, int y)
         c->mono = false;
 
     client_set_status(c);
+    round_window_corners(c);
 }
 
 static void
@@ -1850,11 +1856,6 @@ client_resize_absolute(struct client *c, int w, int h)
         dec_h = h - (2 * conf.b_width);
     }
 
-    c->geom.width = MAX(w, MINIMUM_DIM);
-    c->geom.height = MAX(h, MINIMUM_DIM);
-    if (c->mono)
-        c->mono = false;
-
     /*LOGN("Resizing client main window");*/
     XResizeWindow(display, c->window, MAX(dw, MINIMUM_DIM), MAX(dh, MINIMUM_DIM));
     if (c->decorated) {
@@ -1862,9 +1863,12 @@ client_resize_absolute(struct client *c, int w, int h)
         XResizeWindow(display, c->dec, MAX(dec_w, MINIMUM_DIM), MAX(dec_h, MINIMUM_DIM));
     }
 
-    round_window_corners(c);
-
+    c->geom.width = MAX(w, MINIMUM_DIM);
+    c->geom.height = MAX(h, MINIMUM_DIM);
+    if (c->mono)
+        c->mono = false;
     client_set_status(c);
+    round_window_corners(c);
 }
 
 static void
@@ -2234,7 +2238,6 @@ client_toggle_decorations(struct client *c)
     client_raise(c);
     client_manage_focus(c);
     ewmh_set_frame_extents(c);
-    round_window_corners(c);
 }
 
 /*
