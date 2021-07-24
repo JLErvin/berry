@@ -23,6 +23,7 @@ static void fn_bool(long *, bool, int, char **);
 static void fn_font(long *, bool, int, char **);
 static void fn_str(long *, bool, int, char **);
 static void fn_int_str(long *, bool, int, char **);
+static void fn_mask(long *, bool, int, char **);
 static void usage(void);
 static void version(void);
 
@@ -79,8 +80,8 @@ static const struct command command_table[] = {
     { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
     { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
-    { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
-    { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
+    { "move_mask",              IPCMoveMask,                true,  1, fn_mask    },
+    { "resize_mask",            IPCResizeMask,              true,  1, fn_mask    },
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
@@ -173,6 +174,26 @@ fn_int_str(long *data, bool b, int i, char **argv)
 
     XFree(text_prop.value);
     free(list);
+}
+
+static void
+fn_mask(long *data, bool b, int i, char **argv)
+{
+    UNUSED(b);
+    data[i+b] = 0;
+    char * mask_str = strtok( argv[i-1] , "|");
+
+    while( mask_str != NULL ) {
+        if( ! strcmp(mask_str,"shift") ) data[i+b] = data[i+b]|ShiftMask;
+        else if( !strcmp(mask_str,"lock") ) data[i+b] = data[i+b]|LockMask;
+        else if( !strcmp(mask_str,"ctrl") ) data[i+b] = data[i+b]|ControlMask;
+        else if( !strcmp(mask_str,"mod1") ) data[i+b] = data[i+b]|Mod1Mask;
+        else if( !strcmp(mask_str,"mod2") ) data[i+b] = data[i+b]|Mod1Mask;
+        else if( !strcmp(mask_str,"mod3") ) data[i+b] = data[i+b]|Mod2Mask;
+        else if( !strcmp(mask_str,"mod4") ) data[i+b] = data[i+b]|Mod3Mask;
+        else if( !strcmp(mask_str,"mod5") ) data[i+b] = data[i+b]|Mod4Mask;
+        mask_str = strtok(NULL, "|");
+    }
 }
 
 static void
