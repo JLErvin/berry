@@ -1318,7 +1318,7 @@ round_window_corners(struct client *c)
     unsigned int ww, wh, dw, dh, dia = 2 * rad;
     
     ww = c->geom.width - (c->decorated ? get_dec_width(c) : 0) ;
-    wh = c->geom.height - (c->decorated ? get_dec_width(c) : 0) ;
+    wh = c->geom.height - (c->decorated ? get_dec_height(c) : 0) ;
     dw = c->geom.width;
     dh = c->geom.height;
 
