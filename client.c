@@ -192,6 +192,11 @@ fn_mask(long *data, bool b, int i, char **argv)
         else if( !strcmp(mask_str,"mod3") ) data[i+b] = data[i+b]|Mod2Mask;
         else if( !strcmp(mask_str,"mod4") ) data[i+b] = data[i+b]|Mod3Mask;
         else if( !strcmp(mask_str,"mod5") ) data[i+b] = data[i+b]|Mod4Mask;
+        else {
+            printf("%s is not a valid modifier", mask_str);
+            data[i+b]=0;
+            break;
+        }
         mask_str = strtok(NULL, "|");
     }
 }

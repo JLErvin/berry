@@ -1160,12 +1160,12 @@ ipc_config(long *d)
             break;
         case IPCMoveMask:
             ungrab_buttons();
-            conf.move_mask = d[2];
+            conf.move_mask = (d[2] == 0) ? conf.move_mask : d[2];
             grab_buttons();
             break;
         case IPCResizeMask:
             ungrab_buttons();
-            conf.resize_mask = d[2];
+            conf.resize_mask = (d[2] == 0) ? conf.resize_mask : d[2];
             grab_buttons();
             break;
         case IPCPointerInterval:
