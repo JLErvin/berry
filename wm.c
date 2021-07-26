@@ -135,6 +135,7 @@ static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
+static void construct_mask(Window W, int x, int y, int w, int h, int dia);
 static void round_window_corners(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
@@ -1308,72 +1309,55 @@ client_manage_focus(struct client *c)
 }
 
 static void
+construct_mask(Window W, int x, int y, int w, int h, int dia)
+{
+    XGCValues xgcv;
+
+    Pixmap mask = XCreatePixmap(display, W, w, h, 1);
+    if (!mask) return;
+    
+    GC shape_gc = XCreateGC(display, mask, 0, &xgcv);
+    if (!shape_gc) {
+        XFreePixmap(display, mask);
+        return;
+    }
+
+    XSetForeground(display, shape_gc, 0);
+    XFillRectangle(display, mask, shape_gc, 0, 0, w, h);
+    XSetForeground(display, shape_gc, 1);
+    XFillArc(display, mask, shape_gc,       0,       0, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc, w-dia-1,       0, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc,       0, h-dia-1, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc, w-dia-1, h-dia-1, dia, dia, 0, 360 << 6);
+    XFillRectangle(display, mask, shape_gc, dia>>1,      0, w-dia,     h);
+    XFillRectangle(display, mask, shape_gc,      0, dia>>1,     w, h-dia);
+    XShapeCombineMask(display, W, ShapeBounding, x, y, mask, ShapeSet);
+    XFreePixmap(display, mask);
+    XFreeGC(display, shape_gc);
+}
+
+static void
 round_window_corners(struct client *c)
 {
-    unsigned int rad = conf.border_radius;
+    unsigned int dia = conf.border_radius << 1;
 
     if (c->fullscreen)
-        rad = 0;
+        dia = 0;
 
-    unsigned int ww, wh, dw, dh, dia = 2 * rad;
+    unsigned int ww, wh, dw, dh;
     
     ww = c->geom.width - (c->decorated ? get_dec_width(c) : 0) ;
     wh = c->geom.height - (c->decorated ? get_dec_height(c) : 0) ;
     dw = c->geom.width;
     dh = c->geom.height;
 
-    XGCValues w_xgcv, d_xgcv;
-
     if (ww < dia || wh < dia)
         return;
 
-    if (c->decorated == true) {
-        /* Add rounnded corners to the dec window */
-        Pixmap d_mask = XCreatePixmap(display, c->dec, dw, dh, 1);
-        if (!d_mask) return;
-        
-        GC d_shape_gc = XCreateGC(display, d_mask, 0, &d_xgcv);
-        if (!d_shape_gc) {
-            XFreePixmap(display, d_mask);
-            return;
-        }
+    if (c->decorated == true)
+        construct_mask(c->dec, -conf.b_width, -conf.b_width, dw, dh, dia);
 
-        XSetForeground(display, d_shape_gc, 0);
-        XFillRectangle(display, d_mask, d_shape_gc, 0, 0, dw, dh);
-        XSetForeground(display, d_shape_gc, 1);
-        XFillArc(display, d_mask, d_shape_gc,        0,        0, dia, dia, 0, 360 << 6);
-        XFillArc(display, d_mask, d_shape_gc, dw-dia-1,        0, dia, dia, 0, 360 << 6);
-        XFillArc(display, d_mask, d_shape_gc,        0, dh-dia-1, dia, dia, 0, 360 << 6);
-        XFillArc(display, d_mask, d_shape_gc, dw-dia-1, dh-dia-1, dia, dia, 0, 360 << 6);
-        XFillRectangle(display, d_mask, d_shape_gc, rad, 0, dw-dia, dh);
-        XFillRectangle(display, d_mask, d_shape_gc, 0, rad, dw, dh-dia);
-        XShapeCombineMask(display, c->dec, ShapeBounding, -conf.b_width, -conf.b_width, d_mask, ShapeSet);
-        XFreePixmap(display, d_mask);
-        XFreeGC(display, d_shape_gc);
-    }
-
-    /* Add corners to the dec window */
-    Pixmap w_mask = XCreatePixmap(display, c->window, ww, wh, 1);
-    if (!w_mask) return;
-
-    GC w_shape_gc = XCreateGC(display, w_mask, 0, &w_xgcv);
-    if (!w_shape_gc) {
-        XFreePixmap(display, w_mask);
-        return;
-    }
-
-    XSetForeground(display, w_shape_gc, 0);
-    XFillRectangle(display, w_mask, w_shape_gc, 0, 0, ww, wh);
-    XSetForeground(display, w_shape_gc, 1);
-    XFillArc(display, w_mask, w_shape_gc,        0,        0, dia, dia, 0, 360 << 6);
-    XFillArc(display, w_mask, w_shape_gc, ww-dia-1,        0, dia, dia, 0, 360 << 6);
-    XFillArc(display, w_mask, w_shape_gc,        0, wh-dia-1, dia, dia, 0, 360 << 6);
-    XFillArc(display, w_mask, w_shape_gc, ww-dia-1, wh-dia-1, dia, dia, 0, 360 << 6);
-    XFillRectangle(display, w_mask, w_shape_gc, rad, 0, ww-dia, wh);
-    XFillRectangle(display, w_mask, w_shape_gc, 0, rad, ww, wh-dia);
-    XShapeCombineMask(display, c->window, ShapeBounding, 0, 0, w_mask, ShapeSet);
-    XFreePixmap(display, w_mask);
-    XFreeGC(display, w_shape_gc);
+    construct_mask(c->window, 0, 0, ww, wh, dia);
 }
 
 static void
