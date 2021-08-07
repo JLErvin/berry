@@ -264,7 +264,11 @@ send_command(const struct command *c, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-    int c;
+    int c, c_argc;
+    char **c_argv;
+
+    c_argc = argc - 2;
+    c_argv = argv + 2;
 
     while ((c = getopt(argc, argv, "hv")) != -1) {
         switch (c) {
@@ -279,22 +283,19 @@ main(int argc, char **argv)
             break;
         }
     }
-    argc -= optind;
-    argv += optind;
 
     for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
-        if (strcmp(argv[0], command_table[i].name) == 0) {
-            if (command_table[i].argc != argc) {
-                fprintf(stderr, "Wrong number of arguments\n");
-                fprintf(stderr, "%d expected for command %s\n",
-                        command_table[i].argc, command_table[i].name);
+        if (strcmp(argv[1], command_table[i].name) == 0) {
+            if (command_table[i].argc != c_argc) {
+                printf("Wrong number of arguments\n");
+                printf("%d expected for command %s\n", command_table[i].argc, command_table[i].name);
                 return EXIT_FAILURE;
             }
-            send_command(&command_table[i], argc, argv);
+            send_command(&command_table[i], c_argc, c_argv);
             return EXIT_SUCCESS;
         }
     }
 
-    fprintf(stderr, "Command not found %s, exiting\n", argv[0]);
+    fprintf(stderr, "Command not found %s, exiting\n", argv[1]);
     return EXIT_FAILURE;
 }
