@@ -3,11 +3,12 @@
 
 #include "config.h"
 
-#include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -23,8 +24,8 @@ static void fn_bool(long *, bool, int, char **);
 static void fn_font(long *, bool, int, char **);
 static void fn_str(long *, bool, int, char **);
 static void fn_int_str(long *, bool, int, char **);
+static void usage(FILE *);
 static void fn_mask(long *, bool, int, char **);
-static void usage(void);
 static void version(void);
 
 static Display* display = NULL;
@@ -37,6 +38,7 @@ struct command {
     int argc;
     void (*handler)(long *, bool, int, char **);
 };
+
 static const struct command command_table[] = {
     { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
     { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     },
@@ -198,10 +200,11 @@ fn_mask(long *data, bool b, int i, char **argv)
 }
 
 static void
-usage(void)
+usage(FILE *out)
 {
-    printf("Usage: berryc [-h|-v] <command> [args...]\n");
-    exit(EXIT_SUCCESS);
+    int rc = out == stderr ? EXIT_FAILURE : EXIT_SUCCESS;
+    fputs("Usage: berryc [-h|-v] <command> [args...]\n", out);
+    exit(rc);
 }
 
 static void
@@ -261,30 +264,37 @@ send_command(const struct command *c, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-    int c_argc;
-    char **c_argv;
+    int c;
 
-    c_argc = argc - 2;
-    c_argv = argv + 2;
-
-    if (c_argc == -1)
-        return 1;
-    else if (strcmp(argv[1], "-h") == 0)
-        usage();
-    else if (strcmp(argv[1], "-v") == 0)
-        version();
+    while ((c = getopt(argc, argv, "hv")) != -1) {
+        switch (c) {
+        case 'h':
+            usage(stdout);
+            break;
+        case 'v':
+            version();
+            break;
+        default:
+            usage(stderr);
+            break;
+        }
+    }
+    argc -= optind;
+    argv += optind;
 
     for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
-        if (strcmp(argv[1], command_table[i].name) == 0) {
-            if (command_table[i].argc != c_argc) {
-                printf("Wrong number of arguments\n");
-                printf("%d expected for command %s\n", command_table[i].argc, command_table[i].name);
+        if (strcmp(argv[0], command_table[i].name) == 0) {
+            if (command_table[i].argc != argc) {
+                fprintf(stderr, "Wrong number of arguments\n");
+                fprintf(stderr, "%d expected for command %s\n",
+                        command_table[i].argc, command_table[i].name);
                 return EXIT_FAILURE;
             }
-            send_command(&command_table[i], c_argc, c_argv);
+            send_command(&command_table[i], argc, argv);
             return EXIT_SUCCESS;
         }
     }
 
-    printf("Command not found %s, exiting\n", argv[1]);
+    fprintf(stderr, "Command not found %s, exiting\n", argv[0]);
+    return EXIT_FAILURE;
 }
