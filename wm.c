@@ -203,7 +203,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
 };
 
 static unsigned
-euclidean_distance (const struct client *a, const struct client *b)
+euclidean_distance(const struct client *a, const struct client *b)
 {
     int dx = a->geom.x - b->geom.x, dy = a->geom.y - b->geom.y;
     return dx*dx + dy*dy;
@@ -285,7 +285,7 @@ ceil10 (int n)
 static void
 client_center_in_rect(struct client *c, int x, int y, unsigned w, unsigned h)
 {
-    LOGP("Centering at x=%d, y=%d, w=%d, h=%d", x, y, w, h);
+    LOGP("Centering at x=%d, y=%d, w=%u, h=%u", x, y, w, h);
     int new_x = ceil10(x + (conf.left_gap - conf.right_gap) / 2 + w / 2 - c->geom.width / 2);
     int new_y = ceil10(y + (conf.top_gap - conf.bot_gap) / 2 + h / 2 - c->geom.height / 2);
     LOGP("Sending to x=%d, y=%d", new_x, new_y);
@@ -1162,12 +1162,12 @@ ipc_config(long *d)
             break;
         case IPCMoveMask:
             ungrab_buttons();
-            conf.move_mask = d[2];
+            conf.move_mask = (d[2] == 0) ? conf.move_mask : d[2];
             grab_buttons();
             break;
         case IPCResizeMask:
             ungrab_buttons();
-            conf.resize_mask = d[2];
+            conf.resize_mask = (d[2] == 0) ? conf.resize_mask : d[2];
             grab_buttons();
             break;
         case IPCPointerInterval:

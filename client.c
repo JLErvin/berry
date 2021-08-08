@@ -3,11 +3,12 @@
 
 #include "config.h"
 
-#include <string.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -23,7 +24,8 @@ static void fn_bool(long *, bool, int, char **);
 static void fn_font(long *, bool, int, char **);
 static void fn_str(long *, bool, int, char **);
 static void fn_int_str(long *, bool, int, char **);
-static void usage(void);
+static void usage(FILE *);
+static void fn_mask(long *, bool, int, char **);
 static void version(void);
 
 static Display* display = NULL;
@@ -36,6 +38,7 @@ struct command {
     int argc;
     void (*handler)(long *, bool, int, char **);
 };
+
 static const struct command command_table[] = {
     { "window_move",            IPCWindowMoveRelative,      false, 2, fn_int     },
     { "window_move_absolute",   IPCWindowMoveAbsolute,      false, 2, fn_int     },
@@ -80,8 +83,8 @@ static const struct command command_table[] = {
     { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
     { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
-    { "move_mask",              IPCMoveMask,                true,  1, fn_str     },
-    { "resize_mask",            IPCResizeMask,              true,  1, fn_str     },
+    { "move_mask",              IPCMoveMask,                true,  1, fn_mask    },
+    { "resize_mask",            IPCResizeMask,              true,  1, fn_mask    },
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
@@ -118,10 +121,6 @@ fn_str(long *data, bool b, int i, char **argv)
     else if (strcmp(argv[i-1], "Menu") == 0) data[i+b] = Menu;
     else if (strcmp(argv[i-1], "Splash") == 0) data[i+b] = Splash;
     else if (strcmp(argv[i-1], "Utility") == 0) data[i+b] = Utility;
-    else if (strcmp(argv[i-1], "Mod1") == 0) data[i+b] = Mod1Mask;
-    else if (strcmp(argv[i-1], "Mod2") == 0) data[i+b] = Mod2Mask;
-    else if (strcmp(argv[i-1], "Mod3") == 0) data[i+b] = Mod3Mask;
-    else if (strcmp(argv[i-1], "Mod4") == 0) data[i+b] = Mod4Mask;
 }
 
 /* This function works by setting a new atom globally on the root
@@ -177,10 +176,36 @@ fn_int_str(long *data, bool b, int i, char **argv)
 }
 
 static void
-usage(void)
+fn_mask(long *data, bool b, int i, char **argv)
 {
-    printf("Usage: berryc [-h|-v] <command> [args...]\n");
-    exit(EXIT_SUCCESS);
+    UNUSED(b);
+    data[i+b] = 0;
+    char * mask_str = strtok( argv[i-1] , "|");
+
+    while( mask_str != NULL ) {
+        if( ! strcmp(mask_str,"shift") ) data[i+b] = data[i+b]|ShiftMask;
+        else if( !strcmp(mask_str,"lock") ) data[i+b] = data[i+b]|LockMask;
+        else if( !strcmp(mask_str,"ctrl") ) data[i+b] = data[i+b]|ControlMask;
+        else if( !strcmp(mask_str,"mod1") ) data[i+b] = data[i+b]|Mod1Mask;
+        else if( !strcmp(mask_str,"mod2") ) data[i+b] = data[i+b]|Mod1Mask;
+        else if( !strcmp(mask_str,"mod3") ) data[i+b] = data[i+b]|Mod2Mask;
+        else if( !strcmp(mask_str,"mod4") ) data[i+b] = data[i+b]|Mod3Mask;
+        else if( !strcmp(mask_str,"mod5") ) data[i+b] = data[i+b]|Mod4Mask;
+        else {
+            printf("%s is not a valid modifier", mask_str);
+            data[i+b]=0;
+            break;
+        }
+        mask_str = strtok(NULL, "|");
+    }
+}
+
+static void
+usage(FILE *out)
+{
+    int rc = out == stderr ? EXIT_FAILURE : EXIT_SUCCESS;
+    fputs("Usage: berryc [-h|-v] <command> [args...]\n", out);
+    exit(rc);
 }
 
 static void
@@ -240,18 +265,25 @@ send_command(const struct command *c, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-    int c_argc;
+    int c, c_argc;
     char **c_argv;
 
     c_argc = argc - 2;
     c_argv = argv + 2;
 
-    if (c_argc == -1)
-        return 1;
-    else if (strcmp(argv[1], "-h") == 0)
-        usage();
-    else if (strcmp(argv[1], "-v") == 0)
-        version();
+    while ((c = getopt(argc, argv, "hv")) != -1) {
+        switch (c) {
+        case 'h':
+            usage(stdout);
+            break;
+        case 'v':
+            version();
+            break;
+        default:
+            usage(stderr);
+            break;
+        }
+    }
 
     for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
         if (strcmp(argv[1], command_table[i].name) == 0) {
@@ -265,5 +297,6 @@ main(int argc, char **argv)
         }
     }
 
-    printf("Command not found %s, exiting\n", argv[1]);
+    fprintf(stderr, "Command not found %s, exiting\n", argv[1]);
+    return EXIT_FAILURE;
 }
