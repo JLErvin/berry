@@ -34,10 +34,13 @@ pkg_cflags="-I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/harf
 pkg_ldflags=""
 
 # Automatic vars
-[ -d .git ] && pkg_verstr=`git describe --always --tags`
-pkg_major=`expr "$pkg_verstr" : '\([0-9]*\)\.[0-9]*\.[0-9]*'`
-pkg_minor=`expr "$pkg_verstr" : '[0-9]*\.\([0-9]*\)\.[0-9]*'`
-pkg_build=`expr "$pkg_verstr" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+if [ -d .git ]; then
+    pkg_vverstr=$(git describe --always --tags)
+    [ -z "$pkg_vverstr" ] || pkg_verstr=$pkg_vverstr
+fi
+pkg_major=$(expr "$pkg_verstr" : '\([0-9]*\)\.[0-9]*\.[0-9]*')
+pkg_minor=$(expr "$pkg_verstr" : '[0-9]*\.\([0-9]*\)\.[0-9]*')
+pkg_build=$(expr "$pkg_verstr" : '[0-9]*\.[0-9]*\.\([0-9]*\)')
 pkg_string="$pkg_name $pkg_verstr"
 
 # Miscellaneous substitutions
@@ -45,7 +48,7 @@ custsubs="s/@pkg_name@/$pkg_name/g
 s/@pkg_version@/0x$pkg_major$pkg_minor$pkg_build/g
 s/@pkg_verstr@/$pkg_verstr/g
 s/@pkg_string@/$pkg_string/g
-s/@pkg_uname@/`echo $pkg_name|tr a-z A-Z`/g
+s/@pkg_uname@/$(echo $pkg_name|tr a-z A-Z)/g
 s/@pkg_bugreport@/$pkg_bugreport/g
 s/@pkg_major@/$pkg_major/g
 s/@pkg_minor@/$pkg_minor/g
@@ -57,7 +60,7 @@ s/@pkg_build@/$pkg_build/g"
 
 die() { rm -f config.sed; exit; }
 sub() { printf "%s\n" "$1">>config.sed; }
-escpath() { echo $1 | sed 's/\//\\\//g'; }
+escpath() { echo "$@" | sed 's/\//\\\//g'; }
 
 #### Printing helper functions #######################################
 
@@ -65,11 +68,11 @@ print_components() {
     local cc name desc
     cc=$components
     echo "Options:"
-    while [ ! -z "$cc" ]; do
-	name=`expr "$cc" : '[^}]*name=\[\([^]]*\)\]'`
-	desc=`expr "$cc" : '[^}]*desc=\[\([^]]*\)\]'`
+    while [ -n "$cc" ]; do
+	name=$(expr "$cc" : '[^}]*name=\[\([^]]*\)\]')
+	desc=$(expr "$cc" : '[^}]*desc=\[\([^]]*\)\]')
 	echo "  --$name	$desc"
-	cc=`expr "$cc" : '[^}]*}\(.*\)'`
+	cc=$(expr "$cc" : '[^}]*}\(.*\)')
     done
     echo
 }
@@ -101,7 +104,7 @@ print_version() {
 
 sub_var() {
     local esc2
-    esc2=`escpath $2`
+    esc2=$(escpath $2)
     eval ac_var_$1='$esc2';
     sub "s/@$1@/$esc2/g"
 }
@@ -109,21 +112,21 @@ sub_var() {
 sub_comp() {
     local cc name seds
     cc=$components
-    while [ ! -z "$cc" ]; do
-	name=`expr "$cc" : '[^}]*name=\[\([^]]*\)\]'`
-	seds=`expr "$cc" : '[^}]*seds=\[\([^]]*\)\]'`
+    while [ -n "$cc" ]; do
+	name=$(expr "$cc" : '[^}]*name=\[\([^]]*\)\]')
+	seds=$(expr "$cc" : '[^}]*seds=\[\([^]]*\)\]')
 	[ "$name" = "$1" ] && sub "$seds"
-	cc=`expr "$cc" : '[^}]*}\(.*\)'`
+	cc=$(expr "$cc" : '[^}]*}\(.*\)')
     done
 }
 
-for i in $*; do
-    case $i in
+for i in "$@"; do
+    case "$i" in
 	--)		break;;
 	--version |-V)	print_version && die;;
 	--help |-h |-?)	print_help && die;;
-	--*=*)		sub_var `expr -- "$i" : '--\([^=]*\)='` `expr -- "$i" : '[^=]*=\(.*\)'`;;
-	--*)		sub_comp `expr -- "$i" : '--\(.*\)'`;;
+	--*=*)		sub_var $(expr "$i" : '--\([^=]*\)=') "$(expr "$i" : '[^=]*=\(.*\)')";;
+	--*)		sub_comp $(expr "$i" : '--\(.*\)');;
 	*)		echo "Error: unrecognized option \"$i\"" && die;;
     esac
 done
@@ -142,31 +145,30 @@ s/@builddir@/\$\{TMPDIR\}\/make/g"
 
 # Programs found using which
 for i in $progs; do
-    pname=`expr "$i" : '\([^=]*\)=[^=]*'`
-    pcall=`expr "$i" : '[^=]*=\([^=]*\)'`
-    ppath=`eval echo \$\{$pname\}`
-    ppath=`escpath "$ppath"`
+    pname=$(expr $i : '\([^=]*\)')
+    pcall=$(expr $i : '[^=]*=\([^=]*\)')
+    ppath=$(escpath $(eval echo \$\{$pname\}))
     # First check if an environment variable is set
-    [ ! -z "$ppath" ] && sub "s/@$pname@/$ppath/g"
+    [ -n "$ppath" ] && sub "s/@$pname@/$ppath/g"
     # Check if the program exists
-    ppath=`which $pcall 2>/dev/null`
-    [ ! -z "$ppath" -a -x "$ppath" ] && sub "s/@$pname@/$pcall/g"
+    ppath=$(which $pcall 2>/dev/null)
+    [ -n "$ppath" ] && [ -x "$ppath" ] && sub "s/@$pname@/$pcall/g"
 done
 # If nothing found in first loop, set the first pair anyway
 for i in $progs; do
-    pname=`expr "$i" : '\([^=]*\)=[^=]*'`
-    pcall=`expr "$i" : '[^=]*=\([^=]*\)'`
+    pname=$(expr $i : '\([^=]*\)')
+    pcall=$(expr $i : '[^=]*=\([^=]*\)')
     sub "s/@$pname@/$pcall/g"
 done
 
 # Packages found using pkg-config
-pkgconfig=`which pkg-config 2>/dev/null`
-if [ ! -z "$pkgconfig" -a -x "$pkgconfig" ]; then
+pkgconfig=$(which pkg-config 2>/dev/null)
+if [ -n "$pkgconfig" ] && [ -x "$pkgconfig" ]; then
     faildeps=""
     for i in $pkgs; do
-	`$pkgconfig --exists $i` || faildeps="$i $faildeps"
+	$($pkgconfig --exists $i) || faildeps="$i $faildeps"
     done
-    if [ ! -z "$faildeps" ]; then
+    if [ -n "$faildeps" ]; then
 	echo "Error: missing required packages: $faildeps"; die
     fi
     pkg_cflags=$(escpath "$($pkgconfig --cflags $pkgs)")
@@ -188,8 +190,8 @@ done
 
 touch config.status
 echo "#! /bin/sh
-$0 $*
-`tail -n+3 config.status`" > config.status.new
+$0 $@
+$(tail -n+3 config.status)" > config.status.new
 chmod u+x config.status.new
 mv config.status.new config.status
 
