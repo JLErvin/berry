@@ -22,19 +22,19 @@ all:	${berry} ${berryc}
 
 ${berry}:	$Outils.o $Owm.o
 	@echo "Linking $@ ..."
-	@${CC} ${ldflags} -o $@ $^ ${libs}
+	${CC} ${ldflags} -o $@ $^ ${libs}
 
 ${berryc}:	$Oclient.o
 	@echo "Linking $@ ..."
-	@${CC} ${ldflags} -o $@ $^ ${libs}
+	${CC} ${ldflags} -o $@ $^ ${libs}
 
 $O%.o:	%.c
 	@echo "    Compiling $< ..."
-	@${CC} ${cflags} -MMD -MT "$(<:.c=.s) $@" -o $@ -c $<
+	${CC} ${cflags} -MMD -MT "$(<:.c=.s) $@" -o $@ -c $<
 
 %.s:	%.c
 	@echo "    Compiling $< to assembly ..."
-	@${CC} ${cflags} -S -o $@ -c $<
+	${CC} ${cflags} -S -o $@ -c $<
 
 ################ Installation ##########################################
 
