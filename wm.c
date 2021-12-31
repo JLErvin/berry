@@ -2172,6 +2172,7 @@ client_set_status(struct client *c)
     if (c == NULL)
         return;
     int size = 0;
+    int mon = 0;
     char *str = NULL;
     char *state, *decorated;
 
@@ -2193,18 +2194,29 @@ client_set_status(struct client *c)
 
 
     if (conf.json_status) {
+        mon = ws_m_list[c->ws];
         size = asprintf(&str,
-        "{"
-            "\"window\":\"0x%08x\","
-            "\"geom\":{"
-                "\"x\":%d,"
-                "\"y\":%d,"
-                "\"width\":%d,"
-                "\"height\":%d"
-            "},"
-            "\"state\":\"%s\","
-            "\"decorated\":\"%s\""
-        "}", (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated);
+                "{"
+                    "\"window\":\"0x%08x\","
+                    "\"geom\":{"
+                        "\"x\":%d,"
+                        "\"y\":%d,"
+                        "\"width\":%d,"
+                        "\"height\":%d"
+                    "},"
+                    "\"monitor\":{"
+                        "\"id\": %d,"
+                        "\"x\":%d,"
+                        "\"y\":%d,"
+                        "\"width\":%d,"
+                        "\"height\":%d"
+                    "},"
+                    "\"state\":\"%s\","
+                    "\"decorated\":\"%s\""
+                "}",
+                (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height,
+                mon, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height,
+                state, decorated);
     } else {
         size = asprintf(&str,
                 "0x%08x, " // window id
@@ -2213,8 +2225,14 @@ client_set_status(struct client *c)
                 "%d, " // width
                 "%d, " // height
                 "%s, " // state
-                "%s",  // decorated
-                (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated);
+                "%s, " // decorated
+                "%d, " // monitor id
+                "%d, " // monitor x
+                "%d, " // monitor y
+                "%d, " // monitor width
+                "%d",  // monitor height
+                (unsigned int)c->window, c->geom.x, c->geom.y, c->geom.width, c->geom.height, state, decorated,
+                mon, m_list[mon].x, m_list[mon].y, m_list[mon].width, m_list[mon].height);
     }
 
     if (size == -1) {
