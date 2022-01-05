@@ -143,7 +143,7 @@ s/@builddir@/\$\{TMPDIR\}\/make/g"
 
 #### Find headers, libs, programs, and subs ##########################
 
-# Programs found using which
+# Programs found using command
 for i in $progs; do
     pname=$(expr $i : '\([^=]*\)')
     pcall=$(expr $i : '[^=]*=\([^=]*\)')
@@ -151,9 +151,10 @@ for i in $progs; do
     # First check if an environment variable is set
     [ -n "$ppath" ] && sub "s/@$pname@/$ppath/g"
     # Check if the program exists
-    ppath=$(which $pcall 2>/dev/null)
+    ppath=$(command $pcall 2>/dev/null)
     [ -n "$ppath" ] && [ -x "$ppath" ] && sub "s/@$pname@/$pcall/g"
 done
+
 # If nothing found in first loop, set the first pair anyway
 for i in $progs; do
     pname=$(expr $i : '\([^=]*\)')
@@ -162,7 +163,7 @@ for i in $progs; do
 done
 
 # Packages found using pkg-config
-pkgconfig=$(which pkg-config 2>/dev/null)
+pkgconfig=$(command pkg-config 2>/dev/null)
 if [ -n "$pkgconfig" ] && [ -x "$pkgconfig" ]; then
     faildeps=""
     for i in $pkgs; do
@@ -175,6 +176,7 @@ if [ -n "$pkgconfig" ] && [ -x "$pkgconfig" ]; then
     pkg_libs=$($pkgconfig --libs-only-l $pkgs)
     pkg_ldflags=$($pkgconfig --libs-only-L --libs-only-other $pkgs)
 fi
+
 sub "s/@pkg_cflags@/$(escpath $pkg_cflags)/"
 sub "s/@pkg_libs@/$(escpath $pkg_libs)/"
 sub "s/@pkg_ldflags@/$(escpath $pkg_ldflags)/"
