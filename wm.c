@@ -659,7 +659,7 @@ handle_button_press(XEvent *e)
     if (c == NULL)
         return;
     if (c != f_client) {
-        switch_ws(c->ws);
+        // switch_ws(c->ws);
         client_manage_focus(c);
     }
     ocx = c->geom.x;
@@ -1294,6 +1294,8 @@ client_manage_focus(struct client *c)
         if (conf.warp_pointer)
             warp_pointer(c);
         ewmh_set_focus(c);
+        if (c->ws != curr_ws)
+            switch_ws(c->ws);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     } else { //client is null, might happen when switching to a new workspace
              // without any active clients
