@@ -2298,17 +2298,15 @@ static void ewmh_set_client_list(void)
 */
 static void ewmh_set_desktop_names(void)
 {
-    char **list;
+    char** list = calloc(WORKSPACE_NUMBER, sizeof(char*));
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        asprintf(&list[i], "%d", i);
     XTextProperty text_prop;
-    list = malloc(sizeof(char*) * WORKSPACE_NUMBER);
-    for (int i = 0; i < WORKSPACE_NUMBER; i++) {
-        char *tmp = malloc(sizeof(char) * 2 + 1);
-        sprintf(tmp, "%d", i);
-        list[i] = tmp;
-    }
     Xutf8TextListToTextProperty(display, list, WORKSPACE_NUMBER, XUTF8StringStyle, &text_prop);
     XSetTextProperty(display, root, &text_prop, XInternAtom(display, "_NET_DESKTOP_NAMES", False));
     XFree(text_prop.value);
+    for (int i = 0; i < WORKSPACE_NUMBER; i++)
+        free(list[i]);
     free(list);
 }
 
