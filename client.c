@@ -186,10 +186,10 @@ fn_mask(long *data, bool b, int i, char **argv)
         else if( !strcmp(mask_str,"lock") ) data[i+b] = data[i+b]|LockMask;
         else if( !strcmp(mask_str,"ctrl") ) data[i+b] = data[i+b]|ControlMask;
         else if( !strcmp(mask_str,"mod1") ) data[i+b] = data[i+b]|Mod1Mask;
-        else if( !strcmp(mask_str,"mod2") ) data[i+b] = data[i+b]|Mod1Mask;
-        else if( !strcmp(mask_str,"mod3") ) data[i+b] = data[i+b]|Mod2Mask;
-        else if( !strcmp(mask_str,"mod4") ) data[i+b] = data[i+b]|Mod3Mask;
-        else if( !strcmp(mask_str,"mod5") ) data[i+b] = data[i+b]|Mod4Mask;
+        else if( !strcmp(mask_str,"mod2") ) data[i+b] = data[i+b]|Mod2Mask;
+        else if( !strcmp(mask_str,"mod3") ) data[i+b] = data[i+b]|Mod3Mask;
+        else if( !strcmp(mask_str,"mod4") ) data[i+b] = data[i+b]|Mod4Mask;
+        else if( !strcmp(mask_str,"mod5") ) data[i+b] = data[i+b]|Mod5Mask;
         else {
             printf("%s is not a valid modifier", mask_str);
             data[i+b]=0;
