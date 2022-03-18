@@ -135,6 +135,8 @@ static void draw_text(struct client *c, bool focused);
 static struct client* get_client_from_window(Window w);
 static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
+static void construct_mask(Window W, int x, int y, int w, int h, int dia);
+static void round_window_corners(struct client *c);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
 static void grab_buttons(void);
@@ -506,6 +508,7 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
             client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
         }
         c->fullscreen = true;
+        client_refresh(c);
     } else {
         ewmh_set_fullscreen(c, false);
         if (max) {
@@ -525,7 +528,6 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
         c->was_fs = false;
         client_refresh(c);
     }
-
     client_set_status(c);
 }
 
@@ -1177,6 +1179,9 @@ ipc_config(long *d)
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
             break;
+        case IPCBorderRadius:
+            conf.border_radius = d[2];
+            break;
         default:
             break;
     }
@@ -1306,6 +1311,58 @@ client_manage_focus(struct client *c)
 }
 
 static void
+construct_mask(Window W, int x, int y, int w, int h, int dia)
+{
+    XGCValues xgcv;
+
+    Pixmap mask = XCreatePixmap(display, W, w, h, 1);
+    if (!mask) return;
+    
+    GC shape_gc = XCreateGC(display, mask, 0, &xgcv);
+    if (!shape_gc) {
+        XFreePixmap(display, mask);
+        return;
+    }
+
+    XSetForeground(display, shape_gc, 0);
+    XFillRectangle(display, mask, shape_gc, 0, 0, w, h);
+    XSetForeground(display, shape_gc, 1);
+    XFillArc(display, mask, shape_gc,       0,       0, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc, w-dia-1,       0, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc,       0, h-dia-1, dia, dia, 0, 360 << 6);
+    XFillArc(display, mask, shape_gc, w-dia-1, h-dia-1, dia, dia, 0, 360 << 6);
+    XFillRectangle(display, mask, shape_gc, dia>>1,      0, w-dia,     h);
+    XFillRectangle(display, mask, shape_gc,      0, dia>>1,     w, h-dia);
+    XShapeCombineMask(display, W, ShapeBounding, x, y, mask, ShapeSet);
+    XFreePixmap(display, mask);
+    XFreeGC(display, shape_gc);
+}
+
+static void
+round_window_corners(struct client *c)
+{
+    unsigned int dia = conf.border_radius << 1;
+
+    if (c->fullscreen)
+        dia = 0;
+
+    unsigned int ww, wh, dw, dh;
+    
+    ww = c->geom.width - (c->decorated ? get_dec_width(c) : 0) ;
+    wh = c->geom.height - (c->decorated ? get_dec_height(c) : 0) ;
+    dw = c->geom.width;
+    dh = c->geom.height;
+
+    if (ww < dia || wh < dia)
+        return;
+
+    if (c->decorated == true)
+        construct_mask(c->dec, -conf.b_width, -conf.b_width, dw, dh, dia);
+
+    construct_mask(c->window, 0, 0, ww, wh, dia);
+}
+
+static void
 manage_new_window(Window w, XWindowAttributes *wa)
 {
     /* Credits to vain for XGWP checking */
@@ -1391,6 +1448,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     XGrabButton(display, 1, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     XGrabButton(display, 1, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     client_manage_focus(c);
+
+    round_window_corners(c);
 }
 
 static int
@@ -1467,6 +1526,7 @@ client_move_absolute(struct client *c, int x, int y)
         c->mono = false;
 
     client_set_status(c);
+    round_window_corners(c);
 }
 
 static void
@@ -1794,6 +1854,7 @@ client_resize_absolute(struct client *c, int w, int h)
     if (c->mono)
         c->mono = false;
     client_set_status(c);
+    round_window_corners(c);
 }
 
 static void
@@ -1954,6 +2015,7 @@ setup(void)
     conf.b_width          = BORDER_WIDTH;
     conf.t_height         = TITLE_HEIGHT;
     conf.i_width          = INTERNAL_BORDER_WIDTH;
+    conf.border_radius    = BORDER_RADIUS;
     conf.bf_color         = BORDER_FOCUS_COLOR;
     conf.bu_color         = BORDER_UNFOCUS_COLOR;
     conf.if_color         = INNER_FOCUS_COLOR;
