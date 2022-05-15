@@ -1215,7 +1215,7 @@ ipc_save_monitor(long *d)
         return;
     }
 
-    LOGP("Saving ws %d to monitor %d", ws, mon);
+    LOGP("Saving workspace %d to monitor %d", ws, mon);
 
     /* Associate the given workspace to the given monitor */
     ws_m_list[ws] = mon;
