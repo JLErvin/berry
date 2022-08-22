@@ -3,7 +3,6 @@
 
 #include "config.h"
 
-#include <X11/X.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
