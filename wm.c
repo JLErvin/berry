@@ -685,7 +685,7 @@ handle_button_press(XEvent *e)
                 }
                 last_motion = current_time;
                 state       = mod_clean(ev.xbutton.state);
-                if (state == (unsigned)conf.move_mask && bev->button == (unsigned)conf.move_button ) {
+                if ((state == (unsigned)conf.move_mask && bev->button == (unsigned)conf.move_button) || ev.xbutton.state == Button1Mask) {
                     nx = ocx + (ev.xmotion.x - x);
                     ny = ocy + (ev.xmotion.y - y);
                     if (conf.edge_lock)
