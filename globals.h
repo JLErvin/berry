@@ -9,6 +9,10 @@
 
 #define MOUSEMASK (PointerMotionMask|ButtonPressMask|ButtonReleaseMask)
 
+// Taken from DWM. Many thanks. https://git.suckless.org/dwm
+#define mod_clean(mask) (mask & ~(LockMask) & \
+        (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
+
 #ifndef __THIS_VERSION__
 #define __THIS_VERSION__ ""
 #endif

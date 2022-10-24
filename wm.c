@@ -649,7 +649,7 @@ handle_button_press(XEvent *e)
     XEvent ev;
     struct client *c;
     int x, y, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
-    unsigned int dui;
+    unsigned int dui, state;
     Window dummy;
     Time current_time, last_motion;
 
@@ -684,14 +684,15 @@ handle_button_press(XEvent *e)
                     continue;
                 }
                 last_motion = current_time;
-                if (ev.xbutton.state == (unsigned)(conf.move_mask|Button1Mask) || ev.xbutton.state == Button1Mask) {
+                state       = mod_clean(ev.xbutton.state);
+                if ((state == (unsigned)conf.move_mask && bev->button == (unsigned)conf.move_button) || ev.xbutton.state == Button1Mask) {
                     nx = ocx + (ev.xmotion.x - x);
                     ny = ocy + (ev.xmotion.y - y);
                     if (conf.edge_lock)
                         client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
                     else
                         client_move_absolute(c, nx, ny);
-                } else if (ev.xbutton.state == (unsigned)(conf.resize_mask|Button1Mask)) {
+                } else if (state == (unsigned)conf.resize_mask && bev->button == (unsigned)conf.resize_button) {
                     nw = ev.xmotion.x - x;
                     nh = ev.xmotion.y - y;
                     if (conf.edge_lock)
@@ -1158,9 +1159,20 @@ ipc_config(long *d)
         case IPCDrawText:
             conf.draw_text = d[2];
             break;
+        case IPCMoveButton:
+            ungrab_buttons();
+            conf.move_button = (d[2] == 0) ? conf.move_button : d[2];
+
+            grab_buttons();
+            break;
         case IPCMoveMask:
             ungrab_buttons();
             conf.move_mask = (d[2] == 0) ? conf.move_mask : d[2];
+            grab_buttons();
+            break;
+        case IPCResizeButton:
+            ungrab_buttons();
+            conf.resize_button = (d[2] == 0) ? conf.resize_button : d[2];
             grab_buttons();
             break;
         case IPCResizeMask:
@@ -1388,8 +1400,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
-    XGrabButton(display, 1, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(display, 1, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, conf.move_button, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, conf.resize_button, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
     client_manage_focus(c);
 }
 
@@ -1428,8 +1440,8 @@ grab_buttons(void)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-            XGrabButton(display, 1, conf.move_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-            XGrabButton(display, 1, conf.resize_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            XGrabButton(display, conf.move_button, conf.move_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            XGrabButton(display, conf.resize_button, conf.resize_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
         }
 }
 
@@ -1438,8 +1450,8 @@ ungrab_buttons(void)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-            XUngrabButton(display, 1, conf.move_mask, tmp->window);
-            XUngrabButton(display, 1, conf.resize_mask, tmp->window);
+            XUngrabButton(display, conf.move_button, conf.move_mask, tmp->window);
+            XUngrabButton(display, conf.resize_button, conf.resize_mask, tmp->window);
         }
 }
 
@@ -1975,7 +1987,9 @@ setup(void)
     conf.manage[Splash]   = MANAGE_SPLASH;
     conf.manage[Utility]  = MANAGE_UTILITY;
     conf.decorate         = DECORATE_NEW;
+    conf.move_button      = MOVE_BUTTON;
     conf.move_mask        = MOVE_MASK;
+    conf.resize_button    = RESIZE_BUTTON;
     conf.resize_mask      = RESIZE_MASK;
     conf.fs_remove_dec    = FULLSCREEN_REMOVE_DEC;
     conf.fs_max           = FULLSCREEN_MAX;
