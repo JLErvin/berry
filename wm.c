@@ -424,9 +424,6 @@ client_delete(struct client *c)
         LOGP("Deleting client on workspace %d", ws);
     }
 
-    /* Prevent BadDrawable error which sometimes occurs as a window is closed */
-    client_decorations_destroy(c);
-
     /* Delete in the stack */
     if (c_list[ws] == c) {
         c_list[ws] = c_list[ws]->next;
@@ -835,7 +832,7 @@ handle_unmap_notify(XEvent *e)
         LOGN("Client found while unmapping, focusing next client");
         focus_best(c);
         if (c->decorated)
-            XDestroyWindow(display, c->dec);
+            client_decorations_destroy(c);
         client_delete(c);
         free(c);
         client_raise(f_client);
