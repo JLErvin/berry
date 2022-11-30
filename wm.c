@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <limits.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -2536,8 +2537,10 @@ main(int argc, char *argv[])
     LOGN("Successfully opened display");
 
     setup();
-    if (conf_found)
+    if (conf_found) {
+        signal(SIGCHLD, SIG_IGN);
         load_config(conf_path);
+    }
     run();
     close_wm();
     free(font_name);
