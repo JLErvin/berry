@@ -109,6 +109,7 @@ static void ipc_move_absolute(long *d);
 static void ipc_move_relative(long *d);
 static void ipc_monocle(long *d);
 static void ipc_raise(long *d);
+static void ipc_hide(long *d);
 static void ipc_resize_absolute(long *d);
 static void ipc_resize_relative(long *d);
 static void ipc_toggle_decorations(long *d);
@@ -181,6 +182,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCWindowMoveAbsolute]       = ipc_move_absolute,
     [IPCWindowMonocle]            = ipc_monocle,
     [IPCWindowRaise]              = ipc_raise,
+    [IPCWindowHide]               = ipc_hide,
     [IPCWindowResizeRelative]     = ipc_resize_relative,
     [IPCWindowResizeAbsolute]     = ipc_resize_absolute,
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
@@ -936,6 +938,16 @@ ipc_raise(long *d)
 }
 
 static void
+ipc_hide(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    client_hide(f_client);
+}
+
+static void
 ipc_resize_absolute(long *d)
 {
     int w, h;
@@ -1086,7 +1098,9 @@ ipc_pointer_focus(long *d)
          */
         if (c != f_client) {
             client_manage_focus(c);
-            switch_ws(c->ws);
+            if (c->ws != f_client->ws) {
+                switch_ws(c->ws);
+            }
         }
     }
 }
@@ -1681,9 +1695,15 @@ client_raise(struct client *c)
             for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
                 wins[i] = tmp->window;
                 wins[i+1] = tmp->dec;
-                i += 2;
+                i += 2;   
             }
+            
             XRestackWindows(display, wins, count*2);
+        }
+
+        if (c->hidden) {
+            client_move_absolute(c, c->x_hide, c->geom.y);
+            c->hidden = false;
         }
     }
 }
@@ -2088,9 +2108,7 @@ client_show(struct client *c)
 {
     if (c->hidden) {
         LOGN("Showing client");
-        client_move_absolute(c, c->x_hide, c->geom.y);
         client_raise(c);
-        c->hidden = false;
     }
 }
 
