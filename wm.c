@@ -646,7 +646,7 @@ handle_button_press(XEvent *e)
     XButtonPressedEvent *bev = &e->xbutton;
     XEvent ev;
     struct client *c;
-    int x=0, y=0, pbrx, pbry, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
+    int x, y, pbrx, pbry, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
     unsigned int dui, state;
     Window dummy;
     Time current_time, last_motion;
@@ -671,7 +671,7 @@ handle_button_press(XEvent *e)
         return;
     
     XGCValues gv = { .function = GXinvert, .subwindow_mode = IncludeInferiors, .line_width = RESIZE_RECTANGLE_BORDER_WIDTH};
-    GC gc = XCreateGC(display, root, GCFunction|GCSubwindowMode|GCLineWidth, &gv);
+    GC root_gc = XCreateGC(display, root, GCFunction|GCSubwindowMode|GCLineWidth, &gv);
 
     bool was_resizing = false;
 
@@ -698,19 +698,19 @@ handle_button_press(XEvent *e)
                         client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
                     else
                         client_move_absolute(c, nx, ny);
-                } else if (state == (unsigned)conf.resize_mask && bev->button == (unsigned)conf.resize_button) {             
+                } else if (state == (unsigned)conf.resize_mask && bev->button == (unsigned)conf.resize_button) {
                     nw = ev.xmotion.x - x;
                     nh = ev.xmotion.y - y;
                     
                     if (conf.draw_resize_rect) {
                         // Invert back (clear) previous rectangle
                         if (was_resizing)
-                            XDrawRectangle(display, root, gc, ocx + gv.line_width/2, ocy + gv.line_width/2, pbrx - gv.line_width, pbry - gv.line_width);
+                            XDrawRectangle(display, root, root_gc, ocx + gv.line_width/2, ocy + gv.line_width/2, pbrx - gv.line_width, pbry - gv.line_width);
 
                         was_resizing = true;
 
                         // Draw new rectangle
-                        XDrawRectangle(display, root, gc, ocx + gv.line_width/2, ocy + gv.line_width/2, ocw + nw - gv.line_width, och + nh - gv.line_width);
+                        XDrawRectangle(display, root, root_gc, ocx + gv.line_width/2, ocy + gv.line_width/2, ocw + nw - gv.line_width, och + nh - gv.line_width);
                         pbrx = ocw + nw;
                         pbry = och + nh;
                     } else {
