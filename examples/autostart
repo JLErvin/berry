@@ -16,7 +16,8 @@ berryc text_focus_color    ffffff
 berryc text_unfocus_color  eeeeee
 
 # Other options
-berryc smart_place "true"
-berryc draw_text   "true"
-berryc edge_lock   "true"
-berryc set_font    "Dina-9"
+berryc draw_resize_rect "false"
+berryc smart_place      "true"
+berryc draw_text        "true"
+berryc edge_lock        "true"
+berryc set_font         "Dina-9"
