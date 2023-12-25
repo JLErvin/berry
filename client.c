@@ -89,6 +89,7 @@ static const struct command command_table[] = {
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
+    { "draw_resize_rect",       IPCDrawResizeRect,          true,  1, fn_bool    },
 };
 
 static void
@@ -280,11 +281,11 @@ main(int argc, char **argv)
         case 'v':
             version();
             break;
-        default:
-            usage(stderr);
-            break;
         }
     }
+
+    if (argc <= 1)
+        usage(stderr);
 
     for (int i = 0; i < (int)(sizeof command_table / sizeof command_table[0]); i++) {
         if (strcmp(argv[1], command_table[i].name) == 0) {

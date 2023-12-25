@@ -58,6 +58,7 @@ enum IPCCommand
     IPCPointerInterval,
     IPCFocusFollowsPointer,
     IPCWarpPointer,
+    IPCDrawResizeRect,
     IPCLast
 };
 

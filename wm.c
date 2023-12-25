@@ -646,7 +646,7 @@ handle_button_press(XEvent *e)
     XButtonPressedEvent *bev = &e->xbutton;
     XEvent ev;
     struct client *c;
-    int x, y, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
+    int x=0, y=0, pbrx, pbry, ocx, ocy, nx, ny, nw, nh, di, ocw, och;
     unsigned int dui, state;
     Window dummy;
     Time current_time, last_motion;
@@ -664,9 +664,17 @@ handle_button_press(XEvent *e)
     ocy = c->geom.y;
     ocw = c->geom.width;
     och = c->geom.height;
+    pbrx = ocx + ocw;
+    pbry = ocy + och;
     last_motion = ev.xmotion.time;
     if (XGrabPointer(display, root, False, MOUSEMASK, GrabModeAsync, GrabModeAsync, None, move_cursor, CurrentTime) != GrabSuccess)
         return;
+    
+    XGCValues gv = { .function = GXinvert, .subwindow_mode = IncludeInferiors, .line_width = RESIZE_RECTANGLE_BORDER_WIDTH};
+    GC gc = XCreateGC(display, root, GCFunction|GCSubwindowMode|GCLineWidth, &gv);
+
+    bool was_resizing = false;
+
     do {
         XMaskEvent(display, MOUSEMASK|ExposureMask|SubstructureRedirectMask, &ev);
         switch (ev.type) {
@@ -690,18 +698,38 @@ handle_button_press(XEvent *e)
                         client_move_relative(c, nx - c->geom.x, ny - c->geom.y);
                     else
                         client_move_absolute(c, nx, ny);
-                } else if (state == (unsigned)conf.resize_mask && bev->button == (unsigned)conf.resize_button) {
+                } else if (state == (unsigned)conf.resize_mask && bev->button == (unsigned)conf.resize_button) {             
                     nw = ev.xmotion.x - x;
                     nh = ev.xmotion.y - y;
-                    if (conf.edge_lock)
-                        client_resize_relative(c, nw - c->geom.width + ocw, nh - c->geom.height + och);
-                    else
-                        client_resize_absolute(c, ocw + nw, och + nh);
+                    
+                    if (conf.draw_resize_rect) {
+                        // Invert back (clear) previous rectangle
+                        if (was_resizing)
+                            XDrawRectangle(display, root, gc, ocx + gv.line_width/2, ocy + gv.line_width/2, pbrx - gv.line_width, pbry - gv.line_width);
+
+                        was_resizing = true;
+
+                        // Draw new rectangle
+                        XDrawRectangle(display, root, gc, ocx + gv.line_width/2, ocy + gv.line_width/2, ocw + nw - gv.line_width, och + nh - gv.line_width);
+                        pbrx = ocw + nw;
+                        pbry = och + nh;
+                    } else {
+                        if (conf.edge_lock)
+                            client_resize_relative(c, nw - c->geom.width + ocw, nh - c->geom.height + och);
+                        else
+                            client_resize_absolute(c, ocw + nw, och + nh);
+                    }
                 }
                 XFlush(display);
                 break;
         }
     } while (ev.type != ButtonRelease);
+    if (conf.draw_resize_rect && was_resizing) {
+        if (conf.edge_lock)
+            client_resize_relative(c, nw - c->geom.width + ocw, nh - c->geom.height + och);
+        else
+            client_resize_absolute(c, ocw + nw, och + nh);
+    }
     XUngrabPointer(display, CurrentTime);
 }
 
@@ -1186,6 +1214,9 @@ ipc_config(long *d)
             break;
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
+            break;
+        case IPCDrawResizeRect:
+            conf.draw_resize_rect = d[2];
             break;
         default:
             break;
@@ -1994,6 +2025,7 @@ setup(void)
     conf.pointer_interval = POINTER_INTERVAL;
     conf.follow_pointer   = FOLLOW_POINTER;
     conf.warp_pointer     = WARP_POINTER;
+    conf.draw_resize_rect = DRAW_RESIZE_RECTANGLE;
 
     root = DefaultRootWindow(display);
     screen = DefaultScreen(display);
