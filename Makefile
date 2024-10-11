@@ -20,7 +20,7 @@ oname   := $(notdir $(abspath $O))
 
 all:	${berry} ${berryc}
 
-${berry}:	$Outils.o $Owm.o
+${berry}:	$Owm.o
 	@echo "Linking $@ ..."
 	@${CC} ${ldflags} -o $@ $^ ${libs}
 
