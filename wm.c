@@ -122,6 +122,7 @@ static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_pointer_focus(long *d);
+static void ipc_place(long *d);
 static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
 static void ipc_set_font(long *d);
@@ -197,6 +198,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCSaveMonitor]              = ipc_save_monitor,
     [IPCSetFont]                  = ipc_set_font,
     [IPCEdgeGap]                  = ipc_edge_gap,
+    [IPCPlace]                    = ipc_place,
     [IPCConfig]                   = ipc_config
 };
 
@@ -1088,6 +1090,13 @@ ipc_pointer_focus(long *d)
             switch_ws(c->ws);
         }
     }
+}
+
+static void
+ipc_place(long *d)
+{
+    UNUSED(d);
+    client_place(f_client);
 }
 
 static void

@@ -89,6 +89,7 @@ static const struct command command_table[] = {
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
+    { "place",                  IPCPlace,                   false, 0, NULL       },
 };
 
 static void
