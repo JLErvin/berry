@@ -81,6 +81,7 @@ static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
 static void client_toggle_decorations(struct client *c);
 static void client_set_status(struct client *c);
+static bool client_window_is_below(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
@@ -91,6 +92,7 @@ static void ewmh_set_frame_extents(struct client *c);
 static void ewmh_set_client_list(void);
 static void ewmh_set_desktop_names(void);
 static void ewmh_set_active_desktop(int ws);
+static void ewmh_set_below(struct client *c, bool below);
 
 /* Event handlers */
 static void handle_client_message(XEvent *e);
@@ -122,6 +124,7 @@ static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
+static void ipc_below(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
@@ -188,6 +191,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCWindowCenter]             = ipc_window_center,
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
+    [IPCBelow]                    = ipc_below,
     [IPCFullscreen]               = ipc_fullscreen,
     [IPCFullscreenState]          = ipc_fullscreen_state,
     [IPCSnapLeft]                 = ipc_snap_left,
@@ -1066,6 +1070,17 @@ ipc_cycle_focus(long *d)
 }
 
 static void
+ipc_below(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    f_client->below = !f_client->below;
+    ewmh_set_below(f_client, f_client->below);
+}
+
+static void
 ipc_pointer_focus(long *d)
 {
     UNUSED(d);
@@ -1085,8 +1100,8 @@ ipc_pointer_focus(long *d)
          * otherwise menu's will be hidden behind the parent window
          */
         if (c != f_client) {
-            client_manage_focus(c);
             switch_ws(c->ws);
+            client_manage_focus(c);
         }
     }
 }
@@ -1380,6 +1395,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->fullscreen = false;
     c->mono = false;
     c->was_fs = false;
+    c->below = client_window_is_below(c);
 
     XSetWindowBorderWidth(display, c->window, 0);
 
@@ -1512,6 +1528,29 @@ client_move_relative(struct client *c, int x, int y)
     }
 }
 
+static bool
+client_window_is_below(struct client *c)
+{
+    Atom prop, da;
+    unsigned char *prop_ret = NULL;
+    int di;
+    unsigned long dl, dn;
+
+    if (XGetWindowProperty(display, c->window, net_atom[NetWMState], 0,
+                sizeof (Atom), False, XA_ATOM, &da, &di, &dn, &dl,
+                &prop_ret) == Success)
+    {
+        Atom *states = (Atom *)prop_ret;
+        for (unsigned long i = 0; i < dn; i++) {
+            if (states[i] == net_atom[NetWMStateBelow]) {
+                XFree(prop_ret);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static void
 client_move_to_front(struct client *c)
 {
@@ -1520,6 +1559,11 @@ client_move_to_front(struct client *c)
 
     /* If we didn't find the client */
     if (ws == -1)
+        return;
+
+
+    /* If the Client is set to be always below */
+    if (c->below || client_window_is_below(c))
         return;
 
     /* If the Client is at the front of the list, ignore command */
@@ -1662,6 +1706,11 @@ static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
+
+        /* If the Client is set to be always below */
+        if (c->below || client_window_is_below(c))
+            return;
+
         if (!c->decorated) {
             XRaiseWindow(display, c->window);
         } else {
@@ -2019,6 +2068,7 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    net_atom[NetWMStateBelow]        = XInternAtom(display, "_NET_WM_STATE_BELOW", False);
     net_atom[NetWMMoveResize]        = XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
@@ -2264,6 +2314,13 @@ ewmh_set_fullscreen(struct client *c, bool fullscreen)
 {
     XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
             PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 1 : 0 );
+}
+
+static void
+ewmh_set_below(struct client *c, bool below)
+{
+    XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateBelow], below ? 1 : 0 );
 }
 
 static void
