@@ -1076,8 +1076,7 @@ ipc_below(long *d)
     if (f_client == NULL)
         return;
 
-    f_client->below = !f_client->below;
-    ewmh_set_below(f_client, f_client->below);
+    ewmh_set_below(f_client, !client_window_is_below(f_client));
 }
 
 static void
@@ -1395,7 +1394,6 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->fullscreen = false;
     c->mono = false;
     c->was_fs = false;
-    c->below = client_window_is_below(c);
 
     XSetWindowBorderWidth(display, c->window, 0);
 
@@ -1548,6 +1546,7 @@ client_window_is_below(struct client *c)
             }
         }
     }
+    XFree(prop_ret);
     return false;
 }
 
@@ -1563,7 +1562,7 @@ client_move_to_front(struct client *c)
 
 
     /* If the Client is set to be always below */
-    if (c->below || client_window_is_below(c))
+    if (client_window_is_below(c))
         return;
 
     /* If the Client is at the front of the list, ignore command */
@@ -1708,7 +1707,7 @@ client_raise(struct client *c)
     if (c != NULL) {
 
         /* If the Client is set to be always below */
-        if (c->below || client_window_is_below(c))
+        if (client_window_is_below(c))
             return;
 
         if (!c->decorated) {
