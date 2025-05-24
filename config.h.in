@@ -62,12 +62,14 @@
 #define MANAGE_UTILITY true
 
 #define DECORATE_NEW true
+#define FOCUS_BUTTON 1
 #define MOVE_BUTTON 1
 #define MOVE_MASK Mod4Mask
 #define RESIZE_BUTTON 1
 #define RESIZE_MASK Mod1Mask
 #define POINTER_INTERVAL 0
 #define FOLLOW_POINTER false
+#define FOCUS_ON_CLICK false
 #define WARP_POINTER false
 
 #endif
