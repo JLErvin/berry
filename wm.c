@@ -1187,6 +1187,8 @@ ipc_config(long *d)
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
             break;
+        case IPCSmartPlace:
+            conf.smart_place = d[2];
         default:
             break;
     }
