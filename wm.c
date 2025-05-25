@@ -56,6 +56,7 @@ static void client_cardinal_focus(struct client *c, int dir);
 static void client_center(struct client *c);
 static void client_center_in_rect(struct client *c, int x, int y, unsigned w, unsigned h);
 static void client_close(struct client *c);
+static void client_kill(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
@@ -113,6 +114,7 @@ static void ipc_resize_absolute(long *d);
 static void ipc_resize_relative(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_window_close(long *d);
+static void ipc_window_kill(long *d);
 static void ipc_window_center(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
@@ -185,6 +187,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCWindowResizeAbsolute]     = ipc_resize_absolute,
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
     [IPCWindowClose]              = ipc_window_close,
+    [IPCWindowKill]               = ipc_window_kill,
     [IPCWindowCenter]             = ipc_window_center,
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
@@ -356,6 +359,14 @@ draw_text(struct client *c, bool focused)
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
     XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
     XftDrawDestroy(draw);
+}
+
+// Kill the client forcefully
+// Client deletion is handled automatically with XUnmapEvent
+static void
+client_kill(struct client *c)
+{
+    XKillClient(display, c->window);
 }
 
 /* Communicate with the given Client, kindly telling it to close itself
@@ -981,6 +992,16 @@ ipc_window_close(long *d)
         return;
 
     client_close(f_client);
+}
+
+static void
+ipc_window_kill(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    client_kill(f_client);
 }
 
 static void
