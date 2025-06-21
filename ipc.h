@@ -36,6 +36,7 @@ enum IPCCommand
     IPCCardinalFocus,
     IPCCycleFocus,
     IPCWindowClose,
+    IPCWindowKill,
     IPCWindowCenter,
     IPCPointerFocus,
     IPCTopGap,
