@@ -84,12 +84,14 @@ static const struct command command_table[] = {
     { "unmanage",               IPCUnmanage,                true,  1, fn_str     },
     { "decorate_new",           IPCDecorate,                true,  1, fn_bool    },
     { "name_desktop",           IPCNameDesktop,             false, 2, fn_int_str },
+    { "focus_button",           IPCFocusButton,             true,  1, fn_int     },
     { "move_button",            IPCMoveButton,              true,  1, fn_int     },
     { "move_mask",              IPCMoveMask,                true,  1, fn_mask    },
     { "resize_button",          IPCResizeButton,            true,  1, fn_int     },
     { "resize_mask",            IPCResizeMask,              true,  1, fn_mask    },
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
+    { "focus_on_click",         IPCFocusOnClick,            true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
 };
 

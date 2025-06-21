@@ -143,6 +143,8 @@ static void load_color(XftColor *dest_color, unsigned long raw_color);
 static void load_config(char *conf_path);
 static void manage_new_window(Window w, XWindowAttributes *wa);
 static int manage_xsend_icccm(struct client *c, Atom atom);
+static void window_grab_buttons(Window window);
+static void window_ungrab_buttons(Window window);
 static void grab_buttons(void);
 static void ungrab_buttons(void);
 static void refresh_config(void);
@@ -675,6 +677,18 @@ handle_button_press(XEvent *e)
         switch_ws(c->ws);
         client_manage_focus(c);
     }
+    // If it's not window movement or resize then process focus on click
+    state = mod_clean(bev->state);
+    if (conf.focus_on_click && bev->button == (unsigned)conf.focus_button && state != (unsigned)conf.move_mask && state != (unsigned)conf.resize_mask && bev->window != c->dec)
+    {
+        LOGN("Handling focus on click");
+        // Ungrab buttons, propagate event to the window, and regrab
+        window_ungrab_buttons(bev->window);
+        XAllowEvents(display, ReplayPointer, CurrentTime);
+        window_grab_buttons(bev->window);
+        return;
+    }
+    // Otherwise process window movement or resize
     ocx = c->geom.x;
     ocy = c->geom.y;
     ocw = c->geom.width;
@@ -1192,10 +1206,14 @@ ipc_config(long *d)
         case IPCDrawText:
             conf.draw_text = d[2];
             break;
+        case IPCFocusButton:
+            ungrab_buttons();
+            conf.focus_button = (d[2] == 0) ? conf.focus_button : d[2];
+            grab_buttons();
+            break;
         case IPCMoveButton:
             ungrab_buttons();
             conf.move_button = (d[2] == 0) ? conf.move_button : d[2];
-
             grab_buttons();
             break;
         case IPCMoveMask:
@@ -1218,6 +1236,11 @@ ipc_config(long *d)
             break;
         case IPCFocusFollowsPointer:
             conf.follow_pointer = d[2];
+            break;
+        case IPCFocusOnClick:
+            ungrab_buttons();
+            conf.focus_on_click = d[2];
+            grab_buttons();
             break;
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
@@ -1435,8 +1458,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
 
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
-    XGrabButton(display, conf.move_button, conf.move_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(display, conf.resize_button, conf.resize_mask, c->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    window_grab_buttons(c->window);
     client_manage_focus(c);
 }
 
@@ -1471,12 +1493,29 @@ manage_xsend_icccm(struct client *c, Atom atom)
 }
 
 static void
+window_grab_buttons(Window window)
+{
+    XGrabButton(display, conf.move_button, conf.move_mask, window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, conf.resize_button, conf.resize_mask, window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    if (conf.focus_on_click)
+        XGrabButton(display, conf.focus_button, AnyModifier, window, True, ButtonPressMask, GrabModeSync, GrabModeSync, None, None);
+}
+
+static void
+window_ungrab_buttons(Window window)
+{
+    XUngrabButton(display, conf.move_button, conf.move_mask, window);
+    XUngrabButton(display, conf.resize_button, conf.resize_mask, window);
+    if (conf.focus_on_click)
+        XUngrabButton(display, conf.focus_button, AnyModifier, window);
+}
+
+static void
 grab_buttons(void)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-            XGrabButton(display, conf.move_button, conf.move_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-            XGrabButton(display, conf.resize_button, conf.resize_mask, tmp->window, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+            window_grab_buttons(tmp->window);
         }
 }
 
@@ -1485,8 +1524,7 @@ ungrab_buttons(void)
 {
     for (int i = 0; i < WORKSPACE_NUMBER; i++)
         for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-            XUngrabButton(display, conf.move_button, conf.move_mask, tmp->window);
-            XUngrabButton(display, conf.resize_button, conf.resize_mask, tmp->window);
+            window_ungrab_buttons(tmp->window);
         }
 }
 
@@ -2058,6 +2096,7 @@ setup(void)
     conf.manage[Splash]   = MANAGE_SPLASH;
     conf.manage[Utility]  = MANAGE_UTILITY;
     conf.decorate         = DECORATE_NEW;
+    conf.focus_button     = FOCUS_BUTTON;
     conf.move_button      = MOVE_BUTTON;
     conf.move_mask        = MOVE_MASK;
     conf.resize_button    = RESIZE_BUTTON;
@@ -2066,6 +2105,7 @@ setup(void)
     conf.fs_max           = FULLSCREEN_MAX;
     conf.pointer_interval = POINTER_INTERVAL;
     conf.follow_pointer   = FOLLOW_POINTER;
+    conf.focus_on_click   = FOCUS_ON_CLICK;
     conf.warp_pointer     = WARP_POINTER;
 
     root = DefaultRootWindow(display);
