@@ -1701,6 +1701,8 @@ client_place(struct client *c)
             count = 0;
         }
     }
+    // Center the client if there is no space for it
+    client_center(c);
 }
 
 static void
