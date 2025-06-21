@@ -47,7 +47,9 @@ static const struct command command_table[] = {
     { "window_raise",           IPCWindowRaise,             false, 0, NULL       },
     { "window_monocle",         IPCWindowMonocle,           false, 0, NULL       },
     { "window_close",           IPCWindowClose,             false, 0, NULL       },
+    { "window_kill",            IPCWindowKill,              false, 0, NULL       },
     { "window_center",          IPCWindowCenter,            false, 0, NULL       },
+    { "window_below",           IPCBelow,                   false, 0, NULL       },
     { "focus_color",            IPCFocusColor,              true,  1, fn_hex     },
     { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     },
     { "inner_focus_color",      IPCInnerFocusColor,         true,  1, fn_hex     },
@@ -89,7 +91,7 @@ static const struct command command_table[] = {
     { "pointer_interval",       IPCPointerInterval,         true,  1, fn_int     },
     { "focus_follows_pointer",  IPCFocusFollowsPointer,     true,  1, fn_bool    },
     { "warp_pointer",           IPCWarpPointer,             true,  1, fn_bool    },
-    { "place",                  IPCPlace,                   false, 0, NULL       },
+    { "window_place",                  IPCPlace,                   false, 0, NULL       },
 };
 
 static void

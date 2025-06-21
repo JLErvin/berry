@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <limits.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -55,6 +56,7 @@ static void client_cardinal_focus(struct client *c, int dir);
 static void client_center(struct client *c);
 static void client_center_in_rect(struct client *c, int x, int y, unsigned w, unsigned h);
 static void client_close(struct client *c);
+static void client_kill(struct client *c);
 static void client_decorations_create(struct client *c);
 static void client_decorations_destroy(struct client *c);
 static void client_delete(struct client *c);
@@ -80,6 +82,7 @@ static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
 static void client_toggle_decorations(struct client *c);
 static void client_set_status(struct client *c);
+static bool client_window_is_below(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
@@ -90,6 +93,7 @@ static void ewmh_set_frame_extents(struct client *c);
 static void ewmh_set_client_list(void);
 static void ewmh_set_desktop_names(void);
 static void ewmh_set_active_desktop(int ws);
+static void ewmh_set_below(struct client *c, bool below);
 
 /* Event handlers */
 static void handle_client_message(XEvent *e);
@@ -112,6 +116,7 @@ static void ipc_resize_absolute(long *d);
 static void ipc_resize_relative(long *d);
 static void ipc_toggle_decorations(long *d);
 static void ipc_window_close(long *d);
+static void ipc_window_kill(long *d);
 static void ipc_window_center(long *d);
 static void ipc_switch_ws(long *d);
 static void ipc_send_to_ws(long *d);
@@ -121,6 +126,7 @@ static void ipc_snap_left(long *d);
 static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
+static void ipc_below(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_place(long *d);
 static void ipc_config(long *d);
@@ -185,9 +191,11 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCWindowResizeAbsolute]     = ipc_resize_absolute,
     [IPCWindowToggleDecorations]  = ipc_toggle_decorations,
     [IPCWindowClose]              = ipc_window_close,
+    [IPCWindowKill]               = ipc_window_kill,
     [IPCWindowCenter]             = ipc_window_center,
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
+    [IPCBelow]                    = ipc_below,
     [IPCFullscreen]               = ipc_fullscreen,
     [IPCFullscreenState]          = ipc_fullscreen_state,
     [IPCSnapLeft]                 = ipc_snap_left,
@@ -357,6 +365,14 @@ draw_text(struct client *c, bool focused)
     xft_render_color = focused ? &xft_focus_color : &xft_unfocus_color;
     XftDrawStringUtf8(draw, xft_render_color, font, x, y, (XftChar8 *) c->title, strlen(c->title));
     XftDrawDestroy(draw);
+}
+
+// Kill the client forcefully
+// Client deletion is handled automatically with XUnmapEvent
+static void
+client_kill(struct client *c)
+{
+    XKillClient(display, c->window);
 }
 
 /* Communicate with the given Client, kindly telling it to close itself
@@ -985,6 +1001,16 @@ ipc_window_close(long *d)
 }
 
 static void
+ipc_window_kill(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    client_kill(f_client);
+}
+
+static void
 ipc_window_center(long *d)
 {
     UNUSED(d);
@@ -1067,6 +1093,16 @@ ipc_cycle_focus(long *d)
 }
 
 static void
+ipc_below(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+
+    ewmh_set_below(f_client, !client_window_is_below(f_client));
+}
+
+static void
 ipc_pointer_focus(long *d)
 {
     UNUSED(d);
@@ -1086,8 +1122,8 @@ ipc_pointer_focus(long *d)
          * otherwise menu's will be hidden behind the parent window
          */
         if (c != f_client) {
-            client_manage_focus(c);
             switch_ws(c->ws);
+            client_manage_focus(c);
         }
     }
 }
@@ -1195,6 +1231,8 @@ ipc_config(long *d)
         case IPCWarpPointer:
             conf.warp_pointer = d[2];
             break;
+        case IPCSmartPlace:
+            conf.smart_place = d[2];
         default:
             break;
     }
@@ -1520,6 +1558,30 @@ client_move_relative(struct client *c, int x, int y)
     }
 }
 
+static bool
+client_window_is_below(struct client *c)
+{
+    Atom prop, da;
+    unsigned char *prop_ret = NULL;
+    int di;
+    unsigned long dl, dn;
+
+    if (XGetWindowProperty(display, c->window, net_atom[NetWMState], 0,
+                sizeof (Atom), False, XA_ATOM, &da, &di, &dn, &dl,
+                &prop_ret) == Success)
+    {
+        Atom *states = (Atom *)prop_ret;
+        for (unsigned long i = 0; i < dn; i++) {
+            if (states[i] == net_atom[NetWMStateBelow]) {
+                XFree(prop_ret);
+                return true;
+            }
+        }
+    }
+    XFree(prop_ret);
+    return false;
+}
+
 static void
 client_move_to_front(struct client *c)
 {
@@ -1528,6 +1590,11 @@ client_move_to_front(struct client *c)
 
     /* If we didn't find the client */
     if (ws == -1)
+        return;
+
+
+    /* If the Client is set to be always below */
+    if (client_window_is_below(c))
         return;
 
     /* If the Client is at the front of the list, ignore command */
@@ -1664,12 +1731,19 @@ client_place(struct client *c)
             count = 0;
         }
     }
+    // Center the client if there is no space for it
+    client_center(c);
 }
 
 static void
 client_raise(struct client *c)
 {
     if (c != NULL) {
+
+        /* If the Client is set to be always below */
+        if (client_window_is_below(c))
+            return;
+
         if (!c->decorated) {
             XRaiseWindow(display, c->window);
         } else {
@@ -2027,6 +2101,7 @@ setup(void)
     net_atom[NetNumberOfDesktops]    = XInternAtom(display, "_NET_NUMBER_OF_DESKTOPS", False);
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
+    net_atom[NetWMStateBelow]        = XInternAtom(display, "_NET_WM_STATE_BELOW", False);
     net_atom[NetWMMoveResize]        = XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
@@ -2272,6 +2347,13 @@ ewmh_set_fullscreen(struct client *c, bool fullscreen)
 {
     XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
             PropModeReplace, (unsigned char *)&net_atom[NetWMStateFullscreen], fullscreen ? 1 : 0 );
+}
+
+static void
+ewmh_set_below(struct client *c, bool below)
+{
+    XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateBelow], below ? 1 : 0 );
 }
 
 static void
@@ -2545,8 +2627,10 @@ main(int argc, char *argv[])
     LOGN("Successfully opened display");
 
     setup();
-    if (conf_found)
+    if (conf_found) {
+        signal(SIGCHLD, SIG_IGN);
         load_config(conf_path);
+    }
     run();
     close_wm();
     free(font_name);
