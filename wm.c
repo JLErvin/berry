@@ -619,7 +619,7 @@ handle_client_message(XEvent *e)
 
         if ((Atom)cme->data.l[1] == net_atom[NetWMStateFullscreen] ||
             (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
-            LOGN("Recieved fullscreen request");
+            LOGN("Received fullscreen request");
             if (cme->data.l[0] == 0) { // remove fullscreen
                 /*ewmh_set_fullscreen(c, false);*/
                 client_fullscreen(c, false, false, true);
@@ -1955,7 +1955,7 @@ run(void)
     XSync(display, false);
     while (running) {
         XNextEvent(display, &e);
-        LOGP("Receieved new %d event", e.type);
+        LOGP("Received new %d event", e.type);
         if (event_handler[e.type]) {
             LOGP("Handling %d event", e.type);
             event_handler[e.type](&e);
