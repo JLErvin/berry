@@ -1621,7 +1621,6 @@ client_move_to_front(struct client *c)
     if (ws == -1)
         return;
 
-
     /* If the Client is set to be always below */
     if (client_window_is_below(c))
         return;
@@ -1773,29 +1772,9 @@ client_raise(struct client *c)
         if (client_window_is_below(c))
             return;
 
-        if (!c->decorated) {
-            XRaiseWindow(display, c->window);
-        } else {
-            // how may active clients are there on our workspace
-            int count, i;
-            count = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                count++;
-            }
-
-            if (count == 0)
-                return;
-
-            Window wins[count*2];
-
-            i = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                wins[i] = tmp->window;
-                wins[i+1] = tmp->dec;
-                i += 2;
-            }
-            XRestackWindows(display, wins, count*2);
-        }
+        if (c->decorated)// Is it that simple?
+            XRaiseWindow(display, c->dec);
+        XRaiseWindow(display, c->window);
     }
 }
 
