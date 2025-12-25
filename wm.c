@@ -30,7 +30,7 @@ static struct client *f_client = NULL; /* focused client */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
 static struct monitor *m_list = NULL; /* All saved monitors */
-static struct config conf; /* gloabl config */
+static struct config conf; /* global config */
 static int ws_m_list[WORKSPACE_NUMBER]; /* Mapping from workspaces to associated monitors */
 static int curr_ws = 0;
 static int m_count = 0;
@@ -602,7 +602,7 @@ handle_client_message(XEvent *e)
     long cmd, *data;
 
     if (cme->message_type == net_berry[BerryClientEvent]) {
-        LOGN("Recieved event from berryc");
+        LOGN("Received event from berryc");
         if (cme->format != 32) {
 			LOGN("Wrong format, ignoring event");
 			return;
@@ -619,7 +619,7 @@ handle_client_message(XEvent *e)
 
         if ((Atom)cme->data.l[1] == net_atom[NetWMStateFullscreen] ||
             (Atom)cme->data.l[2] == net_atom[NetWMStateFullscreen]) {
-            LOGN("Recieved fullscreen request");
+            LOGN("Received fullscreen request");
             if (cme->data.l[0] == 0) { // remove fullscreen
                 /*ewmh_set_fullscreen(c, false);*/
                 client_fullscreen(c, false, false, true);
@@ -1862,7 +1862,7 @@ refresh_config(void)
              * We end up destroying and recreating this windows, but this
              * causes them to be redrawn on the wrong screen, regardless of
              * their current desktop. The easiest way around this is to move
-             * them all to the current desktop and then back agian */
+             * them all to the current desktop and then back again */
             if (tmp->decorated && conf.decorate) {
                 client_decorations_destroy(tmp);
                 client_decorations_create(tmp);
@@ -1955,7 +1955,7 @@ run(void)
     XSync(display, false);
     while (running) {
         XNextEvent(display, &e);
-        LOGP("Receieved new %d event", e.type);
+        LOGP("Received new %d event", e.type);
         if (event_handler[e.type]) {
             LOGP("Handling %d event", e.type);
             event_handler[e.type](&e);
@@ -2174,7 +2174,7 @@ setup(void)
     data[0] = WORKSPACE_NUMBER;
     XChangeProperty(display, root, net_atom[NetNumberOfDesktops], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data, 1);
 
-    /* Set the intial "current desktop" to 0 */
+    /* Set the initial "current desktop" to 0 */
     data2[0] = curr_ws;
     XChangeProperty(display, root, net_atom[NetCurrentDesktop], XA_CARDINAL, 32, PropModeReplace, (unsigned char *) data2, 1);
     LOGN("Setting up monitors");
