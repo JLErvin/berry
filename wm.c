@@ -490,8 +490,8 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
 {
     int mon;
     bool to_fs;
+    max = max & conf.fs_max; // Disable fullscreen on FULLSCREEN_MAX = false
     mon = ws_m_list[c->ws];
-    UNUSED(max);
     // save the old geometry values so that we can toggle between fulscreen mode
 
     to_fs = toggle ? !c->fullscreen : fullscreen;
@@ -504,15 +504,14 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
         to_fs = fullscreen;
     */
 
-
     // TODO: FACTOR THIS SHIT
     if (to_fs) {
         ewmh_set_fullscreen(c, true);
-        if (c->decorated && conf.fs_remove_dec) { //
+        if (c->decorated && conf.fs_remove_dec) {
             client_decorations_destroy(c);
-            c->was_fs = true;
+            c->was_dec = true;
         }
-        if (conf.fs_max) {
+        if (max) {
             c->prev.x = c->geom.x;
             c->prev.y = c->geom.y;
             c->prev.width = c->geom.width;
@@ -520,14 +519,13 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
             client_move_absolute(c, m_list[mon].x, m_list[mon].y);
             client_resize_absolute(c, m_list[mon].width, m_list[mon].height);
         }
-        c->fullscreen = true;
     } else {
         ewmh_set_fullscreen(c, false);
         if (max) {
             client_move_absolute(c, c->prev.x, c->prev.y);
             client_resize_absolute(c, c->prev.width, c->prev.height);
         }
-        if (!c->decorated && conf.fs_remove_dec && c->was_fs) { //
+        if (!c->decorated && c->was_dec) {
             client_decorations_create(c);
             XMapWindow(display, c->dec);
             client_refresh(c);
@@ -535,12 +533,10 @@ client_fullscreen(struct client *c, bool toggle, bool fullscreen, bool max)
             client_manage_focus(c);
             ewmh_set_frame_extents(c);
         }
-
-        c->fullscreen = false;
-        c->was_fs = false;
+        c->was_dec = false;
         client_refresh(c);
     }
-
+    c->fullscreen = to_fs;
     client_set_status(c);
 }
 
@@ -1439,7 +1435,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->hidden = false;
     c->fullscreen = false;
     c->mono = false;
-    c->was_fs = false;
+    c->was_dec = false;
 
     XSetWindowBorderWidth(display, c->window, 0);
 
