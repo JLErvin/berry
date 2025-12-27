@@ -154,7 +154,7 @@ fn_font(long *data, bool b, int i, char** argv)
 
 /*
  * This function sets the _NET_DESKTOP_NAMES property
- * by assocating the first argument, an integer,
+ * by associating the first argument, an integer,
  * and the following string to the _NET_DESKTOP_NAMES property
  */
 static void
