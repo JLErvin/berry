@@ -65,7 +65,6 @@ static void client_hide(struct client *c);
 static void client_manage_focus(struct client *c);
 static void client_move_absolute(struct client *c, int x, int y);
 static void client_move_relative(struct client *c, int x, int y);
-static void client_move_to_front(struct client *c);
 static void client_monocle(struct client *c);
 static void client_place(struct client *c);
 static void client_raise(struct client *c);
@@ -152,6 +151,7 @@ static void run(void);
 static bool safe_to_focus(int ws);
 static void setup(void);
 static void switch_ws(int ws);
+static void restack_ws(int ws);
 static void warp_pointer(struct client *c);
 static void usage(void);
 static void version(void);
@@ -1349,14 +1349,15 @@ load_config(char *conf_path)
 static void
 client_manage_focus(struct client *c)
 {
+    /* Manage previous focus */
     if (c != NULL && f_client != NULL) {
         client_set_color(f_client, conf.iu_color, conf.bu_color);
         draw_text(f_client, false);
         manage_xsend_icccm(c, wm_atom[WMTakeFocus]);
     }
 
+    /* Manage new focus */
     if (c != NULL) {
-        client_move_to_front(c);
         client_set_color(c, conf.if_color, conf.bf_color);
         draw_text(c, true);
         client_raise(c);
@@ -1612,36 +1613,6 @@ client_window_is_below(struct client *c)
 }
 
 static void
-client_move_to_front(struct client *c)
-{
-    int ws;
-    ws = c->ws;
-
-    /* If we didn't find the client */
-    if (ws == -1)
-        return;
-
-
-    /* If the Client is set to be always below */
-    if (client_window_is_below(c))
-        return;
-
-    /* If the Client is at the front of the list, ignore command */
-    if (c_list[ws] == c || c_list[ws]->next == NULL)
-        return;
-
-    struct client *tmp;
-    for (tmp = c_list[ws]; tmp->next != NULL; tmp = tmp->next)
-        if (tmp->next == c)
-            break;
-
-    if (tmp && tmp->next)
-        tmp->next = tmp->next->next; /* remove the Client from the list */
-    c->next = c_list[ws]; /* add the client to the front of the list */
-    c_list[ws] = c;
-}
-
-static void
 client_monocle(struct client *c)
 {
     int mon;
@@ -1765,38 +1736,65 @@ client_place(struct client *c)
 }
 
 static void
+restack_ws(int ws)
+{
+    /* Active clients count on the current workspace*/
+    int count, i;
+    count = 0;
+    for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
+        if (tmp->decorated)
+            count++;
+        count++;
+    }
+
+    if (count == 0)
+        return;
+
+    Window wins[count];
+
+    i = 0;
+    for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
+        LOGP("Client: %d", tmp);
+        wins[i++] = tmp->window;
+        if (tmp->decorated)
+            wins[i++] = tmp->dec;
+    }
+    XRestackWindows(display, wins, count);
+}
+
+static void
 client_raise(struct client *c)
 {
-    if (c != NULL) {
+    if (c == NULL)
+        return;
 
-        /* If the Client is set to be always below */
-        if (client_window_is_below(c))
-            return;
+    int ws;
+    ws = c->ws;
 
-        if (!c->decorated) {
-            XRaiseWindow(display, c->window);
-        } else {
-            // how may active clients are there on our workspace
-            int count, i;
-            count = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                count++;
-            }
+    /* Ignore if we didn't find the client */
+    if (ws == -1)
+        return;
 
-            if (count == 0)
-                return;
+    /* Ignore if the Client is set to be always below */
+    if (client_window_is_below(c))
+        return;
 
-            Window wins[count*2];
+    /* If the Client is not at the front of the list */
+    if (c_list[ws] != c && c_list[ws]->next != NULL) {
+        /* Move the client to the front of the client list */
+        struct client *tmp;
+        for (tmp = c_list[ws]; tmp->next != NULL; tmp = tmp->next)
+            if (tmp->next == c)
+                break;
 
-            i = 0;
-            for (struct client *tmp = c_list[c->ws]; tmp != NULL; tmp = tmp->next) {
-                wins[i] = tmp->window;
-                wins[i+1] = tmp->dec;
-                i += 2;
-            }
-            XRestackWindows(display, wins, count*2);
-        }
+        if (tmp && tmp->next)
+            tmp->next = tmp->next->next; /* Remove the Client from the list */
+        c->next = c_list[ws]; /* Add the client to the front of the list */
+        c_list[ws] = c;
     }
+
+    /* Restack windows on screen even if the list was not changed to ensure actual wm state */
+    restack_ws(ws);
 }
 
 static void monitors_setup(void)
@@ -2237,27 +2235,10 @@ switch_ws(int ws)
                 LOGN("Hiding client...");
             }
         } else if (i == ws) {
-            int count, j;
-            count = 0;
-
-            // how many active clients are on the current workspace
             for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-                count++;
                 client_show(tmp);
             }
-
-            if (count != 0) {
-                Window wins[count*2];
-                j = 0;
-
-                for (struct client *tmp = c_list[i]; tmp != NULL; tmp = tmp->next) {
-                    wins[j] = tmp->window;
-                    wins[j+1] = tmp->dec;
-                    j += 2;
-                }
-
-                XRestackWindows(display, wins, count * 2);
-            }
+            restack_ws(ws);
         }
     }
     curr_ws = ws;
