@@ -1754,7 +1754,6 @@ restack_ws(int ws)
 
     i = 0;
     for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
-        LOGP("Client: %d", tmp);
         wins[i++] = tmp->window;
         if (tmp->decorated)
             wins[i++] = tmp->dec;
@@ -2201,7 +2200,6 @@ client_show(struct client *c)
     if (c->hidden) {
         LOGN("Showing client");
         client_move_absolute(c, c->x_hide, c->geom.y);
-        client_raise(c);
         c->hidden = false;
     }
 }
