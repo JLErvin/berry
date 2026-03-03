@@ -673,10 +673,7 @@ handle_button_press(XEvent *e)
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
-    if (c != f_client) {
-        switch_ws(c->ws);
-        client_manage_focus(c);
-    }
+    client_manage_focus(c);
     // If it's not window movement or resize then process focus on click
     state = mod_clean(bev->state);
     if (conf.focus_on_click && bev->button == (unsigned)conf.focus_button && state != (unsigned)conf.move_mask && state != (unsigned)conf.resize_mask && bev->window != c->dec)
