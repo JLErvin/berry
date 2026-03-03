@@ -673,18 +673,23 @@ handle_button_press(XEvent *e)
     c = get_client_from_window(bev->window);
     if (c == NULL)
         return;
-    client_manage_focus(c);
-    // If it's not window movement or resize then process focus on click
     state = mod_clean(bev->state);
-    if (conf.focus_on_click && bev->button == (unsigned)conf.focus_button && state != (unsigned)conf.move_mask && state != (unsigned)conf.resize_mask && bev->window != c->dec)
+    // If it's not window movement or resize then process focus on click
+    if (state != (unsigned)conf.move_mask && state != (unsigned)conf.resize_mask && bev->window != c->dec)
     {
-        LOGN("Handling focus on click");
-        // Ungrab buttons, propagate event to the window, and regrab
-        window_ungrab_buttons(bev->window);
-        XAllowEvents(display, ReplayPointer, CurrentTime);
-        window_grab_buttons(bev->window);
-        return;
+        if (conf.focus_on_click && bev->button == (unsigned)conf.focus_button)
+        {
+            client_manage_focus(c);
+            LOGN("Handling focus on click");
+            // Ungrab buttons, propagate event to the window, and regrab
+            window_ungrab_buttons(bev->window);
+            XAllowEvents(display, ReplayPointer, CurrentTime);
+            window_grab_buttons(bev->window);
+        }
+        return; // Not move, not resize, not decoration, disabled focus_on_click
     }
+    // Manage focus on move, resize ro a decoration click
+    client_manage_focus(c);
     // Otherwise process window movement or resize
     ocx = c->geom.x;
     ocy = c->geom.y;
