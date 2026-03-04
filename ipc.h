@@ -62,6 +62,7 @@ enum IPCCommand
     IPCFocusOnClick,
     IPCFocusButton,
     IPCBelow,
+    IPCAbove,
     IPCLast
 };
 

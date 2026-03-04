@@ -82,6 +82,7 @@ static void client_snap_right(struct client *c);
 static void client_toggle_decorations(struct client *c);
 static void client_set_status(struct client *c);
 static bool client_window_is_below(struct client *c);
+static bool client_window_is_above(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
@@ -93,6 +94,7 @@ static void ewmh_set_client_list(void);
 static void ewmh_set_desktop_names(void);
 static void ewmh_set_active_desktop(int ws);
 static void ewmh_set_below(struct client *c, bool below);
+static void ewmh_set_above(struct client *c, bool above);
 
 /* Event handlers */
 static void handle_client_message(XEvent *e);
@@ -126,6 +128,7 @@ static void ipc_snap_right(long *d);
 static void ipc_cardinal_focus(long *d);
 static void ipc_cycle_focus(long *d);
 static void ipc_below(long *d);
+static void ipc_above(long *d);
 static void ipc_pointer_focus(long *d);
 static void ipc_config(long *d);
 static void ipc_save_monitor(long *d);
@@ -197,6 +200,7 @@ static const ipc_event_handler_t ipc_handler [IPCLast] = {
     [IPCSwitchWorkspace]          = ipc_switch_ws,
     [IPCSendWorkspace]            = ipc_send_to_ws,
     [IPCBelow]                    = ipc_below,
+    [IPCAbove]                    = ipc_above,
     [IPCFullscreen]               = ipc_fullscreen,
     [IPCFullscreenState]          = ipc_fullscreen_state,
     [IPCSnapLeft]                 = ipc_snap_left,
@@ -1115,6 +1119,17 @@ ipc_below(long *d)
 }
 
 static void
+ipc_above(long *d)
+{
+    UNUSED(d);
+    if (f_client == NULL)
+        return;
+    
+    ewmh_set_above(f_client, !client_window_is_above(f_client));
+    client_raise(f_client);
+}
+
+static void
 ipc_pointer_focus(long *d)
 {
     UNUSED(d);
@@ -1591,7 +1606,7 @@ client_move_relative(struct client *c, int x, int y)
 static bool
 client_window_is_below(struct client *c)
 {
-    Atom prop, da;
+    Atom da;
     unsigned char *prop_ret = NULL;
     int di;
     unsigned long dl, dn;
@@ -1603,6 +1618,30 @@ client_window_is_below(struct client *c)
         Atom *states = (Atom *)prop_ret;
         for (unsigned long i = 0; i < dn; i++) {
             if (states[i] == net_atom[NetWMStateBelow]) {
+                XFree(prop_ret);
+                return true;
+            }
+        }
+    }
+    XFree(prop_ret);
+    return false;
+}
+
+static bool
+client_window_is_above(struct client *c)
+{
+    Atom da;
+    unsigned char *prop_ret = NULL;
+    int di;
+    unsigned long dl, dn;
+
+    if (XGetWindowProperty(display, c->window, net_atom[NetWMState], 0,
+                sizeof (Atom), False, XA_ATOM, &da, &di, &dn, &dl,
+                &prop_ret) == Success)
+    {
+        Atom *states = (Atom *)prop_ret;
+        for (unsigned long i = 0; i < dn; i++) {
+            if (states[i] == net_atom[NetWMStateAbove]) {
                 XFree(prop_ret);
                 return true;
             }
@@ -1738,6 +1777,7 @@ client_place(struct client *c)
 static void
 restack_ws(int ws)
 {
+    LOGN("Restacking...");
     /* Active clients count on the current workspace*/
     int count, i;
     count = 0;
@@ -1747,7 +1787,7 @@ restack_ws(int ws)
         count++;
     }
 
-    if (count == 0)
+    if (count <= 1)
         return;
 
     Window wins[count];
@@ -1764,6 +1804,7 @@ restack_ws(int ws)
 static void
 client_raise(struct client *c)
 {
+    LOGN("Raising Client...");
     if (c == NULL)
         return;
 
@@ -1778,18 +1819,36 @@ client_raise(struct client *c)
     if (client_window_is_below(c))
         return;
 
-    /* If the Client is not at the front of the list */
-    if (c_list[ws] != c && c_list[ws]->next != NULL) {
-        /* Move the client to the front of the client list */
-        struct client *tmp;
-        for (tmp = c_list[ws]; tmp->next != NULL; tmp = tmp->next)
-            if (tmp->next == c)
-                break;
+    /* If Workspace has more than a single window */
+    if (c_list[ws]->next != NULL) {
 
-        if (tmp && tmp->next)
-            tmp->next = tmp->next->next; /* Remove the Client from the list */
-        c->next = c_list[ws]; /* Add the client to the front of the list */
-        c_list[ws] = c;
+        /* Find the Client in the stack */
+        struct client *pointer, *parent, *last_above;
+        parent = NULL;
+        last_above = NULL;
+        for (pointer = c_list[ws]; pointer != NULL; pointer = pointer->next){
+            if (pointer->next == c)
+                parent = pointer;
+            if (client_window_is_above(pointer))
+                last_above = pointer;
+            else if (parent) break;
+        }
+
+        /* Remove the Client from the list */
+        if (parent && parent->next)
+            parent->next = parent->next->next;
+        else
+            c_list[ws] = c->next;
+
+        if (client_window_is_above(c) || !last_above){
+            /* Add the Client to the front of the list */
+            c->next = c_list[ws];
+            c_list[ws] = c;
+        } else {
+            /* Add the Client after the last above window */
+            c->next = last_above->next;
+            last_above->next = c;
+        }
     }
 
     /* Restack windows on screen even if the list was not changed to ensure actual wm state */
@@ -2130,6 +2189,7 @@ setup(void)
     net_atom[NetActiveWindow]        = XInternAtom(display, "_NET_ACTIVE_WINDOW", False);
     net_atom[NetWMStateFullscreen]   = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
     net_atom[NetWMStateBelow]        = XInternAtom(display, "_NET_WM_STATE_BELOW", False);
+    net_atom[NetWMStateAbove]        = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
     net_atom[NetWMMoveResize]        = XInternAtom(display, "_NET_MOVERESIZE_WINDOW", False);
     net_atom[NetWMCheck]             = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     net_atom[NetCurrentDesktop]      = XInternAtom(display, "_NET_CURRENT_DESKTOP", False);
@@ -2364,6 +2424,13 @@ ewmh_set_below(struct client *c, bool below)
 {
     XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
             PropModeReplace, (unsigned char *)&net_atom[NetWMStateBelow], below ? 1 : 0 );
+}
+
+static void
+ewmh_set_above(struct client *c, bool above)
+{
+    XChangeProperty(display, c->window, net_atom[NetWMState], XA_ATOM, 32,
+            PropModeReplace, (unsigned char *)&net_atom[NetWMStateAbove], above ? 1 : 0);
 }
 
 static void
