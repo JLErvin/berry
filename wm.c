@@ -1837,8 +1837,10 @@ client_raise(struct client *c)
         /* Remove the Client from the list */
         if (parent && parent->next)
             parent->next = parent->next->next;
-        else
+        else if (c == c_list[ws])
             c_list[ws] = c->next;
+        else
+            return;
 
         if (client_window_is_above(c) || !last_above){
             /* Add the Client to the front of the list */
