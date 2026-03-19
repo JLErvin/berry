@@ -1425,9 +1425,9 @@ manage_new_window(Window w, XWindowAttributes *wa)
     }
 
     struct client *c;
-    c = malloc(sizeof(struct client));
+    c = calloc(1, sizeof(struct client));
     if (c == NULL) {
-        LOGN("Error, malloc could not allocated new window");
+        LOGN("Error, malloc could not allocate new window");
         return;
     }
     c->window = w;
@@ -1436,10 +1436,6 @@ manage_new_window(Window w, XWindowAttributes *wa)
     c->geom.y = wa->y;
     c->geom.width = wa->width + 2 * (conf.b_width + conf.i_width);
     c->geom.height = wa->height + 2 * (conf.b_width + conf.i_width) + conf.t_height;
-    c->hidden = false;
-    c->fullscreen = false;
-    c->mono = false;
-    c->was_fs = false;
 
     XSetWindowBorderWidth(display, c->window, 0);
 
