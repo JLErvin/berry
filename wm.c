@@ -82,6 +82,7 @@ static void client_snap_left(struct client *c);
 static void client_snap_right(struct client *c);
 static void client_toggle_decorations(struct client *c);
 static void client_set_status(struct client *c);
+static void client_set_wm_state(struct client *c, unsigned long state);
 static bool client_window_is_below(struct client *c);
 
 /* EWMH functions */
@@ -471,6 +472,7 @@ client_delete(struct client *c)
     if (c_list[ws] == NULL)
         f_client = NULL;
 
+    client_set_wm_state(c, WithdrawnState);
     ewmh_set_client_list();
 }
 
@@ -1450,6 +1452,7 @@ manage_new_window(Window w, XWindowAttributes *wa)
     client_refresh(c); /* using our current factoring, w/h are set incorrectly */
     client_save(c, curr_ws);
     client_place(c);
+    client_set_wm_state(c, NormalState);
     ewmh_set_desktop(c, c->ws);
     ewmh_set_client_list();
 
@@ -2155,6 +2158,7 @@ setup(void)
     wm_atom[WMDeleteWindow]          = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_atom[WMTakeFocus]             = XInternAtom(display, "WM_TAKE_FOCUS", False);
     wm_atom[WMProtocols]             = XInternAtom(display, "WM_PROTOCOLS", False);
+    wm_atom[WMState]                 = XInternAtom(display, "WM_STATE", False);
 
     /* Internal berry atoms */
     net_berry[BerryWindowStatus]     = XInternAtom(display, "BERRY_WINDOW_STATUS", False);
@@ -2371,6 +2375,13 @@ client_set_status(struct client *c)
     XChangeProperty(display, c->window, net_berry[BerryWindowStatus], utf8string, 8, PropModeReplace,
             (unsigned char *) str, strlen(str));
     free(str);
+}
+
+static void
+client_set_wm_state(struct client *c, unsigned long state)
+{
+    unsigned long data[] = { state, None };
+    XChangeProperty(display, c->window, wm_atom[WMState], wm_atom[WMState], 32, PropModeReplace, (unsigned char*)data, 2);
 }
 
 static void
