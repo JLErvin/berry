@@ -1779,7 +1779,7 @@ restack_ws(int ws)
 {
     LOGN("Restacking...");
     /* Active clients count on the current workspace*/
-    int count, i;
+    int count, i = 0;
     count = 0;
     for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
         if (tmp->decorated)
@@ -1790,9 +1790,9 @@ restack_ws(int ws)
     if (count <= 1)
         return;
 
-    Window wins[count];
+    Window wins[count + 1];
+    wins[i++] = check; // Always prepend an oldest fake window managed by berry to inherit its lower stacking order to ensure the WM doesn't draw above unmanaged windows. Fixes things like punching through screen lockers (https://www.jwz.org/xscreensaver/faq.html#popup-windows).
 
-    i = 0;
     for (struct client *tmp = c_list[ws]; tmp != NULL; tmp = tmp->next) {
         wins[i++] = tmp->window;
         if (tmp->decorated)
