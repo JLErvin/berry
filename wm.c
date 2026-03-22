@@ -1351,6 +1351,9 @@ load_config(char *conf_path)
 static void
 client_manage_focus(struct client *c)
 {
+    if (c == f_client)
+        return;
+
     if (c != NULL && f_client != NULL) {
         client_set_color(f_client, conf.iu_color, conf.bu_color);
         draw_text(f_client, false);
