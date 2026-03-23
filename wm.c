@@ -1939,7 +1939,6 @@ refresh_config(void)
                 client_hide(tmp);
             } else {
                 client_show(tmp);
-                client_raise(tmp);
             }
         }
     }
