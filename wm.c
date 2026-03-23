@@ -1941,6 +1941,7 @@ refresh_config(void)
                 client_show(tmp);
             }
         }
+        restack_ws(i);
     }
 }
 
