@@ -43,6 +43,7 @@ enum atoms_net {
     NetClientList,
     NetWMStateFullscreen,
     NetWMStateBelow,
+    NetWMStateAbove,
     NetWMCheck,
     NetWMState,
     NetWMName,
