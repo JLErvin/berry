@@ -87,6 +87,7 @@ static bool client_window_is_below(struct client *c);
 
 /* EWMH functions */
 static void ewmh_set_fullscreen(struct client *c, bool fullscreen);
+static bool ewmh_get_fullscreen(struct client *c);
 static void ewmh_set_viewport(void);
 static void ewmh_set_focus(struct client *c);
 static void ewmh_set_desktop(struct client *c, int ws);
@@ -1463,6 +1464,8 @@ manage_new_window(Window w, XWindowAttributes *wa)
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
     window_grab_buttons(c->window);
     client_manage_focus(c);
+    if (ewmh_get_fullscreen(c))
+        client_fullscreen(c, false, true, true);
 }
 
 static int
@@ -2375,6 +2378,32 @@ client_set_status(struct client *c)
     XChangeProperty(display, c->window, net_berry[BerryWindowStatus], utf8string, 8, PropModeReplace,
             (unsigned char *) str, strlen(str));
     free(str);
+}
+
+static bool
+ewmh_get_fullscreen(struct client *c)
+{
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    Atom *prop = NULL;
+
+    int status = XGetWindowProperty(display, c->window, net_atom[NetWMState], 0, (~0L), False, XA_ATOM, &actual_type, &actual_format, &nitems, &bytes_after, (unsigned char **)&prop);
+
+    if (status != Success || !prop)
+        return false;
+
+    bool is_fullscreen = false;
+
+    for (unsigned long i = 0; i < nitems; i++) {
+        if (prop[i] == net_atom[NetWMStateFullscreen]) {
+            is_fullscreen = true;
+            break;
+        }
+    }
+
+    XFree(prop);
+    return is_fullscreen;
 }
 
 static void
