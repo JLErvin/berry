@@ -568,18 +568,6 @@ focus_next(struct client *c)
     client_manage_focus(tmp);
 }
 
-static void
-focus_best(struct client *c)
-{
-    if (c == NULL)
-        return;
-
-    if (c_list[c->ws]->next == NULL)
-        return;
-    else
-        client_manage_focus(c_list[c->ws]->next);
-}
-
 /* Returns the struct client associated with the given struct Window */
 static struct client*
 get_client_from_window(Window w)
@@ -862,12 +850,12 @@ handle_unmap_notify(XEvent *e)
 
     if (c != NULL) {
         LOGN("Client found while unmapping, focusing next client");
-        focus_best(c);
+        if (c == f_client) // Only change focus if the deleted window was the current workspace's focused window, as it's otherwise disorienting/confusing.
+            client_manage_focus(c->next); // Return focus to next window down the stack or fall back to root (null).
         if (c->decorated)
             client_decorations_destroy(c);
         client_delete(c);
         free(c);
-        client_raise(f_client);
     } else {
         /* Some applications *ahem* Spotify *ahem*, don't seem to place nicely with being deleted.
          * They close slowing, causing focusing issues with unmap requests. Check to see if the current
