@@ -1475,6 +1475,10 @@ manage_new_window(Window w, XWindowAttributes *wa)
     XMapWindow(display, c->window);
     XSelectInput(display, c->window, EnterWindowMask|FocusChangeMask|PropertyChangeMask|StructureNotifyMask);
     window_grab_buttons(c->window);
+
+    if (c->next && !c->next->next) // HACK: must focus away from first workspace window for it to restack properly. *sigh*
+        client_manage_focus(c->next);
+
     client_manage_focus(c);
 }
 
