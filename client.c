@@ -50,6 +50,7 @@ static const struct command command_table[] = {
     { "window_kill",            IPCWindowKill,              false, 0, NULL       },
     { "window_center",          IPCWindowCenter,            false, 0, NULL       },
     { "window_below",           IPCBelow,                   false, 0, NULL       },
+    { "window_above",           IPCAbove,                   false, 0, NULL       },
     { "focus_color",            IPCFocusColor,              true,  1, fn_hex     },
     { "unfocus_color",          IPCUnfocusColor,            true,  1, fn_hex     },
     { "inner_focus_color",      IPCInnerFocusColor,         true,  1, fn_hex     },
