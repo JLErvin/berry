@@ -26,7 +26,7 @@
 #include "types.h"
 #include "utils.h"
 
-static struct client *f_client = NULL; /* focused client */
+static struct client *f_client = NULL; /* focused client on current workspace */
 static struct client *c_list[WORKSPACE_NUMBER]; /* 'stack' of managed clients in drawing order */
 static struct client *f_list[WORKSPACE_NUMBER]; /* ordered lists for clients to be focused */
 static struct monitor *m_list = NULL; /* All saved monitors */
@@ -469,7 +469,7 @@ client_delete(struct client *c)
             tmp->f_next = tmp->f_next->f_next;
     }
 
-    if (c_list[ws] == NULL)
+    if (ws == curr_ws && c_list[ws] == NULL)
         f_client = NULL;
 
     client_set_wm_state(c, WithdrawnState);
