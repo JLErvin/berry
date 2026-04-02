@@ -24,13 +24,13 @@ O		:= .o/
 #debug		:= 1
 libs		:= @pkg_libs@
 ifdef debug
-    cflags	:= -O0 -ggdb3
-    ldflags	:= -g -rdynamic
+    cflags	+= -O0 -ggdb3
+    ldflags	+= -g -rdynamic
 else
-    cflags	:= -Os -g0 -DNDEBUG=1
-    ldflags	:= -s
+    cflags	+= -Os -g0 -DNDEBUG=1
+    ldflags	+= -s
 endif
-CFLAGS		:= -Wall -Wextra -Wredundant-decls -Wshadow \
+CFLAGS		+= -Wall -Wextra -Wredundant-decls -Wshadow \
 		   -Wno-deprecated-declarations -pedantic
 cflags		+= -std=c99 @pkg_cflags@ ${CFLAGS}
 ldflags		+= @pkg_ldflags@ ${LDFLAGS}
